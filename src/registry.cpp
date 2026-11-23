@@ -152,6 +152,11 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
             if (item.contains("default") || item.contains("choices") ||
                 item.contains("min") || item.contains("max") || item.contains("step"))
                 return false;
+            if (item.contains("buttonLabel") && !item["buttonLabel"].is_string())
+                return false;
+            row.buttonLabel = item.value("buttonLabel", row.label);
+            if (row.buttonLabel.empty() || row.buttonLabel.size() > 100)
+                return false;
             prepared.settings.push_back(std::move(row));
             continue;
         }
