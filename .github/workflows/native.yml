@@ -1,6 +1,17 @@
 name: M1 Arc native build
 
 on:
+  push:
+    branches: [native]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "CMakeLists.txt"
+      - "r6/**"
+      - "README.md"
+      - "scripts/**"
+      - ".github/workflows/native.yml"
+      - ".github/workflows/release.yml"
   pull_request:
     paths:
       - "src/**"
