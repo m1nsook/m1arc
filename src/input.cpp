@@ -136,6 +136,11 @@ void InputRouter::SetRendererReady(bool ready) noexcept
 void InputRouter::ArmFirstRun() noexcept
 {
     if (baseReady_.exchange(true)) return;
+    // RED4ext can report BaseInitialization BEFORE the game's HWND is
+    // attached to our Win32 input router. Loading only from Attach()
+    // caused the setup dialog on EVERY launch despite a saved hotkey.
+    // The StateStore is configured in Main() before this callback is armed.
+    ReadKeyFromSettings();
     if (!HasKey()) {
         recording_.store(true);
         open_.store(true);

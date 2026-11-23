@@ -57,8 +57,14 @@ labels wrap and controls stack if needed. Small windows are kept inside the
 visible game viewport instead of extending beyond the screen. Theme colors
 avoid black text on dark backgrounds while preserving the approved palette.
 
-On first launch the plugin prompts for an independent keyboard shortcut.
-It does not bind or edit CET's existing shortcut.
+On the **first launch only**, M1 Arc prompts for its independent keyboard
+shortcut. The binding is persisted immediately to
+`red4ext/plugins/m1arc/settings.json` as `overlay.hotkey` (a Windows
+virtual-key code) and restored **before** first-run setup checks whether
+a binding is missing. The prompt should not reappear after restarting
+Cyberpunk 2077, unless the saved key is missing or invalid. Rebinding
+through the header button saves the replacement too. M1 Arc never
+changes CET's own shortcut.
 
 This is **not a public release**. Windows CI validates compilation and
 settings persistence, but only an actual Cyberpunk 2077 session with CET

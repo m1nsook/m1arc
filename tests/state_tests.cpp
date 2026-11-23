@@ -58,6 +58,32 @@ int main()
     REQUIRE(restart.Ready());
     REQUIRE(restart.Snapshot() == store.Snapshot());
 
+    // Regression: the independent overlay shortcut is saved in the
+    // same settings.json as the mods. It must be readable on a fresh
+    // startup BEFORE any HWND/input hook is attached.
+    constexpr int f11 = 0x7A; // Win32 VK_F11
+    REQUIRE(store.Update([](nlohmann::json& document) {
+        document["overlay"]["hotkey"] = f11;
+        document["overlay"]["theme"] = "light";
+    }));
+    m1arc::StateStore restartWithHotkey;
+    restartWithHotkey.Configure(path);
+    REQUIRE(restartWithHotkey.Ready());
+    const auto restoredSettings =
+        nlohmann::json::parse(restartWithHotkey.Snapshot());
+    REQUIRE(restoredSettings["overlay"]["hotkey"] == f11);
+    REQUIRE(restoredSettings["overlay"]["theme"] == "light");
+    REQUIRE(restoredSettings["values"]["writer_a"]["count"] == 7);
+    REQUIRE(restoredSettings["values"]["writer_b"]["count"] == 7);
+    REQUIRE(restartWithHotkey.Update([](nlohmann::json& document) {
+        document["overlay"]["hotkey"] = 0x79; // rebind to F10
+    }));
+    m1arc::StateStore restartAfterRebind;
+    restartAfterRebind.Configure(path);
+    REQUIRE(restartAfterRebind.Ready());
+    REQUIRE(nlohmann::json::parse(restartAfterRebind.Snapshot())
+            ["overlay"]["hotkey"] == 0x79);
+
     // Invalid files are never overwritten as a "repair".
     std::ofstream(path,std::ios::trunc) << "{ corrupt configuration";
     m1arc::StateStore invalid;
