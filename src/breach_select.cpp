@@ -2,6 +2,7 @@
 #include "input.hpp"
 #include "mouse_click.hpp"
 #include "graphics.hpp"
+#include "registry.hpp"
 
 #include <RED4ext/Scripting/Natives/Generated/Vector2.hpp>
 #include <RED4ext/Scripting/IScriptable.hpp>
@@ -16,6 +17,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -36,6 +38,18 @@ constexpr std::array<std::uint8_t,37> kSelectorEntry{
 using NativeSelector = void(__fastcall*)(RED4ext::IScriptable*,
                                            const RED4ext::Vector2*);
 std::atomic<NativeSelector> g_selector{nullptr};
+// No native action or game-code signature scan on normal M1 Arc launch.
+// The standalone Skip Breach mod explicitly arms this capability via its
+// existing persisted "enabled" setting, default OFF and absent otherwise.
+std::once_flag g_selectorOnce;
+std::atomic<bool> g_supportedGameVersion{false};
+
+bool SkipBreachEnabled() noexcept {
+    const auto setting=m1arc::Settings().Get("m1nsook.skipbreach","enabled");
+    return setting.has_value() && setting->is_boolean()
+        && setting->get<bool>();
+}
+
 enum class SelectorStatus {
     Uninitialized,
     UnsupportedVersion,
@@ -156,6 +170,10 @@ void SelectCell(RED4ext::IScriptable*,
         ActionState(2,"m1arc Breach: cell rejected (invalid row or column)");
         return;
     }
+    if (!Available()) {
+        ActionState(3,"m1arc Breach: internal selection rejected (mod disabled, unsupported game or unavailable input)");
+        return;
+    }
     const auto& input=InputRouter::Get();
     const HWND game=input.Window();
     if (!game || !IsWindow(game) || GetForegroundWindow()!=game) {
@@ -174,6 +192,12 @@ void SelectCell(RED4ext::IScriptable*,
         ActionState(5,"m1arc Breach: cell rejected (wrong hacking logic controller RTTI)");
         return;
     }
+    // The old internal selector is retained as an opt-in compatibility route,
+    // but scanning game code at M1 Arc startup is unnecessary. Skip Breach's
+    // physical input path does NOT require this signature at all.
+    std::call_once(g_selectorOnce, [] {
+        g_selector.store(ResolveSelector(),std::memory_order_release);
+    });
     const auto selector=g_selector.load(std::memory_order_acquire);
     if (!selector) {
         ActionState(6,"m1arc Breach: cell rejected (selector unavailable for current game build)");
@@ -205,6 +229,12 @@ void ClickAt(RED4ext::IScriptable*,
     frame->code++;
     if (output) *output=false;
     if (!output) return;
+    // A direct native invocation is never sufficient to arm input. The mod
+    // must be installed, registered in M1 Arc, and explicitly enabled.
+    if (!Available()) {
+        ActionState(16,"m1arc Breach: mouse click not armed (Skip Breach OFF or game unavailable)");
+        return;
+    }
 
     auto controller=weakController.Lock();
     auto* context=controller.GetPtr();
@@ -285,15 +315,27 @@ void TraceNative(RED4ext::IScriptable*,
 } // namespace
 
 void Initialize() noexcept {
-    g_selector.store(ResolveSelector(),std::memory_order_release);
+    // A read-only executable version check is harmless on M1 Arc startup.
+    // No input is hooked, no solver is started and the legacy function
+    // signature is NOT scanned until a mod explicitly requests that route.
+    HMODULE module=GetModuleHandleW(nullptr);
+    wchar_t exe[MAX_PATH+1]{};
+    const DWORD length=module ? GetModuleFileNameW(module,exe,MAX_PATH) : 0;
+    g_supportedGameVersion.store(
+        length>0 && length<MAX_PATH && ExactGameVersion(exe),
+        std::memory_order_release);
 }
 bool Available() noexcept {
-    if (!g_selector.load(std::memory_order_acquire)) return false;
+    // Missing Skip Breach manifest or its default-OFF setting => inert.
+    // This applies equally to the legacy selector and the Win32 click route.
+    if (!SkipBreachEnabled()) return false;
+    if (!g_supportedGameVersion.load(std::memory_order_acquire)) {
+        ActionState(9,"m1arc Breach: optional input disabled (unsupported game executable)");
+        return false;
+    }
 
-    // Binary fingerprint alone does not mean a newly opened puzzle can
-    // receive input. The game window may still be attaching, or our own
-    // overlay may own the mouse. Keep the first board pending in REDscript
-    // until the same constraints used by SelectCell() are satisfied.
+    // The physical click path only needs the game and UI to be available.
+    // It must NOT depend on resolving the old game-internal selector.
     const auto& input=InputRouter::Get();
     const HWND game=input.Window();
     if (!game || !IsWindow(game) || GetForegroundWindow()!=game) {
@@ -309,7 +351,7 @@ bool Available() noexcept {
 const char* StatusMessage() noexcept {
     switch (g_status.load(std::memory_order_acquire)) {
     case SelectorStatus::Ready:
-        return "m1arc Skip Breach: game 2.5 native selector signature verified; READY";
+        return "m1arc Breach: optional legacy selector resolved (no auto-input without enabled Skip Breach)";
     case SelectorStatus::UnsupportedVersion:
         return "m1arc Skip Breach DISABLED: executable file version is not 3.0.88.46235 (2.5)";
     case SelectorStatus::InvalidExecutable:
@@ -319,7 +361,7 @@ const char* StatusMessage() noexcept {
     case SelectorStatus::UnsafeFunctionEntry:
         return "m1arc Skip Breach DISABLED: native selector is ambiguous or not a safe function entry";
     default:
-        return "m1arc Skip Breach DISABLED: native selector has not initialized";
+        return "m1arc Breach: native input bridge dormant; activated only by enabled Skip Breach mod";
     }
 }
 
