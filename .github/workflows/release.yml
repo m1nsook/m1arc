@@ -1,35 +1,78 @@
-name: M1 Arc packaged draft release
+name: Build M1 Arc Release
 
-# The first merge into main stages one private-to-maintainer draft.
-# Later versions can be staged manually from the Actions workflow.
+# Manually invoked from Actions -> Build M1 Arc Release -> Run workflow.
+# A draft and an optional separate UI Test ZIP are the default. Publishing
+# a public release always excludes development fixtures.
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/release.yml"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Unique release tag (e.g. v0.1.0-preview.2)"
-        type: string
-        default: "v0.1.0-preview.1"
+      version:
+        description: "Version (1.0.0 or v1.0.0; optional -dev.1)"
         required: true
+        type: string
+      publish:
+        description: "Publish to GitHub Releases now? Leave OFF for testing."
+        required: true
+        type: boolean
+        default: false
+      ui_test:
+        description: "Also build a UI Test ZIP for toasts and sidebar (draft only)"
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
 concurrency:
-  group: m1arc-draft-release
+  group: m1arc-manual-release
   cancel-in-progress: false
 
 jobs:
   windows-release:
-    if: github.repository == 'm1nsook/m1arc'
+    if: github.repository == 'm1nsook/m1arc' && github.ref == 'refs/heads/main'
+    name: Build M1 Arc ${{ inputs.version }}
     runs-on: windows-2022
     env:
-      RELEASE_TAG: ${{ github.event.inputs.tag || 'v0.1.0-preview.1' }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      PUBLISH_RELEASE: ${{ inputs.publish }}
+      INCLUDE_UI_TEST: ${{ inputs.ui_test }}
     steps:
       - uses: actions/checkout@v4
+      - name: Stamp requested release version into this build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $rawVersion = $env:RELEASE_VERSION.Trim()
+          $vm = [regex]::Match($rawVersion, '^v?([0-9]+\.[0-9]+\.[0-9]+)(-[a-z0-9]+\.[0-9]+)?$')
+          if (-not $vm.Success) { throw "Use version 1.0.0 or 1.0.0-dev.1" }
+          $numeric = $vm.Groups[1].Value
+          $version = $numeric + $vm.Groups[2].Value
+          $parts = $numeric.Split(".")
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+          function Stamp($file,$pattern,$value) {
+            $src = [IO.File]::ReadAllText((Resolve-Path $file))
+            if ([regex]::Matches($src,$pattern).Count -ne 1) {
+              throw "Version anchor missing or repeated in $file"
+            }
+            $src = [regex]::Replace($src,$pattern,$value)
+            [IO.File]::WriteAllText((Resolve-Path $file),$src,[Text.UTF8Encoding]::new($false))
+          }
+          Stamp "CMakeLists.txt" `
+            'project\(M1Arc VERSION [0-9]+\.[0-9]+\.[0-9]+ LANGUAGES CXX\)' `
+            "project(M1Arc VERSION $numeric LANGUAGES CXX)"
+          Stamp "src/plugin.cpp" `
+            'CString\("[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9]+\.[0-9]+)?"\)' `
+            ('CString("' + $version + '")')
+          Stamp "src/plugin.cpp" `
+            'RED4EXT_V1_SEMVER\([0-9]+,\s*[0-9]+,\s*[0-9]+\)' `
+            "RED4EXT_V1_SEMVER($major,$minor,$patch)"
+          Stamp "src/mod_manifest.cpp" `
+            'kM1ArcVersion\{[0-9]+,\s*[0-9]+,\s*[0-9]+\}' `
+            "kM1ArcVersion{$major, $minor, $patch}"
+          Write-Host "Release C++ and manifest version: $version"
       - name: Configure native RED4ext x64 DLL
         shell: pwsh
         run: |
@@ -86,25 +129,39 @@ jobs:
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/OFL.txt" -OutFile "$fonts/ChakraPetch-OFL.txt"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/src/regular/Phosphor.ttf" -OutFile "$fonts/Phosphor-Regular.ttf"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/LICENSE" -OutFile "$fonts/Phosphor-MIT.txt"
-          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf")) {
+          # Static OFL Hangul font: subset from pinned Google Fonts source.
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf" -OutFile "$fonts/NotoSansKR-Variable.ttf"
+          python scripts/subset_korean.py "$fonts/NotoSansKR-Variable.ttf" "$fonts/NotoSansKR-Hangul.ttf"
+          if ($LASTEXITCODE -ne 0) { throw "Korean font generation failed" }
+          Remove-Item "$fonts/NotoSansKR-Variable.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/notosanskr/OFL.txt" -OutFile "$fonts/NotoSansKR-OFL.txt"
+          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf", "NotoSansKR-Hangul.ttf")) {
             if ((Get-Item "$fonts/$font").Length -lt 10000) { throw "Invalid or missing font asset: $font" }
+          }
+          Copy-Item "locales" "$dst/locales" -Recurse -Force
+          foreach ($lang in @("en_US", "pl_PL", "ko_KR")) {
+            if (!(Test-Path "$dst/locales/$lang.json")) { throw "Missing bundled locale: $lang" }
           }
           $apiPath = "package/r6/scripts/m1arc"
           New-Item -ItemType Directory -Path $apiPath -Force | Out-Null
           Copy-Item "r6/scripts/m1arc/M1Arc.reds" "$apiPath/M1Arc.reds"
           if (!(Test-Path "$apiPath/M1Arc.reds")) { throw "REDscript native API declarations missing" }
           if (!(Test-Path "$dst/m1arc.dll")) { throw "DLL missing" }
-      - name: Build versioned installable game-root ZIP and SHA256
+      - name: Build installable ZIPs and SHA-256 hashes
         id: package
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $tag = $env:RELEASE_TAG
-          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9]+\.[0-9]+)?$') {
-            throw "Invalid release tag: $tag"
+          $inputVersion = $env:RELEASE_VERSION.Trim()
+          $versionMatch = [regex]::Match(
+            $inputVersion, '^v?([0-9]+\.[0-9]+\.[0-9]+)(-[a-z0-9]+\.[0-9]+)?$'
+          )
+          if (-not $versionMatch.Success) {
+            throw "Invalid version: use 1.0.0, v1.0.0, or 1.0.0-dev.1"
           }
+          $tag = "v" + $versionMatch.Groups[1].Value + $versionMatch.Groups[2].Value
           if (Test-Path "package/red4ext/plugins/m1arc/dev-preview.enabled") {
-            throw "Release cannot enable the temporary UI Test mod"
+            throw "Clean release cannot enable the temporary UI Test mod"
           }
           if (Test-Path "package/red4ext/plugins/m1arc/mods") {
             throw "Release cannot bundle gameplay mods"
@@ -120,74 +177,125 @@ jobs:
             "package/red4ext/plugins/m1arc/fonts/Karla-SemiBold.ttf",
             "package/red4ext/plugins/m1arc/fonts/ChakraPetch-SemiBold.ttf",
             "package/red4ext/plugins/m1arc/fonts/Karla-OFL.txt",
-            "package/red4ext/plugins/m1arc/fonts/Phosphor-MIT.txt"
+            "package/red4ext/plugins/m1arc/fonts/Phosphor-MIT.txt",
+            "package/red4ext/plugins/m1arc/fonts/NotoSansKR-Hangul.ttf",
+            "package/red4ext/plugins/m1arc/fonts/NotoSansKR-OFL.txt",
+            "package/red4ext/plugins/m1arc/locales/ko_KR.json"
           )
           foreach ($file in $required) {
-            if (!(Test-Path $file)) { throw "Required file missing: $file" }
+            if (!(Test-Path $file)) { throw "Required release file missing: $file" }
           }
-          $zip = "m1arc-$tag-game-root.zip"
-          Compress-Archive -Path "package/*" -DestinationPath $zip -CompressionLevel Optimal
-          if (!(Test-Path $zip) -or (Get-Item $zip).Length -lt 25000) {
-            throw "Release ZIP missing or unexpectedly small"
+          # First create the exact installation package without test fixtures.
+          $cleanZip = "m1arc-$tag-game-root.zip"
+          Compress-Archive -Path "package/*" -DestinationPath $cleanZip -CompressionLevel Optimal
+          if ((Get-Item $cleanZip).Length -lt 25000) { throw "Clean ZIP unexpectedly small" }
+          $sums = @(
+            "$((Get-FileHash -Algorithm SHA256 $cleanZip).Hash.ToLowerInvariant())  $cleanZip"
+          )
+          $previewZip = ""
+          # A separate, explicit development ZIP enables the existing UI
+          # fixture so the player can check toasts, sidebar icons and labels.
+          # Never include the marker in a publicly published release.
+          if ($env:PUBLISH_RELEASE -ne "true" -and $env:INCLUDE_UI_TEST -eq "true") {
+            $marker = "package/red4ext/plugins/m1arc/dev-preview.enabled"
+            try {
+              Set-Content -Path $marker -Value "M1 Arc UI Test fixture (development only)" -Encoding ascii
+              $previewZip = "m1arc-$tag-ui-test-game-root.zip"
+              Compress-Archive -Path "package/*" -DestinationPath $previewZip -CompressionLevel Optimal
+              if ((Get-Item $previewZip).Length -lt 25000) { throw "UI Test ZIP unexpectedly small" }
+              $sums += "$((Get-FileHash -Algorithm SHA256 $previewZip).Hash.ToLowerInvariant())  $previewZip"
+            } finally {
+              if (Test-Path $marker) { Remove-Item $marker }
+            }
           }
-          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
-          "$hash  $zip" | Out-File "m1arc-$tag-SHA256.txt" -Encoding ascii
-          "release_zip=$zip" >> $env:GITHUB_OUTPUT
-          "release_sha=m1arc-$tag-SHA256.txt" >> $env:GITHUB_OUTPUT
-      - name: Verify ZIP contents and prohibit dev assets
+          $checksumFile = "m1arc-$tag-SHA256.txt"
+          $sums | Set-Content -Path $checksumFile -Encoding ascii
+          "release_tag=$tag" >> $env:GITHUB_OUTPUT
+          "release_zip=$cleanZip" >> $env:GITHUB_OUTPUT
+          "preview_zip=$previewZip" >> $env:GITHUB_OUTPUT
+          "release_sha=$checksumFile" >> $env:GITHUB_OUTPUT
+      - name: Verify both ZIP layouts and UI Test marker isolation
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           Add-Type -AssemblyName System.IO.Compression
-          $zip = "${{ steps.package.outputs.release_zip }}"
-          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
-          try {
-            $paths = @($archive.Entries | ForEach-Object { $_.FullName.Replace("\","/") })
-            if ("red4ext/plugins/m1arc/m1arc.dll" -notin $paths) { throw "DLL not at game root" }
-            if ("r6/scripts/m1arc/M1Arc.reds" -notin $paths) { throw "REDscript declaration missing" }
-            if ($paths | Where-Object { $_ -like "*dev-preview.enabled" }) { throw "Dev fixture in ZIP" }
-            if ($paths | Where-Object { $_ -like "package/*" }) { throw "Nested package folder" }
-          } finally { $archive.Dispose() }
-      - name: Create maintainer-only GitHub draft release
+          $cleanZip = "${{ steps.package.outputs.release_zip }}"
+          $uiTestZip = "${{ steps.package.outputs.preview_zip }}"
+          function AssertPackage($zipPath, [bool]$expectUiTest) {
+            $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zipPath))
+            try {
+              $paths = @($archive.Entries | ForEach-Object { $_.FullName.Replace("\","/") })
+              if ("red4ext/plugins/m1arc/m1arc.dll" -notin $paths) { throw "Missing root DLL: $zipPath" }
+              if ("r6/scripts/m1arc/M1Arc.reds" -notin $paths) { throw "Missing REDscript API: $zipPath" }
+              if (@($paths | Where-Object { $_ -like "package/*" }).Count -gt 0) {
+                throw "Nested package folder: $zipPath"
+              }
+              if (@($paths | Where-Object { $_ -like "*Blender*" }).Count -gt 0) {
+                throw "Proprietary font in release: $zipPath"
+              }
+              $marker = "red4ext/plugins/m1arc/dev-preview.enabled" -in $paths
+              if ($marker -ne $expectUiTest) { throw "Incorrect UI Test marker: $zipPath" }
+            } finally { $archive.Dispose() }
+          }
+          AssertPackage $cleanZip $false
+          if ($uiTestZip) { AssertPackage $uiTestZip $true }
+      - name: Create draft or publish release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           $ErrorActionPreference = "Stop"
-          $tag = $env:RELEASE_TAG
-          # Avoid treating an expected 404 from "gh release view" as a
-          # PowerShell native-command error. List succeeds even when no
-          # releases exist and reliably catches existing draft tags.
+          $tag = "${{ steps.package.outputs.release_tag }}"
           $existingTags = gh release list --limit 100 --json tagName --jq ".[].tagName"
           if ($LASTEXITCODE -ne 0) { throw "Cannot inspect existing releases" }
           if (@($existingTags) -contains $tag) {
-            throw "Refusing to overwrite existing release $tag"
+            throw "Release $tag already exists. Enter a new version."
           }
+          $draft = $env:PUBLISH_RELEASE -ne "true"
           $notes = @'
-          ## M1 Arc {tag} — install preview
+          ## M1 Arc {tag}
 
-          **Draft release for maintainer review. Not a public launch.**
+          Native RED4ext settings module for Cyberpunk 2077 2.50.
 
-          Public Nexus Mods distribution page: https://www.nexusmods.com/cyberpunk2077/mods/39311
-          A Nexus Mods upload is a separate manual publishing step; this workflow only creates a GitHub draft.
+          **Requirements:** RED4ext and REDscript.
 
-          M1 Arc is a native RED4ext settings/control-panel module for Cyberpunk 2077 2.50.
+          **Install:** extract the contents of `m1arc-{tag}-game-root.zip`
+          into the Cyberpunk 2077 game folder (the directory containing
+          `r6` and `red4ext`). Close the game before installing or updating.
 
-          **Install:** extract `m1arc-{tag}-game-root.zip` into the Cyberpunk 2077 installation folder (the folder containing `red4ext` and `r6`). Merge those folders; do not install the ZIP as an additional nested directory. RED4ext and REDscript are required. CET can remain installed.
+          The normal ZIP does not include the temporary UI Test.
+          A separate `-ui-test-game-root.zip` is attached to draft builds
+          when enabled, and displays sample settings for visual testing.
+          After testing, install the normal ZIP and remove
+          `red4ext/plugins/m1arc/dev-preview.enabled` if present.
 
-          Package includes `red4ext/plugins/m1arc/m1arc.dll`, `r6/scripts/m1arc/M1Arc.reds`, open-license Karla/Chakra Petch/Phosphor fonts and notices, and the project LICENSE. No dev-preview marker, temporary UI Test, gameplay mods, separate AutoBreach DLL, or proprietary Blender Pro fonts.
-
-          Before updating, exit Cyberpunk. Existing `red4ext/plugins/m1arc/settings.json` is not included in this archive and will not be overwritten. First launch prompts for your own M1 Arc shortcut.
-
-          SHA-256 file included. Windows C++ and source-level checks run in CI; in-game behavior may vary with mods/game updates.
+          [Documentation](https://m1nsook.github.io/m1arc/)
+          · [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311)
           '@
-          $notes.Replace('{tag}', $tag) | Set-Content -Path release-notes.md -Encoding utf8
-          gh release create $tag "${{ steps.package.outputs.release_zip }}" "${{ steps.package.outputs.release_sha }}" --draft --prerelease --target $env:GITHUB_SHA --title "M1 Arc $tag (draft preview)" --notes-file release-notes.md
-          if ($LASTEXITCODE -ne 0) { throw "Failed to stage GitHub release" }
+          $notes.Replace("{tag}", $tag) | Set-Content -Path release-notes.md -Encoding utf8
+          $files = @(
+            "${{ steps.package.outputs.release_zip }}",
+            "${{ steps.package.outputs.release_sha }}"
+          )
+          if ($draft -and "${{ steps.package.outputs.preview_zip }}") {
+            $files += "${{ steps.package.outputs.preview_zip }}"
+          }
+          $arguments = @("release", "create", $tag) + $files + @(
+            "--target", $env:GITHUB_SHA, "--title", "M1 Arc $tag",
+            "--notes-file", "release-notes.md"
+          )
+          if ($draft) { $arguments += "--draft" }
+          if ($tag.Contains("-")) { $arguments += "--prerelease" }
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw "Failed to create GitHub Release $tag" }
       - uses: actions/upload-artifact@v4
         with:
-          name: m1arc-release-game-root
+          name: m1arc-${{ steps.package.outputs.release_tag }}-installers
           path: |
             ${{ steps.package.outputs.release_zip }}
             ${{ steps.package.outputs.release_sha }}
+            ${{ steps.package.outputs.preview_zip }}
           if-no-files-found: error
           retention-days: 30
+

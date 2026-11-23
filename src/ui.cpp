@@ -1,5 +1,6 @@
 #include "ui.hpp"
 #include "fonts.hpp"
+#include "localization.hpp"
 #include "phosphor_icons.hpp"
 #include "input.hpp"
 #include "registry.hpp"
@@ -16,6 +17,10 @@
 
 namespace m1arc {
 namespace {
+
+std::string Tr(std::string_view key, const char* fallback) {
+    return Translations().Text(key, fallback);
+}
 
 struct Palette {
     ImVec4 paper, fill, ink, amber, muted, stage, bar, barText;
@@ -88,12 +93,12 @@ void ToggleTheme() {
     })) {
         theme.dark = next;
         theme.message.clear();
-        ShowToast(next ? "Your theme has been updated to Dark mode!"
-                       : "Your theme has been updated to Light mode!",
+        ShowToast(next ? Tr("toast.theme_dark", "Your theme has been updated to Dark mode!")
+                       : Tr("toast.theme_light", "Your theme has been updated to Light mode!"),
                   3.2f, ToastKind::Success);
     } else {
-        theme.message = "Theme could not be saved";
-        ShowToast("Theme could not be saved", 3.2f, ToastKind::Error);
+        theme.message = Tr("toast.theme_failed", "Theme could not be saved");
+        ShowToast(theme.message, 3.2f, ToastKind::Error);
     }
 }
 void ApplyTheme(const Palette& p) {
@@ -203,14 +208,15 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
 
     const std::string status = std::to_string(
         std::count_if(mods.begin(), mods.end(), Enabled)) +
-        "/" + std::to_string(mods.size()) + " ONLINE";
+        "/" + std::to_string(mods.size()) + " " + Tr("ui.online", "ONLINE");
     const std::string keyText =
         (fonts::HasIcons() ? ARC_ICON_KEY " " : "KEY: ") + input.KeyLabel() + "##arc-bind";
-    const char* closeLabel = fonts::HasIcons() ? ARC_ICON_CLOSE " CLOSE##arc" : "CLOSE##arc";
-    const float themeWidth = std::max(140.f, ImGui::CalcTextSize("TOGGLE THEME").x + 24.f);
+    const std::string closeLabel = (fonts::HasIcons() ? std::string(ARC_ICON_CLOSE) + " " : "") +
+        Tr("ui.close", "CLOSE") + "##arc";
+    const float themeWidth = std::max(140.f, ImGui::CalcTextSize(Tr("ui.theme", "TOGGLE THEME").c_str()).x + 24.f);
     const float shortcutWidth = std::clamp(ImGui::CalcTextSize(keyText.c_str()).x + 22.f,
                                           75.f, 116.f);
-    const float closeWidth = std::max(90.f, ImGui::CalcTextSize(closeLabel).x + 24.f);
+    const float closeWidth = std::max(90.f, ImGui::CalcTextSize(closeLabel.c_str()).x + 24.f);
     const float statusWidth = ImGui::CalcTextSize(status.c_str()).x;
 
     const float headingFontSize = fonts::titleBold ? fonts::titleBold->FontSize :
@@ -218,7 +224,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     float brandWidth = 16.f + (fonts::HasIcons() ? 27.f : 0.f);
     if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
     if (!compact)
-        brandWidth += ImGui::CalcTextSize("CONTROL PANEL").x +
+        brandWidth += ImGui::CalcTextSize(Tr("ui.panel", "CONTROL PANEL").c_str()).x +
                       ImGui::CalcTextSize("//").x + 12.f;
     brandWidth += ImGui::CalcTextSize("M1 ARC").x + 6.f;
     if (fonts::titleBold) ImGui::PopFont();
@@ -242,7 +248,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     // Use ONE font/weight for the entire title: CONTROL PANEL // M1 ARC.
     if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
     if (!compact) {
-        ImGui::TextUnformatted("CONTROL PANEL");
+        ImGui::TextUnformatted(Tr("ui.panel", "CONTROL PANEL").c_str());
         ImGui::SameLine(0.f,6.f);
         ImGui::PushStyleColor(ImGuiCol_Text,p.amber);
         ImGui::TextUnformatted("//");
@@ -266,20 +272,21 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     };
     const float buttonsY = secondRow ? 56.f : 10.f;
     const float themeX = secondRow ? 16.f : brandWidth+12.f;
-    if (action("TOGGLE THEME##arc-theme",themeX,buttonsY,themeWidth))
+    const std::string themeLabel = Tr("ui.theme", "TOGGLE THEME") + "##arc-theme";
+    if (action(themeLabel.c_str(),themeX,buttonsY,themeWidth))
         ToggleTheme();
     const float shortcutX = themeX + themeWidth + 10.f;
     if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip("Change M1 Arc's menu shortcut (independent of CET)",p);
+        ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut (independent of CET)"),p);
 
     const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
     const float closeX = std::max(8.f,width-closeWidth-14.f);
     const float statusX = std::max(8.f,closeX-statusWidth-16.f);
     ImGui::SetCursorScreenPos(ImVec2(origin.x+statusX,origin.y+rightY+8.f));
     ImGui::TextUnformatted(status.c_str());
-    if (action(closeLabel,closeX,rightY,closeWidth))
+    if (action(closeLabel.c_str(),closeX,rightY,closeWidth))
         input.Close();
     ImGui::PopStyleColor();
     ImGui::SetCursorScreenPos(ImVec2(origin.x,origin.y+height));
@@ -336,6 +343,7 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     // complementary muted green; the other three are owner-specified.
     ImU32 background = IM_COL32(191, 198, 230, 255); // Info    #bfc6e6
     const char* label = "INFORMATION";
+    const char* labelKey = "toast.info";
     const char* icon = ARC_ICON_INFO;
     const char* fallbackIcon = "i";
     switch (toast.kind) {
@@ -344,18 +352,21 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     case ToastKind::Warning:
         background = IM_COL32(243, 220, 167, 255); // Warning #f3dca7
         label = "WARNING";
+        labelKey = "toast.warning";
         icon = ARC_ICON_WARNING;
         fallbackIcon = "!";
         break;
     case ToastKind::Success:
         background = IM_COL32(188, 218, 177, 255); // Success #bcdab1
         label = "SUCCESS";
+        labelKey = "toast.success";
         icon = ARC_ICON_SUCCESS;
         fallbackIcon = "+";
         break;
     case ToastKind::Error:
         background = IM_COL32(232, 104, 104, 255); // Error   #e86868
         label = "ERROR";
+        labelKey = "toast.error";
         icon = ARC_ICON_ERROR;
         fallbackIcon = "x";
         break;
@@ -376,12 +387,11 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
         return (color & 0x00FFFFFFu) | (a << 24);
     };
     const ImU32 dark = faded(IM_COL32(19, 25, 24, 255));
+    const std::string statusLabel = Tr(labelKey, label);
     ImDrawList* draw = ImGui::GetForegroundDrawList(viewport);
     const ImVec2 topLeft(x, y), bottomRight(x + width, y + kHeight);
     draw->AddRectFilled(topLeft, bottomRight, faded(background), 4.f);
     draw->AddRect(topLeft, bottomRight, dark, 4.f, 0, 1.4f);
-    draw->AddRectFilled(ImVec2(x, y + 5.f),
-                        ImVec2(x + 8.f, y + kHeight - 5.f), dark);
 
     // An outlined status module containing an authentic Phosphor glyph,
     // both dark on the pastel card. Plain letters are the safe fallback.
@@ -405,7 +415,7 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     ImFont* statusFont = fonts::titleBold ? fonts::titleBold : ImGui::GetFont();
     const float statusSize = 17.f;
     const ImVec2 statusBounds = statusFont->CalcTextSizeA(statusSize,
-                                                         1000.f, 0.f, label);
+                                                         1000.f, 0.f, statusLabel.c_str());
     // Narrow displays prioritize readable message text over the label.
     const bool showStatus = width >= 460.f;
     const float statusX = x + width - 28.f - statusBounds.x;
@@ -418,7 +428,7 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     if (showStatus) {
         draw->AddText(statusFont, statusSize,
                       ImVec2(statusX, y + (kHeight - statusBounds.y) * .5f),
-                      dark, label);
+                      dark, statusLabel.c_str());
     }
 }
 
@@ -447,7 +457,7 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
         // The empty state is intentionally padded, but real mod rows
         // must start flush with the top of the sidebar under the header.
         ImGui::SetCursorPos(ImVec2(16.f,12.f));
-        ImGui::TextDisabled("NO REGISTERED MODS");
+        ImGui::TextDisabled("%s", Tr("ui.no_mods", "NO REGISTERED MODS").c_str());
     } else {
         ImGui::SetCursorPos(ImVec2(0.f,0.f));
         for (const auto& mod : mods) {
@@ -553,9 +563,11 @@ void DrawSwitch(const ModView& mod,const SettingView& setting,
             (void)Settings().Set(mod.id,setting.id,target);
         ImGui::PopStyleColor(4);
     };
-    side("OFF##switch",false,half);
+    const std::string off = Tr("ui.off", "OFF") + "##switch";
+    const std::string on = Tr("ui.on", "ON") + "##switch";
+    side(off.c_str(),false,half);
     ImGui::SameLine(0.f,0.f);
-    side("ON##switch",true,width-half);
+    side(on.c_str(),true,width-half);
 }
 
 void DrawSliderGrabOutline(const Palette& p,double value,
@@ -592,12 +604,13 @@ void DrawChoice(const ModView& mod,const SettingView& setting,const Palette& p,f
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+count-1)%count]);
     ImGui::SameLine(0,0);
     // The center is a functional next-choice button, not a fake display.
-    const std::string clipped=FitLabel(value,std::max(15.f,width-92.f));
+    const std::string display = Translations().Choice(mod.id, setting.id, value);
+    const std::string clipped=FitLabel(display,std::max(15.f,width-92.f));
     if (ImGui::Button((clipped+"##current").c_str(),
                       ImVec2(std::max(16.f,width-64.f),32.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(value,p);
+        ShowTooltip(display,p);
     ImGui::SameLine(0,0);
     if (ImGui::Button(">##next",ImVec2(32.f,32.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
@@ -697,10 +710,11 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                 std::max(1.f,ImGui::GetContentRegionAvail().x-8.f),
                 !active && !IsMasterSwitch(setting));
     } else {
-        ImGui::TextDisabled("No registered mods yet.");
+        ImGui::TextDisabled("%s", Tr("ui.no_mods_detail", "No registered mods yet.").c_str());
         ImGui::Spacing();
         ImGui::TextWrapped(
-            "REDscript mods appear here after they register their settings through M1 Arc.");
+            "%s", Tr("ui.no_mods_help",
+                "REDscript mods appear here after they register their settings through M1 Arc.").c_str());
     }
     if (selected) ImGui::Dummy(ImVec2(1.f,16.f));
     ImGui::EndChild();
@@ -713,7 +727,26 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     draw->AddLine(foot,ImVec2(ImGui::GetWindowPos().x+width-1.f,foot.y),
                   Color(p.ink),2.f);
     ImGui::SetCursorScreenPos(ImVec2(foot.x+pad,foot.y+20.f));
-    ImGui::TextDisabled("2026 (c) M1NSOOK");
+    if (width >= 520.f) ImGui::TextDisabled("2026 (c) M1NSOOK");
+    const auto langs = Translations().Languages();
+    const std::string currentLang = Translations().Current();
+    const auto currentLangIt = std::find_if(langs.begin(), langs.end(),
+        [&](const auto& lang) { return lang.code == currentLang; });
+    const std::string nativeName = currentLangIt == langs.end() ? "English" : currentLangIt->name;
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad+(width>=520.f ? 175.f : 0.f), foot.y+12.f));
+    ImGui::SetNextItemWidth(140.f);
+    if (ImGui::BeginCombo("##m1arc-language",nativeName.c_str())) {
+        for (const auto& lang : langs) {
+            const bool selected = lang.code == currentLang;
+            if (ImGui::Selectable(lang.name.c_str(),selected))
+                (void)Translations().Select(lang.code);
+            if (selected) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(Tr("ui.language", "Language"),p);
+
     if (!Theme().message.empty()) {
         ImGui::SameLine();
         ImGui::TextDisabled("%s",Theme().message.c_str());
@@ -727,11 +760,12 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,
             dark ? p.amber : ImVec4(.31f,.35f,.28f,1.f));
         ImGui::PushStyleColor(ImGuiCol_Text,p.paper);
-        if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_RESET " DEFAULTS##mod" : "DEFAULTS##mod",
+        if (ImGui::Button((std::string(fonts::HasIcons() ? ARC_ICON_RESET " " : "") +
+                           Tr("ui.defaults", "DEFAULTS") + "##mod").c_str(),
                           ImVec2(116.f,32.f))) {
             const bool restored = Settings().ResetMod(selected->id);
-            ShowToast(restored ? "Defaults restored for " + selected->title
-                               : "Failed to reset " + selected->title,
+            ShowToast(restored ? Tr("toast.defaults_restored_prefix", "Defaults restored for ") + selected->title
+                               : Tr("toast.defaults_failed_prefix", "Failed to reset ") + selected->title,
                       3.2f, restored ? ToastKind::Success : ToastKind::Error);
         }
         ImGui::PopStyleColor(4);
@@ -748,14 +782,14 @@ void DrawRebindModal() {
                               ImGuiWindowFlags_AlwaysAutoResize |
                               ImGuiWindowFlags_NoTitleBar)) {
         if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
-        ImGui::TextUnformatted("M1 ARC  //  CHOOSE MENU KEY");
+        ImGui::TextUnformatted(Tr("ui.rebind_heading", "M1 ARC  //  CHOOSE MENU KEY").c_str());
         if (fonts::titleBold) ImGui::PopFont();
         ImGui::Separator();
         ImGui::Spacing();
-        ImGui::TextUnformatted("Press your preferred keyboard key.");
-        ImGui::TextDisabled("Independent of Cyber Engine Tweaks.");
-        ImGui::TextDisabled("Windows keys, modifiers and Escape are reserved.");
-        if (input.HasKey() && ImGui::Button("Cancel"))
+        ImGui::TextUnformatted(Tr("ui.rebind_press", "Press your preferred keyboard key.").c_str());
+        ImGui::TextDisabled("%s", Tr("ui.rebind_independent", "Independent of Cyber Engine Tweaks.").c_str());
+        ImGui::TextDisabled("%s", Tr("ui.rebind_reserved", "Windows keys, modifiers and Escape are reserved.").c_str());
+        if (input.HasKey() && ImGui::Button(Tr("ui.cancel", "Cancel").c_str()))
             input.CancelRebind();
         if (!input.IsRecording()) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
@@ -779,7 +813,8 @@ void DrawArcUI() {
     const auto& theme = Theme();
     const Palette palette = Colors(theme.dark);
     ApplyTheme(palette);
-    const auto mods = Settings().Snapshot();
+    auto mods = Settings().Snapshot();
+    for (auto& mod : mods) Translations().Localize(mod);
     if (SelectedMod().empty() ||
         std::none_of(mods.begin(),mods.end(),[](const ModView& mod) {
             return mod.id == SelectedMod();

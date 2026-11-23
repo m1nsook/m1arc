@@ -107,6 +107,42 @@ All user choices are persisted to the central
 on the next game launch. Uninstalling a mod leaves its values in storage
 so reinstalling can restore them.
 
-The language directory is a **reserved extension point**, not a functional
-translator yet. \`en_US.json\` files will be used when native localization is
-implemented. Never include Lua, CET files or \`.m1s\`/\`.m1c\` entrypoints.
+## Native translations
+
+M1 Arc ships framework language catalogs under
+\`red4ext/plugins/m1arc/locales/en_US.json\`,
+\`pl_PL.json\`, and \`ko_KR.json\`. The in-game language selector saves
+\`overlay.language\` in M1 Arc's central settings.json. Additional
+\`<locale>.json\` framework catalogs appear in the selector automatically.
+
+Mods may override their own **display text only** using
+\`red4ext/plugins/m1arc/mods/<mod-id>/language/<locale>.json\`.
+For example, \`m1nsook.weight/language/ko_KR.json\`:
+
+\`\`\`json
+{
+  "name": "무게 제한",
+  "shortDesc": "소지 용량을 조절합니다",
+  "settings": {
+    "enabled": {
+      "label": "활성화",
+      "description": "무게 제한 기능을 켜거나 끕니다.",
+      "group": "일반"
+    },
+    "mode": {
+      "label": "모드",
+      "choices": {
+        "High": "높음",
+        "Low": "낮음"
+      }
+    }
+  }
+}
+\`\`\`
+
+\`choices\` maps the **original choice value** to localized text. It
+must never rename choice IDs in \`settings.json\` or REDscript; saved values
+and native getters always use original IDs and options. Missing or invalid
+translation entries fall back to the mod's English/default text.
+No Lua, CET dependency, new scripting language, or execution is involved.
+

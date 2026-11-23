@@ -26,6 +26,25 @@ std::string Utf8(const std::filesystem::path& path) {
                             nullptr,nullptr)) return {};
     return output;
 }
+void MergeHangul(ImFontAtlas* atlas, const std::filesystem::path& dir,
+                 ImFont* destination, float size) {
+    if (!destination) return;
+    static const ImWchar hangulRanges[] = {
+        0x1100,0x11FF, 0x3130,0x318F, 0xA960,0xA97F,
+        0xAC00,0xD7A3, 0xD7B0,0xD7FF, 0
+    };
+    const auto path = dir / L"NotoSansKR-Hangul.ttf";
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path,ec)) return;
+    const auto filename = Utf8(path);
+    if (filename.empty()) return;
+    ImFontConfig config{};
+    config.MergeMode = true;
+    config.DstFont = destination;
+    config.OversampleH = 2;
+    config.OversampleV = 2;
+    atlas->AddFontFromFileTTF(filename.c_str(),size,&config,hangulRanges);
+}
 ImFont* Add(ImFontAtlas* atlas,const std::filesystem::path& dir,
             const wchar_t* file,float size,const ImWchar* ranges) {
     const auto path=dir / file;
@@ -111,6 +130,12 @@ void Load() noexcept {
         if (!titleMedium) titleMedium=Add(atlas,folder,L"Karla-SemiBold.ttf",19.f,textRanges);
         if (!titleBold) titleBold=Add(atlas,folder,L"Karla-Bold.ttf",20.f,textRanges);
         if (!titleHeavy) titleHeavy=Add(atlas,folder,L"Karla-Bold.ttf",22.f,textRanges);
+        // Korean is merged into the existing fonts, preserving the chosen
+        // UI typography for Latin text and all previously working icons.
+        MergeHangul(atlas,folder,body,18.f);
+        if (caption != body) MergeHangul(atlas,folder,caption,14.f);
+        if (titleBold != body && titleBold != caption)
+            MergeHangul(atlas,folder,titleBold,20.f);
     } catch (...) {
         // Damaged optional files must not stop the game.
         if (!body && io.Fonts->Fonts.Size==0)
