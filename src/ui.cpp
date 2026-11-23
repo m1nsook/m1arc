@@ -427,7 +427,7 @@ void DrawChoice(const ModView& mod,const SettingView& setting,const Palette& p,f
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
         ShowTooltip(value,p);
     ImGui::SameLine(0,0);
-    if (ImGui::Button(">##next",ImVec2(32.f,30.f)))
+    if (ImGui::Button(">##next",ImVec2(32.f,32.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
 }
 
