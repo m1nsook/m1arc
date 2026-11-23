@@ -16,9 +16,11 @@ M1 Arc's implementation is standalone C++.
 **Native declaration correction:** The previous native `@addMethod`
 declaration triggered a RED4ext invalid-native-definition startup error.
 This version registers a global RTTI native that receives the weak hacking
-logic controller explicitly. It requires reinstallation of both the DLL
-and the matching `M1Arc.reds`. Native script validation still needs an
-in-game confirmation.
+logic controller explicitly. Its two experimental REDscript declarations
+are shipped **inside Skip Breach** (`M1ArcBreachNative.reds`), not in the
+working M1 Arc core `M1Arc.reds` declarations. Update the M1 Arc DLL and
+install the matching Skip Breach package together. Native script validation
+still needs an in-game confirmation.
 
 **Safeguards:** fail closed on any different executable version, missing
 signature, duplicate signature, non-function-entry match, inactive game
