@@ -168,12 +168,11 @@ void ShowTooltip(const std::string& message, const Palette& p) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,1.f);
     // A tooltip with unbounded SetTooltip() escaped across the viewport.
     // The wrap position is WINDOW-LOCAL, not the screen-space X coordinate.
-    if (ImGui::BeginTooltip()) {
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+wrap);
-        ImGui::TextUnformatted(message.c_str());
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
+    ImGui::BeginTooltip();
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+wrap);
+    ImGui::TextUnformatted(message.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::EndTooltip();
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(3);
 }
