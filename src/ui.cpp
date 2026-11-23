@@ -380,8 +380,6 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     const ImVec2 topLeft(x, y), bottomRight(x + width, y + kHeight);
     draw->AddRectFilled(topLeft, bottomRight, faded(background), 4.f);
     draw->AddRect(topLeft, bottomRight, dark, 4.f, 0, 1.4f);
-    draw->AddRectFilled(ImVec2(x, y + 5.f),
-                        ImVec2(x + 8.f, y + kHeight - 5.f), dark);
 
     // An outlined status module containing an authentic Phosphor glyph,
     // both dark on the pastel card. Plain letters are the safe fallback.
