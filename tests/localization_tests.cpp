@@ -23,7 +23,7 @@ int main() {
         << R"({"name":"한국어","strings":{"ui.close":"닫기"}})";
     std::ofstream(root / "mods" / "sample.weight" / "language" / "ko_KR.json",
                   std::ios::binary)
-        << R"({"name":"무게 제한","shortDesc":"소지 용량을 조절합니다","settings":{"mode":{"label":"모드","description":"옵션을 선택하세요","group":"기본","choices":{"High":"높음","Low":"낮음"}}}})";
+        << R"({"name":"무게 제한","shortDesc":"소지 용량을 조절합니다","settings":{"mode":{"label":"모드","description":"옵션을 선택하세요","group":"기본","buttonLabel":"실행","choices":{"High":"높음","Low":"낮음"}}}})";
 
     m1arc::StateStore store;
     store.Configure(root / "settings.json");
@@ -53,12 +53,14 @@ int main() {
     mode.choices = {"High", "Low"};
     mode.value = "High";
     mode.defaultValue = "Low";
+    mode.buttonLabel = "Run";
     mod.settings.push_back(mode);
     tr.Localize(mod);
     REQUIRE(mod.title == "무게 제한");
     REQUIRE(mod.shortDesc == "소지 용량을 조절합니다");
     REQUIRE(mod.settings.front().label == "모드");
     REQUIRE(mod.settings.front().group == "기본");
+    REQUIRE(mod.settings.front().buttonLabel == "실행");
     REQUIRE(mod.settings.front().value == "High");
     REQUIRE(mod.settings.front().defaultValue == "Low");
     REQUIRE(mod.settings.front().choices[0] == "High");
