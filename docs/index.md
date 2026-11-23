@@ -1,25 +1,30 @@
 ---
-# https://vitepress.dev/reference/default-theme-home-page
 layout: home
 
 hero:
   name: "M1 ARC"
-  text: "Red4Ext Manager"
-  tagline: My great project tagline
+  text: "RED4EXT MANAGER"
+  tagline: "Tactile, zero-bloat configuration & mod management framework for RED4ext."
   actions:
     - theme: brand
-      text: Markdown Examples
+      text: Get Started
       link: /markdown-examples
     - theme: alt
-      text: API Examples
+      text: API Reference
       link: /api-examples
 
 features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  - icon: '<i class="ph ph-cpu"></i>'
+    title: Native RED4ext Integration
+    details: Hooks directly into RED4ext lifecycle events with zero external runtime dependencies.
+  - icon: '<i class="ph ph-sliders-horizontal"></i>'
+    title: Declarative Control Schema
+    details: Define switches, bounded sliders, option cyclers, and keybinds in a few lines of C++.
+  - icon: '<i class="ph ph-floppy-disk"></i>'
+    title: Persistent Config Sync
+    details: Automatic JSON serialization, dirty-state tracking, and single-click default restoration.
 ---
 
+## Live Control Panel Preview
+
+<M1Preview />
