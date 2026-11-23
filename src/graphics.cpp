@@ -1,4 +1,5 @@
 #include "graphics.hpp"
+#include "fonts.hpp"
 #include "input.hpp"
 #include "ui.hpp"
 #include "backends/dx12.h"
@@ -130,6 +131,7 @@ void Renderer::Reset(bool shutdown) noexcept
     window_ = nullptr;
     initialized_ = false;
     if (shutdown && ownContext_) {
+        fonts::Clear();
         ImGui::DestroyContext();
         ownContext_ = false;
     }
@@ -203,7 +205,7 @@ bool Renderer::Initialize(const GameFrame& frame) noexcept
         // Keep the working m1core double-buffered ImGui arrangement.
         // Only the appearance is reset to Dear ImGui's normal dark style.
         ImGui::StyleColorsDark(&style_);
-        ImGui::GetIO().Fonts->AddFontDefault();
+        fonts::Load();
     }
     ImGui::GetStyle() = style_;
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;

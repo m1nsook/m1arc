@@ -1,4 +1,6 @@
 #include "ui.hpp"
+#include "fonts.hpp"
+#include "phosphor_icons.hpp"
 #include "input.hpp"
 #include "registry.hpp"
 #include "state.hpp"
@@ -46,7 +48,7 @@ ImU32 Color(const ImVec4& c) { return ImGui::ColorConvertFloat4ToU32(c); }
 
 struct ThemeState {
     bool loaded = false;
-    bool dark = true;
+    bool dark = false;
     std::string message;
 };
 ThemeState& Theme() {
@@ -58,7 +60,7 @@ ThemeState& Theme() {
             if (saved.contains("overlay") && saved["overlay"].is_object()) {
                 const auto& overlay = saved["overlay"];
                 if (overlay.contains("theme") && overlay["theme"].is_string())
-                    state.dark = overlay["theme"] != "light";
+                    state.dark = overlay["theme"] == "dark";
             }
         } catch (...) { /* Keep the safe dark default; do not rewrite corrupt state. */ }
     }
@@ -102,11 +104,15 @@ void ApplyTheme(const Palette& p) {
     c[ImGuiCol_Border] = p.ink;
     c[ImGuiCol_Separator] = p.ink;
     c[ImGuiCol_FrameBg] = p.fill;
-    c[ImGuiCol_FrameBgHovered] = p.paper;
-    c[ImGuiCol_FrameBgActive] = p.fill;
+    const bool dark = p.paper.x < 0.2f;
+    const ImVec4 hover = dark ? ImVec4(.22f,.25f,.22f,1.f) : p.amber;
+    const ImVec4 pressed = dark ? ImVec4(.29f,.32f,.28f,1.f)
+                                : ImVec4(.84f,.60f,.12f,1.f);
+    c[ImGuiCol_FrameBgHovered] = hover;
+    c[ImGuiCol_FrameBgActive] = pressed;
     c[ImGuiCol_Button] = p.fill;
-    c[ImGuiCol_ButtonHovered] = p.amber;
-    c[ImGuiCol_ButtonActive] = p.amber;
+    c[ImGuiCol_ButtonHovered] = hover;
+    c[ImGuiCol_ButtonActive] = pressed;
     c[ImGuiCol_Header] = p.ink;
     c[ImGuiCol_HeaderHovered] = p.fill;
     c[ImGuiCol_HeaderActive] = p.ink;
@@ -148,19 +154,27 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
 
     ImGui::SetCursorScreenPos(ImVec2(origin.x+16.f, origin.y+12.f));
     ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+    if (fonts::HasIcons()) {
+        ImGui::TextUnformatted(ARC_ICON_SLIDERS);
+        ImGui::SameLine(0.f,5.f);
+    }
+    if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
     ImGui::TextUnformatted("CONTROL PANEL");
+    if (fonts::titleBold) ImGui::PopFont();
     ImGui::SameLine(0.f,5.f);
     ImGui::PushStyleColor(ImGuiCol_Text,p.amber);
     ImGui::TextUnformatted("//");
     ImGui::PopStyleColor();
     ImGui::SameLine(0.f,5.f);
+    if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
     ImGui::TextUnformatted("M1 ARC");
+    if (fonts::titleHeavy) ImGui::PopFont();
 
     // Keep the theme button independent of the game's overlay hotkey.
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+224.f,origin.y+5.f));
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+290.f,origin.y+5.f));
     ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,p.ink);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,p.amber);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
     ImGui::PushStyleColor(ImGuiCol_Border,p.barText);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize,2.f);
     if (ImGui::Button("TOGGLE THEME##arc-theme",ImVec2(140.f,30.f)))
@@ -169,11 +183,12 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     ImGui::PopStyleColor(4);
 
     // Rebinding must remain available after first run, regardless of theme.
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+372.f,origin.y+5.f));
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+442.f,origin.y+5.f));
     ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,p.ink);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,p.amber);
-    const std::string keyText = "KEY: " + input.KeyLabel() + "##arc-bind";
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
+    const std::string keyText = (fonts::HasIcons() ? ARC_ICON_KEY "  " : "KEY: ") +
+        input.KeyLabel() + "##arc-bind";
     if (ImGui::Button(keyText.c_str(),ImVec2(144.f,30.f)))
         input.BeginRebind();
     if (ImGui::IsItemHovered())
@@ -190,9 +205,10 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
 
     ImGui::SetCursorScreenPos(ImVec2(origin.x+width-79.f,origin.y+5.f));
     ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,p.ink);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,p.amber);
-    if (ImGui::Button("CLOSE##arc",ImVec2(68.f,30.f))) input.Close();
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
+    if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_CLOSE "  CLOSE##arc" : "CLOSE##arc",
+                      ImVec2(68.f,30.f))) input.Close();
     ImGui::PopStyleColor(3);
     ImGui::PopStyleColor(); // Header foreground
     ImGui::SetCursorScreenPos(ImVec2(origin.x,origin.y+height));
@@ -217,7 +233,8 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods, float width
             ImGui::PushStyleColor(ImGuiCol_HeaderActive,selected ? p.ink : p.fill);
             const ImVec2 row = ImGui::GetCursorScreenPos();
             const float rowWidth = ImGui::GetContentRegionAvail().x-2.f;
-            if (ImGui::Selectable(mod.title.c_str(),selected,0,ImVec2(rowWidth,44.f)))
+            const std::string label = (fonts::HasIcons() ? ARC_ICON_CUBE "  " : "") + mod.title;
+            if (ImGui::Selectable(label.c_str(),selected,0,ImVec2(rowWidth,44.f)))
                 SelectedMod() = mod.id;
             ImGui::PopStyleColor(4);
             const ImVec2 rowEnd(row.x+rowWidth,row.y+44.f);
@@ -238,17 +255,24 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods, float width
 void DrawSwitch(const ModView& mod, const SettingView& setting, const Palette& p, float width) {
     const bool value = setting.value.get<bool>();
     const float half = width * .5f;
+    const bool dark = p.paper.x < .2f;
+    const ImVec4 altHover = dark ? ImVec4(.22f,.25f,.22f,1.f) : p.amber;
+    const ImVec4 altPress = dark ? ImVec4(.29f,.32f,.28f,1.f) : ImVec4(.84f,.60f,.12f,1.f);
     ImGui::PushStyleColor(ImGuiCol_Button,!value ? p.ink : p.fill);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,!value ? p.ink : altHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,!value ? p.ink : altPress);
     ImGui::PushStyleColor(ImGuiCol_Text,!value ? p.paper : p.ink);
     if (ImGui::Button("OFF##switch",ImVec2(half,30.f)))
         if (value) (void)Settings().Set(mod.id,setting.id,false);
-    ImGui::PopStyleColor(2);
+    ImGui::PopStyleColor(4);
     ImGui::SameLine(0,0);
     ImGui::PushStyleColor(ImGuiCol_Button,value ? p.amber : p.fill);
-    ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,value ? ImVec4(.98f,.75f,.24f,1.f) : altHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,value ? ImVec4(.86f,.60f,.08f,1.f) : altPress);
+    ImGui::PushStyleColor(ImGuiCol_Text,value ? ImVec4(.10f,.11f,.09f,1.f) : p.ink);
     if (ImGui::Button("ON##switch",ImVec2(width-half,30.f)))
         if (!value) (void)Settings().Set(mod.id,setting.id,true);
-    ImGui::PopStyleColor(2);
+    ImGui::PopStyleColor(4);
 }
 void DrawChoice(const ModView& mod,const SettingView& setting,float width) {
     const auto value = setting.value.get<std::string>();
@@ -357,12 +381,17 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     }
     if (selected) {
         ImGui::SetCursorScreenPos(ImVec2(foot.x+interior-116.f,foot.y+12.f));
+        const bool dark = p.paper.x < .2f;
         ImGui::PushStyleColor(ImGuiCol_Button,p.ink);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,p.amber);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+            dark ? ImVec4(.98f,.76f,.28f,1.f) : ImVec4(.23f,.27f,.21f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+            dark ? p.amber : ImVec4(.31f,.35f,.28f,1.f));
         ImGui::PushStyleColor(ImGuiCol_Text,p.paper);
-        if (ImGui::Button("DEFAULTS##mod",ImVec2(116.f,32.f)))
+        if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_RESET " DEFAULTS##mod" : "DEFAULTS##mod",
+                          ImVec2(116.f,32.f)))
             (void)Settings().ResetMod(selected->id);
-        ImGui::PopStyleColor(3);
+        ImGui::PopStyleColor(4);
     }
     ImGui::EndChild();
 }

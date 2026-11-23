@@ -29,6 +29,19 @@ TweakDB editor and CET branding are **not** included. The original
 Windows Actions produces **one game-root artifact**, containing
 `red4ext/plugins/m1arc/m1arc.dll`, `r6/scripts/m1arc/M1Arc.reds`, and the repository LICENSE.
 
+The native UI uses **Karla** for its main text and the **Phosphor regular icon font**
+for icons. Their OFL/MIT license notices ship in the same package. The
+supplied `fonts.zip` contains Blender Pro Medium, Bold and Heavy, which are
+proprietary and deliberately **not published** by this repository: if you
+have the right to use them, extract those three files directly to
+`red4ext/plugins/m1arc/fonts/` to enable Blender Pro headings. Karla
+headings remain the fallback if those files are absent.
+
+**Light is the first-run default**. The light/dark toggle stores a choice in
+`red4ext/plugins/m1arc/settings.json`, and existing saved preferences always win.
+If an older installation previously saved `"theme": "dark"`, it will
+keep starting dark until switched to light once.
+
 On first launch the plugin prompts for an independent keyboard shortcut.
 It does not bind or edit CET's existing shortcut.
 

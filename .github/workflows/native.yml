@@ -41,6 +41,19 @@ jobs:
           New-Item -ItemType Directory -Path $dst -Force | Out-Null
           Copy-Item "build/Release/m1arc.dll" "$dst/m1arc.dll"
           Copy-Item LICENSE "$dst/LICENSE"
+          # Pinned OFL/MIT assets. Do not include proprietary user-supplied Blender Pro.
+          $fonts = Join-Path $dst "fonts"
+          New-Item -ItemType Directory -Path $fonts -Force | Out-Null
+          $karla = "06bfe0d62a98375cb09c942fa18e68bd32cff057"
+          $phosphor = "3d40a3eaa73b25d20d263f0e1e55c9fed3e66809"
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/Karla%5Bwght%5D.ttf" -OutFile "$fonts/Karla-Regular.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/OFL.txt" -OutFile "$fonts/Karla-OFL.txt"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/src/regular/Phosphor.ttf" -OutFile "$fonts/Phosphor-Regular.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/LICENSE" -OutFile "$fonts/Phosphor-MIT.txt"
+          foreach ($font in @("Karla-Regular.ttf", "Phosphor-Regular.ttf")) {
+            if ((Get-Item "$fonts/$font").Length -lt 10000) { throw "Invalid or missing font asset: $font" }
+          }
           $apiPath = "package/r6/scripts/m1arc"
           New-Item -ItemType Directory -Path $apiPath -Force | Out-Null
           Copy-Item "r6/scripts/m1arc/M1Arc.reds" "$apiPath/M1Arc.reds"

@@ -59,6 +59,7 @@ if(WIN32)
         src/graphics.cpp
         src/input.cpp
         src/ui.cpp
+        src/fonts.cpp
     )
     target_include_directories(m1arc PRIVATE src)
     target_link_libraries(m1arc PRIVATE
