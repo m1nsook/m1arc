@@ -273,19 +273,18 @@ std::string FitLabel(std::string label, float available) {
     while (!label.empty() &&
            ImGui::CalcTextSize((label + "...").c_str()).x > available) {
         // Trim one complete UTF-8 codepoint, never cut inside a byte sequence.
-        label.pop_back();
-        while (!label.empty() &&
-            (static_cast<unsigned char>(label.back()) & 0xC0u) == 0x80u)
-            label.pop_back();
-        if (!label.empty()) label.pop_back(); // remove UTF-8 lead byte as well
+        std::size_t index=label.size()-1;
+        while (index>0 &&
+               (static_cast<unsigned char>(label[index]) & 0xC0u) == 0x80u)
+            --index;
+        label.resize(index); // trim exactly one UTF-8 codepoint
     }
     return label + "...";
 }
 
 void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
                  float width, float height) {
-    ImGui::BeginChild("##arc-nav",ImVec2(width,height),ImGuiChildFlags_None,
-                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    ImGui::BeginChild("##arc-nav",ImVec2(width,height),ImGuiChildFlags_None,0);
     ImDrawList* draw=ImGui::GetWindowDrawList();
     const float right=ImGui::GetWindowPos().x+ImGui::GetWindowWidth()-1.f;
     draw->AddLine(ImVec2(right,ImGui::GetWindowPos().y),
@@ -513,7 +512,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     ImGui::SetCursorPos(ImVec2(pad,16.f));
     ImGui::BeginChild("##settings-scroll",
                       ImVec2(interior,std::max(20.f,height-footerHeight-32.f)),
-                      ImGuiChildFlags_None,ImGuiWindowFlags_AlwaysVerticalScrollbar);
+                      ImGuiChildFlags_None,0); // native scrollbar appears when content overflows
     ImGui::SetCursorPos(ImVec2(8.f,10.f));
     if (selected) {
         const bool active = Enabled(*selected);
