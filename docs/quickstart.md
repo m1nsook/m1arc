@@ -6,17 +6,11 @@ installed, but M1 Arc does not depend on it.
 
 ## Download and install
 
-1. For the public M1 Arc mod page, visit [M1 Arc on Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311).
-   Versions will appear there when the maintainer publishes them.
-   Versioned archives and checksums are also prepared on
-   [GitHub Releases](https://github.com/m1nsook/m1arc/releases).
-   **Draft GitHub releases are visible to maintainers only**, not a public download.
-2. Download the versioned `m1arc-v...-game-root.zip` and its SHA-256 text file
-   when the chosen release has been made available.
-3. Close Cyberpunk 2077 before changing files.
-4. Extract the **contents** of the ZIP into the **Cyberpunk 2077 game directory**,
+1. Download the first public release, **[M1 Arc v1.0.0](https://github.com/m1nsook/m1arc/releases/download/v1.0.0/m1arc-v1.0.0-game-root.zip)**, plus its [SHA-256 checksum](https://github.com/m1nsook/m1arc/releases/download/v1.0.0/m1arc-v1.0.0-SHA256.txt). Other published versions are listed on [GitHub Releases](https://github.com/m1nsook/m1arc/releases). The [Nexus Mods page](https://www.nexusmods.com/cyberpunk2077/mods/39311) is also available.
+2. Close Cyberpunk 2077 before changing files.
+3. Extract the **contents** of the ZIP into the **Cyberpunk 2077 game directory**,
    where `red4ext/` and `r6/` already exist. Do not create a nested `package/` folder.
-5. Launch Cyberpunk and set a separate M1 Arc panel shortcut when prompted.
+4. Launch Cyberpunk and set a separate M1 Arc panel shortcut when prompted.
 
 The ZIP must have these paths:
 
