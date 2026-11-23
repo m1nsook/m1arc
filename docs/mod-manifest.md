@@ -86,13 +86,83 @@ This is the **schema defining controls**, not the player's saved values:
 ]
 ~~~
 
-Supported setting kinds: `boolean`, `integer`, `float` and `choice`.
+Supported setting kinds: `boolean`, `integer`, `float`, `choice` and `action`.
 Each mod may define up to 250 setting controls. Invalid manifests are
 skipped individually and logged; they do not prevent other mods from loading.
 
 Player values are saved centrally in
 `red4ext/plugins/m1arc/settings.json`, never into the mod's schema.
 Manifests are scanned at startup, so restart the game after adding a mod.
+
+## Buttons, checkboxes and sections
+
+The existing \`group\` setting now displays a section heading such as
+**Weapons**. To present a Boolean setting as a checkbox instead of the
+default ON/OFF switch, use \`"presentation": "checkbox"\`.
+
+A numeric control can also have a one-shot action button beside it:
+
+~~~json
+[
+  {
+    "id": "ammo_count",
+    "kind": "integer",
+    "label": "Ammunition",
+    "default": 50,
+    "min": 1,
+    "max": 999,
+    "group": "Weapons",
+    "button": { "id": "spawn_ammo", "label": "Spawn" }
+  },
+  {
+    "id": "light_ammo",
+    "kind": "boolean",
+    "label": "Light Ammo",
+    "default": true,
+    "presentation": "checkbox",
+    "group": "Weapons"
+  },
+  {
+    "id": "heavy_ammo",
+    "kind": "boolean",
+    "label": "Heavy Ammo",
+    "default": true,
+    "presentation": "checkbox",
+    "group": "Weapons"
+  },
+  {
+    "id": "spawn_selected",
+    "kind": "action",
+    "label": "Spawn selected ammunition",
+    "buttonLabel": "Spawn all",
+    "group": "Weapons"
+  }
+]
+~~~
+
+The \`action\` kind is a standalone button and **must not** have a
+\`default\` value. A numeric \`button\` contains a distinct action ID and
+display label. All IDs must be unique. Group headings are rendered only
+when a mod uses groups other than the default General section.
+
+Button clicks are queued **in memory** and consumed once by a
+mod's REDscript code:
+
+~~~reds
+if M1Arc_ConsumeAction("example.my-mod", "spawn_ammo") {
+  let amount: Int32 = M1Arc_GetInt("example.my-mod", "ammo_count");
+  let light: Bool = M1Arc_GetBool("example.my-mod", "light_ammo");
+  let heavy: Bool = M1Arc_GetBool("example.my-mod", "heavy_ammo");
+  // Handle the requested action here using your mod's gameplay code.
+}
+~~~
+
+Call this in your mod's normal update/gameplay logic. M1 Arc **does not**
+execute arbitrary commands specified in JSON and never bundles spawn
+scripts. Actions are limited to 16 pending clicks per action, not
+persisted in profiles or settings, and do not alter the settings revision.
+Translate captions using \`buttonLabel\` in the per-mod
+[language JSON](/localization).
 
 ## Read the setting from REDscript
 
