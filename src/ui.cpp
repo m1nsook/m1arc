@@ -279,7 +279,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut (independent of CET)"),p);
+        ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut"),p);
 
     const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
     const float closeX = std::max(8.f,width-closeWidth-14.f);
@@ -855,7 +855,6 @@ void DrawRebindModal() {
         ImGui::Separator();
         ImGui::Spacing();
         ImGui::TextUnformatted(Tr("ui.rebind_press", "Press your preferred keyboard key.").c_str());
-        ImGui::TextDisabled("%s", Tr("ui.rebind_independent", "Independent of Cyber Engine Tweaks.").c_str());
         ImGui::TextDisabled("%s", Tr("ui.rebind_reserved", "Windows keys, modifiers and Escape are reserved.").c_str());
         if (input.HasKey() && ImGui::Button(Tr("ui.cancel", "Cancel").c_str()))
             input.CancelRebind();
