@@ -17,13 +17,18 @@ void Make(const std::filesystem::path& root,const std::string& name,
           const std::string& id,const std::string& version,
           const std::string& minArc) {
     const auto folder=root/"mods"/name;
-    Write(folder/"mod.json",
-      R"({"format":1,"id":")"+id+R"(","name":"Weight Limit","version":")"+
-      version+R"(","requires":{"m1arc":")"+minArc+R"("}})");
-    Write(folder/"settings.json",
-      R"([{"id":"enabled","kind":"boolean","default":true,"label":"Enabled"},
-          {"id":"limit","kind":"integer","min":50,"max":5000,
-           "default":500,"label":"Carry capacity (kg)"}])");
+    nlohmann::json manifest{
+        {"format",1},{"id",id},{"name","Weight Limit"},{"version",version},
+        {"requires",{{"m1arc",minArc}}}
+    };
+    Write(folder/"mod.json",manifest.dump(2));
+    // Explicit raw-string delimiter: "(kg)" would otherwise prematurely
+    // terminate the short R"( ... )" syntax used in the first CI revision.
+    Write(folder/"settings.json",R"JSON(
+      [{"id":"enabled","kind":"boolean","default":true,"label":"Enabled"},
+       {"id":"limit","kind":"integer","min":50,"max":5000,
+        "default":500,"label":"Carry capacity (kg)"}]
+    )JSON");
 }
 }
 int main() {
