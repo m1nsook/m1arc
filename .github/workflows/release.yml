@@ -38,7 +38,7 @@ concurrency:
 jobs:
   windows-release:
     if: github.repository == 'm1nsook/m1arc' && github.ref == 'refs/heads/main'
-    name: Build M1 Arc ${{ inputs.version }}
+    name: Build M1 Arc ${{ github.event_name == 'push' && '1.0.0' || inputs.version }}
     runs-on: windows-2022
     env:
       RELEASE_VERSION: ${{ github.event_name == 'push' && '1.0.0' || inputs.version }}
