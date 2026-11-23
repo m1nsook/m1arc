@@ -26,6 +26,10 @@
     "toast.info": "INFORMACJA",
     "toast.warning": "OSTRZEŻENIE",
     "toast.success": "SUKCES",
-    "toast.error": "BŁĄD"
+    "toast.error": "BŁĄD",
+    "ui.hotkey.press": "Naciśnij klawisz...",
+    "ui.hotkey.unbound": "Nie przypisano",
+    "ui.hotkey.clear": "Wyczyść",
+    "ui.hotkey.help": "Naciśnij klawisz, aby przypisać skrót. Escape anuluje; klawisz menu M1 Arc jest zarezerwowany."
   }
 }
