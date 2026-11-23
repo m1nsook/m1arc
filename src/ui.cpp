@@ -229,8 +229,15 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods, float width
             ImGui::PushID(mod.id.c_str());
             ImGui::PushStyleColor(ImGuiCol_Text,selected ? p.paper : p.ink);
             ImGui::PushStyleColor(ImGuiCol_Header,selected ? p.ink : p.paper);
-            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,selected ? p.ink : p.fill);
-            ImGui::PushStyleColor(ImGuiCol_HeaderActive,selected ? p.ink : p.fill);
+            // Keep selected rows readable AND visibly interactive on both themes.
+            const bool darkTheme = p.paper.x < .2f;
+            const ImVec4 selectedHover = darkTheme ? p.amber : ImVec4(.22f,.25f,.22f,1.f);
+            const ImVec4 selectedPress = darkTheme ? ImVec4(.86f,.60f,.12f,1.f)
+                                                  : ImVec4(.30f,.34f,.28f,1.f);
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,
+                selected ? selectedHover : p.fill);
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive,
+                selected ? selectedPress : p.fill);
             const ImVec2 row = ImGui::GetCursorScreenPos();
             const float rowWidth = ImGui::GetContentRegionAvail().x-2.f;
             const std::string label = (fonts::HasIcons() ? ARC_ICON_CUBE "  " : "") + mod.title;
@@ -259,8 +266,14 @@ void DrawSwitch(const ModView& mod, const SettingView& setting, const Palette& p
     const ImVec4 altHover = dark ? ImVec4(.22f,.25f,.22f,1.f) : p.amber;
     const ImVec4 altPress = dark ? ImVec4(.29f,.32f,.28f,1.f) : ImVec4(.84f,.60f,.12f,1.f);
     ImGui::PushStyleColor(ImGuiCol_Button,!value ? p.ink : p.fill);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,!value ? p.ink : altHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,!value ? p.ink : altPress);
+    // OFF is an interactive selected button too: give it a contrast-safe
+    // hover/press treatment instead of reusing its base color.
+    const ImVec4 offHover = dark ? ImVec4(.98f,.94f,.77f,1.f)
+                                 : ImVec4(.22f,.25f,.22f,1.f);
+    const ImVec4 offPress = dark ? ImVec4(.87f,.80f,.58f,1.f)
+                                 : ImVec4(.30f,.34f,.28f,1.f);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,!value ? offHover : altHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,!value ? offPress : altPress);
     ImGui::PushStyleColor(ImGuiCol_Text,!value ? p.paper : p.ink);
     if (ImGui::Button("OFF##switch",ImVec2(half,30.f)))
         if (value) (void)Settings().Set(mod.id,setting.id,false);
