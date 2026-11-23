@@ -1,0 +1,27 @@
+# Dependencies
+node_modules
+
+# VitePress
+.vitepress/cache
+.vitepress/dist
+
+# Build / temp
+dist
+cache
+temp
+.temp
+.vite_opt_cache
+*.timestamp-*.mjs
+
+# Logs and archives
+*.log
+*.tgz
+
+# Binaries
+*.exe
+
+# Editor / OS
+.DS_Store
+.idea
+.vscode
+.claude
