@@ -400,7 +400,7 @@ void DrawArcUI() {
         }))
         SelectedMod() = mods.empty() ? std::string{} : mods.front().id;
 
-    const auto* viewport = ImGui::GetMainViewport();
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
     // CET-like dimming is visual only and never owns gameplay input.
     // The background draw list is below the native control panel.
     ImGui::GetBackgroundDrawList(viewport)->AddRectFilled(
