@@ -2,9 +2,9 @@ name: Validate m1arc API and documentation
 
 on:
   push:
-    branches:
-      - 'dev/**'
+    branches: [web]
   pull_request:
+    branches: [web]
 
 permissions:
   contents: read

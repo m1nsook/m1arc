@@ -12,6 +12,7 @@ export default defineConfig({
       { text: 'Install', link: '/quickstart' },
       { text: 'Mod manifests', link: '/mod-manifest' },
       { text: 'Native API', link: '/native-api' },
+      { text: 'Nexus Mods', link: 'https://www.nexusmods.com/cyberpunk2077/mods/39311' },
       { text: 'GitHub', link: 'https://github.com/m1nsook/m1arc' }
     ],
     sidebar: [
@@ -37,7 +38,7 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/m1nsook/m1arc' }
     ],
     footer: {
-      message: 'M1 Arc by 民숙 MISO @m1nsook. Community documentation; not affiliated with CD PROJEKT RED.'
+      message: 'M1 Arc by 민숙 MISO @m1nsook. Community documentation; not affiliated with CD PROJEKT RED.'
     }
   }
 })

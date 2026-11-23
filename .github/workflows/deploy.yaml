@@ -2,17 +2,14 @@ name: Deploy VitePress site to Pages
 
 on:
   push:
-    branches: [main]
+    branches: [web]
     paths:
       - ".vitepress/**"
       - "docs/**"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/deploy.yaml"
-      - "api/**"
-      - "types/**"
-      - "scripts/**"
-      - "examples/**"
+      - "scripts/check-api.mjs"
   workflow_dispatch:
 
 permissions:

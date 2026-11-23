@@ -21,3 +21,4 @@ it; M1 Arc alone does not run a Breach Protocol solver.
 
 See [native development](https://github.com/m1nsook/m1arc/tree/native)
 and [GitHub Releases](https://github.com/m1nsook/m1arc/releases).
+The public distribution page is [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311).

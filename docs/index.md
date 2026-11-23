@@ -31,5 +31,9 @@ The native interface continues to develop independently on the
 
 <M1Preview />
 
+The official [M1 Arc Nexus Mods page](https://www.nexusmods.com/cyberpunk2077/mods/39311)
+will host the public mod release. [GitHub Releases](https://github.com/m1nsook/m1arc/releases)
+provides versioned installation packages and checksums when published.
+
 See the [installation guide](/quickstart), [mod manifest reference](/mod-manifest)
 and [REDscript API](/native-api) for the real framework.
