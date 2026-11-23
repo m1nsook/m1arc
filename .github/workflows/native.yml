@@ -34,6 +34,14 @@ jobs:
         run: |
           ctest --test-dir build -C Release --output-on-failure
           if ($LASTEXITCODE -ne 0) { throw "Native tests failed" }
+      - name: Check M1 Arc REDscript declarations with pinned upstream CLI
+        shell: pwsh
+        env:
+          REDSCRIPT_GAME_BUNDLE_URL: ${{ secrets.REDSCRIPT_GAME_BUNDLE_URL }}
+          REDSCRIPT_GAME_BUNDLE_SHA256: ${{ secrets.REDSCRIPT_GAME_BUNDLE_SHA256 }}
+        run: |
+          ./scripts/check_redscript_cli.ps1 -SourceRoots @("r6/scripts/m1arc")
+          if ($LASTEXITCODE -ne 0) { throw "REDscript CLI checks failed" }
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

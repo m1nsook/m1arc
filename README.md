@@ -181,6 +181,38 @@ Windows CI exercises a simulated click backend, focus rejection, invalid
 coordinates, and emergency button-release behavior. Real game UI
 compatibility remains unverified; no automatic input is sent by this build.
 
+## Official REDscript CLI validation
+
+Windows CI now downloads the official
+[\`jac3km4/redscript\` CLI v1.0.1](https://github.com/jac3km4/redscript/releases/tag/v1.0.1),
+verifies its pinned SHA-256, and runs its real **parser** against
+\`r6/scripts/m1arc/\` on every native build. Source parse failures fail
+the workflow; the format command is run *without* \`--save\` or
+\`--check\`, so it does not rewrite the files or mistake formatting for
+compiler errors.
+
+**Full semantic \`lint\` and \`compile\` need a Cyberpunk 2077 2.5
+\`final.redscripts\` game bundle.** This compiled CDPR asset is not stored
+in the public repo. To enable the full checks, configure BOTH GitHub
+Actions repository secrets:
+
+- \`REDSCRIPT_GAME_BUNDLE_URL\`: HTTPS URL to a privately hosted,
+  unmodified game 2.5 \`final.redscripts\` file. The URL must be
+  accessible to the Windows CI runner.
+- \`REDSCRIPT_GAME_BUNDLE_SHA256\`: SHA-256 of the exact file.
+
+The workflow verifies the bundle hash and then performs actual
+\`redscript-cli lint -s <sources> -b <bundle> --runtime-compatible\`
+and \`compile ... -o <temp-file>\`. It deletes the temporary compiled
+game bundle and does not upload or redistribute it.
+
+**If the private game bundle isn't configured, CI explicitly marks
+semantic lint and compile as SKIPPED.** A green native/parse check
+must never be described as REDscript semantic compilation or in-game
+functionality. For a matching local game bundle, the same
+\`scripts/check_redscript_cli.ps1\` command can be run from PowerShell
+with environment variables set.
+
 ## Development rules
 
 This branch is strictly focused on working RED4ext + ImGui initialization,
