@@ -2,7 +2,8 @@
 
 Each mod registers native settings. M1 Arc displays them in its in-game
 Dear ImGui control panel. The current schema supports Boolean toggles,
-integer/float sliders and choice controls.
+integer/float sliders, choice controls, checkboxes, action buttons and
+sections. See [mod manifests](/mod-manifest) for author configuration.
 
 Changes are stored in `red4ext/plugins/m1arc/settings.json` and applied
 to registered native values immediately. The stored file is user data:
