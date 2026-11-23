@@ -289,11 +289,13 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
     const float right=ImGui::GetWindowPos().x+ImGui::GetWindowWidth()-1.f;
     draw->AddLine(ImVec2(right,ImGui::GetWindowPos().y),
                   ImVec2(right,ImGui::GetWindowPos().y+height),Color(p.ink),2.f);
-    ImGui::SetCursorPos(ImVec2(0.f,12.f));
     if (mods.empty()) {
-        ImGui::SetCursorPosX(16.f);
+        // The empty state is intentionally padded, but real mod rows
+        // must start flush with the top of the sidebar under the header.
+        ImGui::SetCursorPos(ImVec2(16.f,12.f));
         ImGui::TextDisabled("NO REGISTERED MODS");
     } else {
+        ImGui::SetCursorPos(ImVec2(0.f,0.f));
         for (const auto& mod : mods) {
             const bool selected=SelectedMod()==mod.id;
             ImGui::PushID(mod.id.c_str());
