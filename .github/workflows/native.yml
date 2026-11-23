@@ -1,9 +1,6 @@
 name: M1 Arc native build
 
 on:
-  push:
-    branches:
-      - feat/m1arc-native-redscript-imgui
   pull_request:
     paths:
       - "src/**"
