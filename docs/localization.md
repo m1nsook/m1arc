@@ -1,13 +1,12 @@
 # Languages and translations
 
-M1 Arc uses **native JSON** files for its interface and for individual
-mods. No Lua, CET dependency, or custom scripting language is needed.
+M1 Arc uses **JSON language files** for its interface and individual mods.
 
 ## Select a language
 
 Open M1 Arc and use the language drop-down in the control panel footer.
 Choose **English**, **Polski**, or **한국어**. Your selection is saved in
-\`red4ext/plugins/m1arc/settings.json\` as \`overlay.language\`, alongside
+`red4ext/plugins/m1arc/settings.json` as `overlay.language`, alongside
 the theme and keyboard shortcut.
 
 The setting is preserved across game restarts. Only visible text changes:
@@ -56,7 +55,7 @@ red4ext/plugins/m1arc/mods/example.my-mod/
     ko_KR.json
 ~~~
 
-Example \`ko_KR.json\`:
+Example `ko_KR.json`:
 
 ~~~json
 {
@@ -79,8 +78,8 @@ Example \`ko_KR.json\`:
 }
 ~~~
 
-The keys in \`settings\` are your original setting IDs from
-\`settings.json\`. In \`choices\`, the keys are the original option
+The keys in `settings` are your original setting IDs from
+`settings.json`. In `choices`, the keys are the original option
 values; only the values in the translation file are displayed.
 **Never translate IDs or stored values.** REDscript continues to read
 the exact original values.

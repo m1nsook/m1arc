@@ -11,14 +11,8 @@ Dear ImGui interface rendered using the game's DX12 frame integration.
 | `settings.json` in each mod | Declarative control definitions |
 | `red4ext/plugins/m1arc/settings.json` | Player-selected values, profiles, theme and panel shortcut |
 
-The framework is independent of Cyber Engine Tweaks. It does not embed
-Lua, run a new script VM, or support the retired `.m1s` and `.m1c`
-file types.
+M1 Arc reads mod settings from JSON and exposes typed native functions to
+REDscript. Game actions belong to the mod that handles them.
 
-M1 Arc has an optional game-native input bridge for the separately
-installed Skip Breach mod. The bridge is dormant until that mod enables
-it; M1 Arc alone does not run a Breach Protocol solver.
-
-See [native development](https://github.com/m1nsook/m1arc/tree/native)
-and [GitHub Releases](https://github.com/m1nsook/m1arc/releases).
-The public distribution page is [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311).
+See the [native API](/native-api), [mod manifests](/mod-manifest), and
+[GitHub repository](https://github.com/m1nsook/m1arc).

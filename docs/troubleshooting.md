@@ -3,7 +3,7 @@
 ## The game rejects `M1Arc.reds` native declarations
 
 Check that the installed `M1Arc.reds` and `m1arc.dll` come from the
-**same GitHub release**. A newer REDscript declaration with an older
+**same build**. A newer REDscript declaration with an older
 DLL can cause RED4ext to reject native definitions on startup.
 
 Install the complete game-root ZIP rather than mixing files from
@@ -28,11 +28,6 @@ marker and restart the game. GitHub Release ZIPs omit it.
 The ordinary release ZIP does not contain or overwrite
 `red4ext/plugins/m1arc/settings.json`. Confirm you installed to the
 same Cyberpunk game directory and haven't deleted your stored file.
-
-## Can I keep Cyber Engine Tweaks installed?
-
-Yes. M1 Arc is a standalone RED4ext plugin and does not require CET.
-Choose independent menu shortcuts for the two overlays.
 
 ## How should I report an issue?
 

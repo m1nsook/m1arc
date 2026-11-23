@@ -1,25 +1,22 @@
 # Panel shortcut and keyboard handling
 
-M1 Arc uses an **independent, user-selected** shortcut for its
-native settings panel. You choose it the first time you launch
+M1 Arc uses a **user-selected** shortcut for its native settings panel. You choose it the first time you launch
 Cyberpunk with M1 Arc installed, and can rebind it using the panel.
 
 The chosen key is stored in
 `red4ext/plugins/m1arc/settings.json` as `overlay.hotkey`.
-It is not hardcoded to F8, F10, F11 or the CET menu shortcut.
+The menu key is chosen by the player.
 
 The same chosen key opens and closes the panel. Escape is **not**
 required to close it. The framework also includes an emergency
 recovery combination (`Ctrl+Shift+F11`) intended for stuck input.
 
-M1 Arc does not overwrite CET's own hotkey. When the control panel is
-not open, normal keyboard and mouse input should continue to reach the game.
+When the panel is closed, normal keyboard and mouse input continue to reach the game.
 
 ## Per-mod gameplay hotkeys
 
-Mods can now declare a persistent native hotkey control in their
-`settings.json`. It is separate from the framework's menu shortcut,
-and does **not** require the Lua `registerHotkey` API or CET.
+Mods can declare their own persistent hotkeys in `settings.json`, separately
+from the panel shortcut.
 
 ~~~json
 {
@@ -46,6 +43,6 @@ if M1Arc_ConsumeAction("example.my-mod", "spawn_hotkey") {
 }
 ~~~
 
-Key presses are **not** commands, and M1 Arc does not execute
-scripts from JSON or intercept normal gameplay input.
+The mod implements the action in its own REDscript code; M1 Arc queues the
+key press as an event.
 See [mod manifests](/mod-manifest) for details.
