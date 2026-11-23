@@ -370,6 +370,7 @@ void DrawRebindModal() {
     auto& input = InputRouter::Get();
     if (input.IsRecording()) ImGui::OpenPopup("M1 ARC - CHOOSE MENU KEY");
     ImGui::SetNextWindowSize(ImVec2(390,0),ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(18.f,18.f));
     if (ImGui::BeginPopupModal("M1 ARC - CHOOSE MENU KEY",nullptr,
                               ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::TextUnformatted("Press your preferred keyboard key.");
@@ -380,6 +381,7 @@ void DrawRebindModal() {
         if (!input.IsRecording()) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
+    ImGui::PopStyleVar();
 }
 
 } // namespace
@@ -399,6 +401,13 @@ void DrawArcUI() {
         SelectedMod() = mods.empty() ? std::string{} : mods.front().id;
 
     const auto* viewport = ImGui::GetMainViewport();
+    // CET-like dimming is visual only and never owns gameplay input.
+    // The background draw list is below the native control panel.
+    ImGui::GetBackgroundDrawList(viewport)->AddRectFilled(
+        viewport->Pos,
+        ImVec2(viewport->Pos.x+viewport->Size.x,
+               viewport->Pos.y+viewport->Size.y),
+        IM_COL32(0,0,0,206));
     const float width = std::max(320.f,std::min(1280.f,viewport->Size.x-48.f));
     const float height = std::max(260.f,std::min(720.f,viewport->Size.y-48.f));
     ImGui::SetNextWindowPos(viewport->GetCenter(),ImGuiCond_Always,ImVec2(.5f,.5f));
