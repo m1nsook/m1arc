@@ -4,6 +4,9 @@
 native func M1Arc_Version() -> String;
 native func M1Arc_RegisterJson(modId: String, displayName: String, schemaJson: String) -> Bool;
 native func M1Arc_GetJson(modId: String, settingId: String) -> String;
+// True once for each click on a declared action button (up to 16 pending).
+// Call from your own mod's update/gameplay logic. Never execute commands in JSON.
+native func M1Arc_ConsumeAction(modId: String, actionId: String) -> Bool;
 native func M1Arc_GetBool(modId: String, settingId: String) -> Bool;
 native func M1Arc_GetInt(modId: String, settingId: String) -> Int32;
 native func M1Arc_GetFloat(modId: String, settingId: String) -> Float;

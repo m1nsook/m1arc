@@ -16,6 +16,7 @@ std::optional<SettingKind> ParseKind(const std::string& name)
     if (name == "integer") return SettingKind::Integer;
     if (name == "float") return SettingKind::Float;
     if (name == "choice") return SettingKind::Choice;
+    if (name == "action") return SettingKind::Action;
     return std::nullopt;
 }
 
@@ -54,6 +55,8 @@ std::optional<nlohmann::json> Registry::Normalize(
     const SettingView& setting, const nlohmann::json& input)
 {
     switch (setting.kind) {
+    case SettingKind::Action:
+        return std::nullopt; // Buttons are ephemeral events, not setting values.
     case SettingKind::Boolean:
         if (!input.is_boolean()) return std::nullopt;
         return input;
@@ -107,7 +110,7 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
         if (!item.is_object()) return false;
         if (!item.contains("id") || !item["id"].is_string() ||
             !item.contains("kind") || !item["kind"].is_string() ||
-            !item.contains("default")) return false;
+            (item["kind"] != "action" && !item.contains("default"))) return false;
 
         SettingView row;
         row.id = item["id"].get<std::string>();
@@ -122,9 +125,41 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
         row.label = item.value("label", row.id);
         row.description = item.value("description", std::string{});
         row.group = item.value("group", std::string("General"));
+        if (row.label.empty() || row.group.empty()) return false;
         if (row.label.size() > 140 || row.description.size() > 500 ||
             row.group.size() > 96) return false;
 
+        if (item.contains("presentation")) {
+            if (row.kind != SettingKind::Boolean || !item["presentation"].is_string())
+                return false;
+            const std::string style = item["presentation"].get<std::string>();
+            if (style != "switch" && style != "checkbox") return false;
+            row.checkbox = style == "checkbox";
+        }
+        if (item.contains("button")) {
+            // A data-only inline action ID, never a console command.
+            if ((row.kind != SettingKind::Integer && row.kind != SettingKind::Float) ||
+                !item["button"].is_object()) return false;
+            const auto& button = item["button"];
+            if (!button.contains("id") || !button["id"].is_string() ||
+                !button.contains("label") || !button["label"].is_string()) return false;
+            row.buttonId = button["id"].get<std::string>();
+            row.buttonLabel = button["label"].get<std::string>();
+            if (!ValidId(row.buttonId) || row.buttonLabel.empty() ||
+                row.buttonLabel.size() > 100) return false;
+        }
+        if (row.kind == SettingKind::Action) {
+            if (item.contains("default") || item.contains("choices") ||
+                item.contains("min") || item.contains("max") || item.contains("step"))
+                return false;
+            if (item.contains("buttonLabel") && !item["buttonLabel"].is_string())
+                return false;
+            row.buttonLabel = item.value("buttonLabel", row.label);
+            if (row.buttonLabel.empty() || row.buttonLabel.size() > 100)
+                return false;
+            prepared.settings.push_back(std::move(row));
+            continue;
+        }
         if (row.kind == SettingKind::Integer || row.kind == SettingKind::Float) {
             if (!item.value("min", json(0)).is_number() ||
                 !item.value("max", json(100)).is_number()) return false;
@@ -161,8 +196,23 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
         }
         prepared.settings.push_back(std::move(row));
     }
+    // Button IDs must not collide with any setting ID or other button IDs.
+    std::vector<std::string> actionIds;
+    for (const auto& row : prepared.settings) {
+        if (row.kind == SettingKind::Action) actionIds.push_back(row.id);
+        if (!row.buttonId.empty()) actionIds.push_back(row.buttonId);
+    }
+    std::sort(actionIds.begin(), actionIds.end());
+    if (std::adjacent_find(actionIds.begin(), actionIds.end()) != actionIds.end())
+        return false;
+    for (const auto& action : actionIds)
+        if (std::any_of(prepared.settings.begin(), prepared.settings.end(),
+            [&](const SettingView& row) {
+                return row.id == action && row.kind != SettingKind::Action;
+            })) return false;
 
     std::lock_guard guard(mutex_);
+    pendingActions_.erase(id); // Re-registration does not replay stale clicks.
     mods_[id] = std::move(prepared);
     return true;
 }
@@ -187,8 +237,40 @@ std::optional<nlohmann::json> Registry::Get(
     if (it == mods_.end()) return std::nullopt;
     const auto found = std::find_if(it->second.settings.begin(), it->second.settings.end(),
         [&](const SettingView& s) { return s.id == key; });
-    if (found == it->second.settings.end()) return std::nullopt;
+    if (found == it->second.settings.end() || found->kind == SettingKind::Action)
+        return std::nullopt;
     return found->value;
+}
+
+bool Registry::QueueAction(std::string_view mod, std::string_view action)
+{
+    std::lock_guard guard(mutex_);
+    const auto it = mods_.find(std::string(mod));
+    if (it == mods_.end()) return false;
+    const bool declared = std::any_of(it->second.settings.begin(),
+        it->second.settings.end(), [&](const SettingView& s) {
+            return (s.kind == SettingKind::Action && s.id == action) ||
+                   (!s.buttonId.empty() && s.buttonId == action);
+        });
+    if (!declared) return false;
+    auto& pending = pendingActions_[it->first][std::string(action)];
+    // Bound the queue: repeatedly clicking during a paused game cannot
+    // create unlimited delayed game effects.
+    if (pending < 16u) ++pending;
+    return true;
+}
+
+bool Registry::ConsumeAction(std::string_view mod, std::string_view action)
+{
+    std::lock_guard guard(mutex_);
+    const auto modIt = pendingActions_.find(std::string(mod));
+    if (modIt == pendingActions_.end()) return false;
+    const auto it = modIt->second.find(std::string(action));
+    if (it == modIt->second.end() || it->second == 0u) return false;
+    --it->second;
+    if (it->second == 0u) modIt->second.erase(it);
+    if (modIt->second.empty()) pendingActions_.erase(modIt);
+    return true;
 }
 
 bool Registry::Persist(const std::function<void(json&)>& update)
@@ -265,9 +347,12 @@ bool Registry::ResetMod(std::string_view mod)
         auto& values = document["values"];
         values[it->first] = json::object();
         for (const auto& setting : it->second.settings)
-            values[it->first][setting.id] = setting.defaultValue;
+            if (setting.kind != SettingKind::Action)
+                values[it->first][setting.id] = setting.defaultValue;
     })) return false;
-    for (auto& setting : it->second.settings) setting.value = setting.defaultValue;
+    for (auto& setting : it->second.settings)
+        if (setting.kind != SettingKind::Action)
+            setting.value = setting.defaultValue;
     return true;
 }
 
@@ -285,7 +370,8 @@ bool Registry::SaveProfile(std::string name)
             if (!profile.contains(id) || !profile[id].is_object())
                 profile[id] = json::object();
             for (const auto& setting : mod.settings)
-                profile[id][setting.id] = setting.value;
+                if (setting.kind != SettingKind::Action)
+                    profile[id][setting.id] = setting.value;
         }
         document["profiles"][name] = std::move(profile);
     });
@@ -324,7 +410,7 @@ bool Registry::LoadProfile(std::string_view name)
             const auto registered = mods_.find(modId);
             if (registered == mods_.end()) continue;
             for (const auto& setting : registered->second.settings) {
-                if (!record.contains(setting.id)) continue;
+                if (setting.kind == SettingKind::Action || !record.contains(setting.id)) continue;
                 const auto next = Normalize(setting, record[setting.id]);
                 if (!next) {
                     valid = false;
