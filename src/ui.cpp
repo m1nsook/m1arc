@@ -515,7 +515,9 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     ImGui::BeginChild("##settings-scroll",
                       ImVec2(interior,std::max(20.f,height-footerHeight-32.f)),
                       ImGuiChildFlags_None,0); // native scrollbar appears when content overflows
-    ImGui::SetCursorPos(ImVec2(8.f,10.f));
+    // Keep 10px of top breathing room without indenting only the first
+    // setting: ImGui advances subsequent rows back to the child's x=0.
+    ImGui::SetCursorPosY(10.f);
     if (selected) {
         const bool active = Enabled(*selected);
         // Settings are native live controls, derived from each REDscript mod's
