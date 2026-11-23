@@ -19,3 +19,9 @@ native func M1Arc_ResetMod(modId: String) -> Bool;
 native func M1Arc_SaveProfile(name: String) -> Bool;
 native func M1Arc_LoadProfile(name: String) -> Bool;
 native func M1Arc_DeleteProfile(name: String) -> Bool;
+
+// Optional internal game-action bridge for compatible Cyberpunk 2077 2.5
+// builds. False on unsupported versions or signature mismatch.
+native func M1Arc_BreachInputAvailable() -> Bool;
+@addMethod(inkLogicController)
+public native func M1Arc_BreachSelectCell(position: Vector2) -> Bool;

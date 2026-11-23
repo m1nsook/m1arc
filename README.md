@@ -158,6 +158,15 @@ failed persistence. Choice settings use `GetString`/`SetString`.
 are included in the CI build package, but actual REDscript compilation and
 in-game live settings still require verification on Cyberpunk 2077.
 
+## Optional, guarded Breach Protocol input
+
+See [Breach Protocol native bridge](docs/BREACH_INPUT.md). On an exact
+supported Cyberpunk 2077 2.5 build, M1 Arc exposes a version-gated,
+signature-checked selection method to the game's hacking logic
+controller. It never automatically clicks or solves anything, and
+fails closed on unsupported builds. The upcoming Skip Breach consumer
+still performs its own gameplay UI verification.
+
 ## Future input-assisted mods
 
 M1 Arc includes a **guarded, internal native mouse-click utility**, ported

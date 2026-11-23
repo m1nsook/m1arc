@@ -5,6 +5,7 @@
 #include "dev_fixture.hpp"
 #include "graphics.hpp"
 #include "input.hpp"
+#include "breach_select.hpp"
 #include "state.hpp"
 
 
@@ -270,6 +271,8 @@ void PostRegisterTypes()
     add("M1Arc_SaveProfile",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SaveProfile),"Bool",one,1);
     add("M1Arc_LoadProfile",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&LoadProfile),"Bool",one,1);
     add("M1Arc_DeleteProfile",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&DeleteProfile),"Bool",one,1);
+    // Optional, strictly version-gated game controller selection bridge.
+    m1arc::breach::RegisterNative();
 }
 
 std::filesystem::path ModuleDirectory()
@@ -299,6 +302,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     const auto folder=ModuleDirectory();
     if (folder.empty()) return false;
     m1arc::Store().Configure(folder / L"settings.json");
+    m1arc::breach::Initialize();
     // Manifest discovery is native and data-only; REDscript supplies the
     // actual gameplay logic. No CET, Lua, or automatic code execution.
     const auto manifestReport=m1arc::LoadManifests(folder,m1arc::Settings());

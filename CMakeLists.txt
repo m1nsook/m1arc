@@ -59,13 +59,14 @@ if(WIN32)
         src/graphics.cpp
         src/input.cpp
         src/mouse_click.cpp
+        src/breach_select.cpp
         src/ui.cpp
         src/fonts.cpp
     )
     target_include_directories(m1arc PRIVATE src)
     target_link_libraries(m1arc PRIVATE
         m1arc_registry RED4ext::SDK m1arc_imgui
-        d3d12 dxgi user32)
+        d3d12 dxgi user32 version)
     target_compile_definitions(m1arc PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE RED4EXT_HEADER_ONLY)
     set_target_properties(m1arc PROPERTIES
