@@ -1,6 +1,7 @@
 // M1 Arc RED4ext plugin: native REDscript settings and standalone ImGui.
 // CET may coexist; we neither depend on it nor modify its state.
 #include "registry.hpp"
+#include "mod_manifest.hpp"
 #include "dev_fixture.hpp"
 #include "graphics.hpp"
 #include "input.hpp"
@@ -298,6 +299,15 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     const auto folder=ModuleDirectory();
     if (folder.empty()) return false;
     m1arc::Store().Configure(folder / L"settings.json");
+    // Manifest discovery is native and data-only; REDscript supplies the
+    // actual gameplay logic. No CET, Lua, or automatic code execution.
+    const auto manifestReport=m1arc::LoadManifests(folder,m1arc::Settings());
+    if (sdk && sdk->logger && sdk->logger->Warn) {
+        for (const auto& error:manifestReport.errors) {
+            const std::string warning="m1arc mod: "+error;
+            sdk->logger->Warn(handle,warning.c_str());
+        }
+    }
     // Draft/dev artifact includes a marker; delete the marker to hide the
     // temporary UI test mod. Normal releases must NOT include the marker.
     (void)m1arc::dev::RegisterIfEnabled(folder,m1arc::Settings());

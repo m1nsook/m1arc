@@ -88,6 +88,17 @@ Public releases must omit the development marker. The separate language
 selector and translated text files are planned as native localization,
 not as an invented scripting format.
 
+## Installing mods and declaring settings
+
+Mods can register **without any runtime registration script**: put
+`mod.json` and `settings.json` under
+`red4ext/plugins/m1arc/mods/<mod-id>/`, and install that mod's normal
+REDscript under `r6/scripts/`. M1 Arc scans and validates manifests
+at startup. See [Mod manifest specification](docs/MOD_MANIFEST.md).
+
+The sample carry-weight mod lives in the [CP2077 repository](https://github.com/m1nsook/CP2077)
+and uses this folder convention.
+
 ## Native API
 
 M1 Arc exports these native REDscript RTTI global functions:

@@ -49,7 +49,7 @@ target_include_directories(m1arc_state PUBLIC src)
 target_link_libraries(m1arc_state PUBLIC nlohmann_json::nlohmann_json)
 target_compile_definitions(m1arc_state PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
 
-add_library(m1arc_registry STATIC src/registry.cpp)
+add_library(m1arc_registry STATIC src/registry.cpp src/mod_manifest.cpp)
 target_include_directories(m1arc_registry PUBLIC src)
 target_link_libraries(m1arc_registry PUBLIC m1arc_state)
 
@@ -76,6 +76,10 @@ if(BUILD_TESTING)
     add_executable(m1arc_registry_tests tests/registry_tests.cpp)
     target_link_libraries(m1arc_registry_tests PRIVATE m1arc_registry)
     add_test(NAME registry COMMAND m1arc_registry_tests)
+
+    add_executable(m1arc_manifest_tests tests/mod_manifest_tests.cpp)
+    target_link_libraries(m1arc_manifest_tests PRIVATE m1arc_registry)
+    add_test(NAME manifests COMMAND m1arc_manifest_tests)
 
     add_executable(m1arc_dev_fixture_tests tests/dev_fixture_tests.cpp)
     target_link_libraries(m1arc_dev_fixture_tests PRIVATE m1arc_registry)
