@@ -245,6 +245,60 @@ int main()
     invalidStyle[0]["button"]["id"]="../unsafe";
     REQUIRE(!actionsRegistry.Register("bad.unsafe.button","Bad",invalidStyle));
 
+    // Native hotkey controls persist key codes but trigger one-shot
+    // in-memory events on physical key down, never on UI/game focus loss.
+    const auto keysSchema = json::array({
+        {{"id","enabled"},{"kind","boolean"},{"default",true}},
+        {{"id","spawn_hotkey"},{"kind","hotkey"},{"label","Spawn hotkey"},
+         {"group","Weapons"},{"default",0}},
+        {{"id","another_hotkey"},{"kind","hotkey"},{"default",0}}
+    });
+    m1arc::Registry keyRegistry(store);
+    REQUIRE(keyRegistry.Register("keys.mod","Hotkeys",keysSchema));
+    REQUIRE(keyRegistry.Get("keys.mod","spawn_hotkey").value()==0);
+    REQUIRE(keyRegistry.Snapshot().front().settings[1].kind==m1arc::SettingKind::Hotkey);
+    REQUIRE(!keyRegistry.Set("keys.mod","spawn_hotkey","F7"));
+    REQUIRE(!keyRegistry.Set("keys.mod","spawn_hotkey",0x1B)); // Escape
+    REQUIRE(!keyRegistry.Set("keys.mod","spawn_hotkey",0x11)); // Ctrl
+    REQUIRE(!keyRegistry.Set("keys.mod","spawn_hotkey",0x5B)); // Win
+    REQUIRE(!keyRegistry.Set("keys.mod","spawn_hotkey",1000));
+    REQUIRE(keyRegistry.Set("keys.mod","spawn_hotkey",0x76)); // F7
+    keyRegistry.QueueHotkeyKey(0x77);
+    REQUIRE(!keyRegistry.ConsumeAction("keys.mod","spawn_hotkey"));
+    keyRegistry.QueueHotkeyKey(0x76);
+    keyRegistry.QueueHotkeyKey(0x76);
+    REQUIRE(keyRegistry.ConsumeAction("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.ConsumeAction("keys.mod","spawn_hotkey"));
+    REQUIRE(!keyRegistry.ConsumeAction("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.Set("keys.mod","enabled",false));
+    keyRegistry.QueueHotkeyKey(0x76);
+    REQUIRE(!keyRegistry.ConsumeAction("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.Set("keys.mod","enabled",true));
+    REQUIRE(keyRegistry.QueueAction("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.ConsumeAction("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.SaveProfile("hotkeys"));
+    REQUIRE(json::parse(store.Snapshot())["profiles"]["hotkeys"]["keys.mod"]
+            ["spawn_hotkey"]==0x76);
+    m1arc::StateStore hotkeyRestart;
+    hotkeyRestart.Configure(path);
+    REQUIRE(hotkeyRestart.Ready());
+    m1arc::Registry hotkeyRestored(hotkeyRestart);
+    REQUIRE(hotkeyRestored.Register("keys.mod","Hotkeys",keysSchema));
+    REQUIRE(hotkeyRestored.Get("keys.mod","spawn_hotkey").value()==0x76);
+    REQUIRE(!hotkeyRestored.ConsumeAction("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.Reset("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.Get("keys.mod","spawn_hotkey").value()==0);
+    keyRegistry.QueueHotkeyKey(0x76);
+    REQUIRE(!keyRegistry.ConsumeAction("keys.mod","spawn_hotkey"));
+    REQUIRE(keyRegistry.LoadProfile("hotkeys"));
+    REQUIRE(keyRegistry.Get("keys.mod","spawn_hotkey").value()==0x76);
+    auto invalidHotkey=keysSchema;
+    invalidHotkey[1]["default"]=0x1B;
+    REQUIRE(!keyRegistry.Register("invalid.key","Invalid",invalidHotkey));
+    invalidHotkey=keysSchema;
+    invalidHotkey[1]["min"]=0;
+    REQUIRE(!keyRegistry.Register("invalid.constraints","Invalid",invalidHotkey));
+
     // Corrupt settings state must be read-only: profile/reset operations
     // must return useful errors and never pretend to persist live changes.
     const auto brokenPath = path.parent_path() / "broken.json";
