@@ -41,7 +41,7 @@ int main() {
         hasHotkey |= setting.kind==m1arc::SettingKind::Hotkey;
     }
     REQUIRE(hasBool && hasInteger && hasFloat && hasChoice && hasLong);
-    REQUIRE(hasCheckbox && hasAction && hasInlineAction && hasWeapons);
+    REQUIRE(hasCheckbox && hasAction && hasInlineAction && hasWeapons && hasHotkey);
     REQUIRE(registry.QueueAction("m1arc.ui-test","spawn_ammo"));
     REQUIRE(registry.ConsumeAction("m1arc.ui-test","spawn_ammo"));
     REQUIRE(!registry.ConsumeAction("m1arc.ui-test","spawn_ammo"));
