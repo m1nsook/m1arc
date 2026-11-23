@@ -23,16 +23,16 @@ Cyberpunk 2077/
   "format": 1,
   "id": "m1nsook.weight",
   "name": "Weight Limit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "scope": "Gameplay",
   "shortDesc": "Customize V's carrying capacity",
-  "requires": { "m1arc": "0.1.0" }
+  "requires": { "m1arc": "1.0.0" }
 }
 \`\`\`
 
 The folder name **must match** \`id\` (ASCII letters, digits, \`.\`, \`-\`,
 \`_\`; maximum 96 characters). Version strings use numeric \`major.minor.patch\`.
-\`requires.m1arc\` is a minimum version (M1 Arc currently 0.1.0).
+\`requires.m1arc\` is a minimum version (M1 Arc currently 1.0.0).
 A missing \`requires\` field is permitted; including it is recommended.
 
 
