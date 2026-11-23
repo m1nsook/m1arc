@@ -302,7 +302,7 @@ std::string FitLabel(std::string label, float available) {
 
 // Draw-list only: the floating card never creates another ImGui window,
 // focus target, mouse hitbox, or gameplay input capture.
-void DrawToasts(const ImGuiViewport* viewport, const ImVec2& panelPos,
+void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
                 const ImVec2& panelSize) {
     auto& queue = ToastQueue();
     if (queue.empty() || !viewport) return;
