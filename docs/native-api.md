@@ -12,6 +12,7 @@ The canonical API source is [M1Arc.reds on the native branch](https://github.com
 | `M1Arc_Version()` | String | Framework version |
 | `M1Arc_RegisterJson(modId, displayName, schemaJson)` | Bool | Register settings from a JSON schema |
 | `M1Arc_GetJson(modId, settingId)` | String | Get JSON-encoded value |
+| `M1Arc_ConsumeAction(modId, actionId)` | Bool | Consume one queued button press, if any |
 | `M1Arc_GetBool(modId, settingId)` | Bool | Typed Boolean getter |
 | `M1Arc_GetInt(modId, settingId)` | Int32 | Typed integer getter |
 | `M1Arc_GetFloat(modId, settingId)` | Float | Typed float getter |
@@ -27,6 +28,11 @@ The canonical API source is [M1Arc.reds on the native branch](https://github.com
 | `M1Arc_SaveProfile(name)` | Bool | Save user settings |
 | `M1Arc_LoadProfile(name)` | Bool | Restore user settings |
 | `M1Arc_DeleteProfile(name)` | Bool | Delete a profile |
+
+Button actions are events, not saved values. Define a `kind: "action"`
+row or an inline numeric `button` in the mod schema and call
+`M1Arc_ConsumeAction` from your REDscript gameplay logic.
+The framework does not execute arbitrary console commands from JSON.
 
 ## Using values
 
