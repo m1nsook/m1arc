@@ -29,13 +29,18 @@ TweakDB editor and CET branding are **not** included. The original
 Windows Actions produces **one game-root artifact**, containing
 `red4ext/plugins/m1arc/m1arc.dll`, `r6/scripts/m1arc/M1Arc.reds`, and the repository LICENSE.
 
-The native UI uses **Karla** for its main text and the **Phosphor regular icon font**
-for icons. Their OFL/MIT license notices ship in the same package. The
+The native UI uses **Karla SemiBold (600), 18 px** for readable main
+text and **Phosphor Regular icons** at matching size. GitHub Actions
+generates fixed-weight TTFs from the pinned Karla variable-font source;
+the runtime never depends on the variable font's default axis value.
+Karla Medium (500) is a fallback, and Bold (700) is available for
+headings. Light and dark muted text has stronger contrast and disabled
+controls retain sufficient opacity. Font sizing is intentionally designed
+for in-game readability rather than extra-light/thin styling. Their OFL/MIT license notices ship in the same package. The
 supplied `fonts.zip` contains Blender Pro Medium, Bold and Heavy, which are
 proprietary and deliberately **not published** by this repository: if you
 have the right to use them, extract those three files directly to
-`red4ext/plugins/m1arc/fonts/` to enable Blender Pro headings. Karla
-headings remain the fallback if those files are absent.
+`red4ext/plugins/m1arc/fonts/` to enable Blender Pro headings. Karla Bold headings remain the fallback if those files are absent.
 
 **Light is the first-run default**. The light/dark toggle stores a choice in
 `red4ext/plugins/m1arc/settings.json`, and existing saved preferences always win.

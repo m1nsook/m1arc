@@ -8,6 +8,7 @@ on:
       - "CMakeLists.txt"
       - "r6/**"
       - "README.md"
+      - "scripts/**"
       - ".github/workflows/native.yml"
 
 permissions:
@@ -33,6 +34,14 @@ jobs:
         run: |
           ctest --test-dir build -C Release --output-on-failure
           if ($LASTEXITCODE -ne 0) { throw "Native tests failed" }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Karla font instancer
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check "fonttools==4.60.1"
+          if ($LASTEXITCODE -ne 0) { throw "FontTools installation failed" }
       - name: Package single game-root ZIP layout
         shell: pwsh
         run: |
@@ -47,11 +56,14 @@ jobs:
           $karla = "06bfe0d62a98375cb09c942fa18e68bd32cff057"
           $phosphor = "3d40a3eaa73b25d20d263f0e1e55c9fed3e66809"
           $ErrorActionPreference = "Stop"
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/Karla%5Bwght%5D.ttf" -OutFile "$fonts/Karla-Regular.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/Karla%5Bwght%5D.ttf" -OutFile "$fonts/Karla-Variable.ttf"
+          python scripts/instantiate_karla.py "$fonts/Karla-Variable.ttf" "$fonts"
+          if ($LASTEXITCODE -ne 0) { throw "Karla fixed-weight generation failed" }
+          Remove-Item "$fonts/Karla-Variable.ttf"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/OFL.txt" -OutFile "$fonts/Karla-OFL.txt"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/src/regular/Phosphor.ttf" -OutFile "$fonts/Phosphor-Regular.ttf"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/LICENSE" -OutFile "$fonts/Phosphor-MIT.txt"
-          foreach ($font in @("Karla-Regular.ttf", "Phosphor-Regular.ttf")) {
+          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "Phosphor-Regular.ttf")) {
             if ((Get-Item "$fonts/$font").Length -lt 10000) { throw "Invalid or missing font asset: $font" }
           }
           $apiPath = "package/r6/scripts/m1arc"

@@ -34,8 +34,9 @@ ImFont* Add(ImFontAtlas* atlas,const std::filesystem::path& dir,
     const auto filename=Utf8(path);
     if (filename.empty()) return nullptr;
     ImFontConfig config{};
-    config.OversampleH=2;
-    config.OversampleV=1;
+    // Readable at 1080p and at reduced desktop scaling: prioritize crisp stems.
+    config.OversampleH=3;
+    config.OversampleV=2;
     return atlas->AddFontFromFileTTF(filename.c_str(),size,&config,ranges);
 }
 } // namespace
@@ -53,9 +54,17 @@ void Load() noexcept {
         static const ImWchar textRanges[] = {
             0x0020,0x024F,0x2000,0x206F,0x20AC,0x20AC,0
         };
-        // Order is intentional: merge Phosphor into Karla BEFORE headings.
-        body=Add(atlas,folder,L"Karla-Regular.ttf",16.f,textRanges);
-        if (!body) body=atlas->AddFontDefault();
+        // Use a real static, pinned SemiBold (wght=600) rather than an
+        // uninstanced variable font. Small/thin letters lose strokes in DX12.
+        // The build validates actual usWeightClass and absence of fvar.
+        // Order matters: Phosphor merges into the first loaded Karla font.
+        body=Add(atlas,folder,L"Karla-SemiBold.ttf",18.f,textRanges);
+        if (!body) body=Add(atlas,folder,L"Karla-Medium.ttf",18.f,textRanges);
+        if (!body) {
+            ImFontConfig fallback{};
+            fallback.SizePixels=18.f;
+            body=atlas->AddFontDefault(&fallback);
+        }
         io.FontDefault=body;
 
         static const ImWchar iconRanges[] = {
@@ -68,12 +77,12 @@ void Load() noexcept {
             const auto filename=Utf8(iconFile);
             ImFontConfig merged{};
             merged.MergeMode=true;
-            merged.GlyphMinAdvanceX=13.f;
-            merged.GlyphOffset=ImVec2(0.f,2.f);
-            merged.OversampleH=2;
-            merged.OversampleV=1;
+            merged.GlyphMinAdvanceX=16.f;
+            merged.GlyphOffset=ImVec2(0.f,2.25f);
+            merged.OversampleH=3;
+            merged.OversampleV=2;
             iconsAvailable=!filename.empty() &&
-                atlas->AddFontFromFileTTF(filename.c_str(),16.f,&merged,iconRanges)!=nullptr;
+                atlas->AddFontFromFileTTF(filename.c_str(),18.f,&merged,iconRanges)!=nullptr;
         }
 
         // Blender Pro comes from the owner's supplied fonts.zip. It is
@@ -82,9 +91,9 @@ void Load() noexcept {
         titleMedium=Add(atlas,folder,L"BlenderPro-Medium.ttf",18.f,textRanges);
         titleBold=Add(atlas,folder,L"BlenderPro-Bold.ttf",19.f,textRanges);
         titleHeavy=Add(atlas,folder,L"BlenderPro-Heavy.ttf",22.f,textRanges);
-        if (!titleMedium) titleMedium=Add(atlas,folder,L"Karla-Regular.ttf",18.f,textRanges);
-        if (!titleBold) titleBold=Add(atlas,folder,L"Karla-Regular.ttf",19.f,textRanges);
-        if (!titleHeavy) titleHeavy=Add(atlas,folder,L"Karla-Regular.ttf",22.f,textRanges);
+        if (!titleMedium) titleMedium=Add(atlas,folder,L"Karla-SemiBold.ttf",19.f,textRanges);
+        if (!titleBold) titleBold=Add(atlas,folder,L"Karla-Bold.ttf",20.f,textRanges);
+        if (!titleHeavy) titleHeavy=Add(atlas,folder,L"Karla-Bold.ttf",22.f,textRanges);
     } catch (...) {
         // Damaged optional files must not stop the game.
         if (!body && io.Fonts->Fonts.Size==0)

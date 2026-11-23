@@ -28,7 +28,7 @@ Palette Colors(bool dark) {
             ImVec4(30.f/255.f,34.f/255.f,31.f/255.f,1.f),
             ImVec4(42.f/255.f,47.f/255.f,42.f/255.f,1.f),
             ImVec4(227.f/255.f,220.f/255.f,184.f/255.f,1.f),
-            amber, muted,
+            amber, ImVec4(202.f/255.f,193.f/255.f,159.f/255.f,1.f),
             ImVec4(10.f/255.f,11.f/255.f,9.f/255.f,1.f),
             ImVec4(10.f/255.f,11.f/255.f,9.f/255.f,1.f),
             ImVec4(227.f/255.f,220.f/255.f,184.f/255.f,1.f)
@@ -38,7 +38,7 @@ Palette Colors(bool dark) {
         ImVec4(234.f/255.f,228.f/255.f,200.f/255.f,1.f),
         ImVec4(221.f/255.f,213.f/255.f,174.f/255.f,1.f),
         ImVec4(26.f/255.f,27.f/255.f,24.f/255.f,1.f),
-        amber, muted,
+        amber, ImVec4(95.f/255.f,89.f/255.f,64.f/255.f,1.f),
         ImVec4(17.f/255.f,18.f/255.f,15.f/255.f,1.f),
         ImVec4(21.f/255.f,22.f/255.f,19.f/255.f,1.f),
         ImVec4(234.f/255.f,228.f/255.f,200.f/255.f,1.f)
@@ -95,6 +95,8 @@ void ApplyTheme(const Palette& p) {
     style.ItemSpacing = ImVec2(8,7);
     style.ScrollbarSize = 12.f;
     style.GrabMinSize = 10.f;
+    // ImGui's default disabled opacity can make thin strokes disappear.
+    style.DisabledAlpha = 0.88f;
     auto& c = style.Colors;
     c[ImGuiCol_WindowBg] = p.paper;
     c[ImGuiCol_ChildBg] = p.paper;
@@ -171,7 +173,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     if (fonts::titleHeavy) ImGui::PopFont();
 
     // Keep the theme button independent of the game's overlay hotkey.
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+290.f,origin.y+5.f));
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+350.f,origin.y+5.f));
     ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
@@ -183,7 +185,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     ImGui::PopStyleColor(4);
 
     // Rebinding must remain available after first run, regardless of theme.
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+442.f,origin.y+5.f));
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+502.f,origin.y+5.f));
     ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
