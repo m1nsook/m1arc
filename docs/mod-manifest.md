@@ -10,6 +10,8 @@ Cyberpunk 2077/
   red4ext/plugins/m1arc/mods/example.my-mod/
     mod.json
     settings.json
+    language/
+      ko_KR.json      # optional display translations
   r6/scripts/ExampleMyMod/Example.reds
 ~~~
 
@@ -103,3 +105,5 @@ let limit: Int32 = M1Arc_GetInt("example.my-mod", "limit");
 ~~~
 
 See [native API](/native-api) for typed getters, setters and profiles.
+For translated mod names, setting labels, descriptions and choice display
+text, see [JSON localization](/localization).
