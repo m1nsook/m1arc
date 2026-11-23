@@ -178,6 +178,7 @@ void Localization::Localize(ModView& mod) const {
         setting.label = Field(localized, "label", setting.label);
         setting.description = Field(localized, "description", setting.description);
         setting.group = Field(localized, "group", setting.group);
+        setting.buttonLabel = Field(localized, "buttonLabel", setting.buttonLabel);
         // Intentionally keep original choices/defaults/values intact.
     }
 }
