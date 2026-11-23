@@ -61,9 +61,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Karla fixed-weight generation failed" }
           Remove-Item "$fonts/Karla-Variable.ttf"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/OFL.txt" -OutFile "$fonts/Karla-OFL.txt"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/ChakraPetch-SemiBold.ttf" -OutFile "$fonts/ChakraPetch-SemiBold.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/ChakraPetch-Bold.ttf" -OutFile "$fonts/ChakraPetch-Bold.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/OFL.txt" -OutFile "$fonts/ChakraPetch-OFL.txt"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/src/regular/Phosphor.ttf" -OutFile "$fonts/Phosphor-Regular.ttf"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/LICENSE" -OutFile "$fonts/Phosphor-MIT.txt"
-          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "Phosphor-Regular.ttf")) {
+          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf")) {
             if ((Get-Item "$fonts/$font").Length -lt 10000) { throw "Invalid or missing font asset: $font" }
           }
           $apiPath = "package/r6/scripts/m1arc"

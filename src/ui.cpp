@@ -115,9 +115,9 @@ void ApplyTheme(const Palette& p) {
     c[ImGuiCol_Button] = p.fill;
     c[ImGuiCol_ButtonHovered] = hover;
     c[ImGuiCol_ButtonActive] = pressed;
-    c[ImGuiCol_Header] = p.ink;
-    c[ImGuiCol_HeaderHovered] = p.fill;
-    c[ImGuiCol_HeaderActive] = p.ink;
+    c[ImGuiCol_Header] = dark ? p.fill : p.paper;
+    c[ImGuiCol_HeaderHovered] = dark ? ImVec4(.24f,.28f,.23f,1.f) : p.fill;
+    c[ImGuiCol_HeaderActive] = dark ? ImVec4(.32f,.36f,.29f,1.f) : p.fill;
     c[ImGuiCol_CheckMark] = p.amber;
     c[ImGuiCol_SliderGrab] = p.amber;
     c[ImGuiCol_SliderGrabActive] = p.amber;
@@ -150,70 +150,93 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     auto& input = InputRouter::Get();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
-    constexpr float height = 42.f;
-    auto* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(origin,ImVec2(origin.x+width,origin.y+height),Color(p.bar));
+    const bool narrow = width < 1000.f;
+    const bool tiny = width < 700.f;
+    const float height = tiny ? 132.f : (narrow ? 92.f : 52.f);
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->AddRectFilled(origin,
+        ImVec2(origin.x + width, origin.y + height), Color(p.bar));
 
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+16.f, origin.y+12.f));
-    ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+    // Brand remains on the first row, with enough vertical room for
+    // Blender Pro / Chakra Petch at 22px and the merged Phosphor icon.
+    ImGui::PushStyleColor(ImGuiCol_Text, p.barText);
+    ImGui::SetCursorScreenPos(ImVec2(origin.x + 16.f, origin.y + 12.f));
     if (fonts::HasIcons()) {
         ImGui::TextUnformatted(ARC_ICON_SLIDERS);
-        ImGui::SameLine(0.f,5.f);
+        ImGui::SameLine(0.f, 6.f);
     }
     if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
     ImGui::TextUnformatted("CONTROL PANEL");
     if (fonts::titleBold) ImGui::PopFont();
-    ImGui::SameLine(0.f,5.f);
-    ImGui::PushStyleColor(ImGuiCol_Text,p.amber);
+    ImGui::SameLine(0.f, 6.f);
+    ImGui::PushStyleColor(ImGuiCol_Text, p.amber);
     ImGui::TextUnformatted("//");
     ImGui::PopStyleColor();
-    ImGui::SameLine(0.f,5.f);
+    ImGui::SameLine(0.f, 6.f);
     if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
     ImGui::TextUnformatted("M1 ARC");
     if (fonts::titleHeavy) ImGui::PopFont();
 
-    // Keep the theme button independent of the game's overlay hotkey.
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+350.f,origin.y+5.f));
-    ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
-    ImGui::PushStyleColor(ImGuiCol_Border,p.barText);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize,2.f);
-    if (ImGui::Button("TOGGLE THEME##arc-theme",ImVec2(140.f,30.f)))
-        ToggleTheme();
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(4);
+    // Header buttons stay dark with light lettering under BOTH palettes.
+    const ImVec4 darkHover(.21f, .24f, .20f, 1.f);
+    const ImVec4 darkPress(.29f, .32f, .26f, 1.f);
+    const auto drawAction = [&](const char* label, float x, float y,
+                                float w, float h) {
+        ImGui::SetCursorScreenPos(ImVec2(origin.x + x, origin.y + y));
+        ImGui::PushStyleColor(ImGuiCol_Button, p.bar);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, darkHover);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, darkPress);
+        ImGui::PushStyleColor(ImGuiCol_Text, p.barText);
+        ImGui::PushStyleColor(ImGuiCol_Border, p.barText);
+        const bool pressed = ImGui::Button(label, ImVec2(w, h));
+        ImGui::PopStyleColor(5);
+        return pressed;
+    };
 
-    // Rebinding must remain available after first run, regardless of theme.
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+502.f,origin.y+5.f));
-    ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
-    const std::string keyText = (fonts::HasIcons() ? ARC_ICON_KEY "  " : "KEY: ") +
+    // Layout switches to two/three rows instead of clipping the header
+    // at narrower resolutions or whenever a larger font is chosen.
+    const float actionsY = narrow ? 52.f : 9.f;
+    const float themeX = narrow ? 16.f : 328.f;
+    if (drawAction("TOGGLE THEME##arc-theme",themeX,actionsY,144.f,34.f))
+        ToggleTheme();
+    const std::string keyText =
+        (fonts::HasIcons() ? ARC_ICON_KEY " " : "KEY: ") +
         input.KeyLabel() + "##arc-bind";
-    if (ImGui::Button(keyText.c_str(),ImVec2(144.f,30.f)))
+    if (drawAction(keyText.c_str(),themeX + 156.f,actionsY,156.f,34.f))
         input.BeginRebind();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Change M1 Arc's menu key (independent of CET)");
-    ImGui::PopStyleColor(3);
+        ImGui::SetTooltip("Change M1 Arc's menu shortcut (independent of CET)");
 
-    // The source mockup is visual only; these are real registered mods.
     const auto online = std::count_if(mods.begin(),mods.end(),Enabled);
-    const std::string status = std::to_string(online) + "/" +
-        std::to_string(mods.size()) + " ONLINE";
+    const std::string status=std::to_string(online)+"/"+
+        std::to_string(mods.size())+" ONLINE";
     const float statusWidth = ImGui::CalcTextSize(status.c_str()).x;
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+width-statusWidth-98.f,origin.y+12.f));
+    const float statusY = tiny ? 103.f : 19.f;
+    const float statusX = tiny ? 16.f :
+        std::max(16.f,width-96.f-statusWidth-15.f);
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+statusX,origin.y+statusY));
     ImGui::TextUnformatted(status.c_str());
 
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+width-79.f,origin.y+5.f));
-    ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.20f,.23f,.19f,1.f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.30f,.34f,.28f,1.f));
-    if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_CLOSE "  CLOSE##arc" : "CLOSE##arc",
-                      ImVec2(68.f,30.f))) input.Close();
-    ImGui::PopStyleColor(3);
-    ImGui::PopStyleColor(); // Header foreground
+    const float closeY = tiny ? 95.f : 9.f;
+    if (drawAction(fonts::HasIcons() ? ARC_ICON_CLOSE " CLOSE##arc" :
+                   "CLOSE##arc",std::max(8.f,width-88.f),closeY,78.f,34.f))
+        input.Close();
+    ImGui::PopStyleColor(); // Header text color
     ImGui::SetCursorScreenPos(ImVec2(origin.x,origin.y+height));
+}
+
+std::string FitLabel(std::string label, float available) {
+    if (available <= 12.f) return "...";
+    if (ImGui::CalcTextSize(label.c_str()).x <= available) return label;
+    while (!label.empty() &&
+           ImGui::CalcTextSize((label + "...").c_str()).x > available) {
+        // Trim one complete UTF-8 codepoint, never cut inside a byte sequence.
+        label.pop_back();
+        while (!label.empty() &&
+            (static_cast<unsigned char>(label.back()) & 0xC0u) == 0x80u)
+            label.pop_back();
+    }
+    return label + "...";
 }
 
 void DrawSidebar(const Palette& p, const std::vector<ModView>& mods, float width, float height) {
@@ -241,16 +264,22 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods, float width
             ImGui::PushStyleColor(ImGuiCol_HeaderActive,
                 selected ? selectedPress : p.fill);
             const ImVec2 row = ImGui::GetCursorScreenPos();
-            const float rowWidth = ImGui::GetContentRegionAvail().x-2.f;
-            const std::string label = (fonts::HasIcons() ? ARC_ICON_CUBE "  " : "") + mod.title;
-            if (ImGui::Selectable(label.c_str(),selected,0,ImVec2(rowWidth,44.f)))
+            const float rowWidth = std::max(1.f, ImGui::GetContentRegionAvail().x-2.f);
+            constexpr float rowHeight = 54.f;
+            const std::string prefix = fonts::HasIcons() ? ARC_ICON_CUBE "  " : "";
+            const float prefixWidth = ImGui::CalcTextSize(prefix.c_str()).x;
+            const std::string label=prefix +
+                FitLabel(mod.title,std::max(15.f,rowWidth-prefixWidth-40.f));
+            if (ImGui::Selectable(label.c_str(),selected,0,ImVec2(rowWidth,rowHeight)))
                 SelectedMod() = mod.id;
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s",mod.title.c_str());
             ImGui::PopStyleColor(4);
-            const ImVec2 rowEnd(row.x+rowWidth,row.y+44.f);
+            const ImVec2 rowEnd(row.x+rowWidth,row.y+54.f);
             draw->AddLine(ImVec2(row.x,rowEnd.y-1.f),
                           ImVec2(rowEnd.x,rowEnd.y-1.f),Color(p.ink),2.f);
             const ImVec4 outline = selected ? p.paper : p.ink;
-            const ImVec2 a(rowEnd.x-25.f,row.y+18.f);
+            const ImVec2 a(rowEnd.x-25.f,row.y+22.f);
             const ImVec2 b(a.x+9.f,a.y+9.f);
             draw->AddRect(a,b,Color(outline),0.f,0,2.f);
             if (Enabled(mod))
@@ -310,17 +339,30 @@ void DrawChoice(const ModView& mod,const SettingView& setting,float width) {
 void DrawSetting(const ModView& mod, const SettingView& setting,
                  const Palette& p, float width, bool disabled) {
     ImGui::PushID(setting.id.c_str());
-    const float controls = std::min(250.f,std::max(160.f,width*.38f));
+    const bool stacked = width < 430.f;
+    const float controls = stacked ? std::min(250.f,width) :
+        std::min(250.f,std::max(155.f,width*.38f));
+    const float labelWidth = stacked ? width :
+        std::max(25.f,width-controls-22.f);
+    const float textHeight = ImGui::CalcTextSize(
+        setting.label.c_str(), nullptr, false, labelWidth).y;
+    const float height = stacked ?
+        std::max(72.f,textHeight+54.f) : std::max(54.f,textHeight+18.f);
     const ImVec2 row = ImGui::GetCursorScreenPos();
-    constexpr float height = 40.f;
     if (disabled) ImGui::BeginDisabled();
-    ImGui::SetCursorScreenPos(ImVec2(row.x,row.y+9.f));
-    ImGui::TextUnformatted(setting.label.c_str());
+
+    ImGui::SetCursorScreenPos(ImVec2(row.x,row.y+8.f));
+    ImGui::PushTextWrapPos(row.x+labelWidth);
+    ImGui::TextWrapped("%s",setting.label.c_str());
+    ImGui::PopTextWrapPos();
     if (!setting.description.empty() &&
         ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
         ImGui::SetTooltip("%s",setting.description.c_str());
 
-    ImGui::SetCursorScreenPos(ImVec2(row.x+width-controls,row.y+4.f));
+    const float controlX = stacked ? row.x : row.x+width-controls;
+    const float controlY = stacked ? row.y+textHeight+17.f :
+        row.y+std::max(8.f,(height-34.f)*.5f);
+    ImGui::SetCursorScreenPos(ImVec2(controlX,controlY));
     ImGui::SetNextItemWidth(controls);
     switch (setting.kind) {
     case SettingKind::Boolean:
@@ -328,10 +370,10 @@ void DrawSetting(const ModView& mod, const SettingView& setting,
         break;
     case SettingKind::Integer: {
         int value = setting.value.get<int>();
-        const int min = static_cast<int>(setting.minimum);
-        const int max = static_cast<int>(setting.maximum);
-        if (ImGui::SliderInt("##value",&value,min,max,"%d",
-                             ImGuiSliderFlags_AlwaysClamp))
+        if (ImGui::SliderInt("##value",&value,
+            static_cast<int>(setting.minimum),
+            static_cast<int>(setting.maximum),"%d",
+            ImGuiSliderFlags_AlwaysClamp))
             (void)Settings().Set(mod.id,setting.id,value);
         break;
     }
@@ -452,8 +494,8 @@ void DrawArcUI() {
         ImVec2(viewport->Pos.x+viewport->Size.x,
                viewport->Pos.y+viewport->Size.y),
         IM_COL32(0,0,0,206));
-    const float width = std::max(320.f,std::min(1280.f,viewport->Size.x-48.f));
-    const float height = std::max(260.f,std::min(720.f,viewport->Size.y-48.f));
+    const float width = std::max(1.f,std::min(1280.f,viewport->Size.x-36.f));
+    const float height = std::max(1.f,std::min(720.f,viewport->Size.y-36.f));
     ImGui::SetNextWindowPos(viewport->GetCenter(),ImGuiCond_Always,ImVec2(.5f,.5f));
     ImGui::SetNextWindowSize(ImVec2(width,height),ImGuiCond_Always);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
@@ -464,7 +506,7 @@ void DrawArcUI() {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(0,0));
         DrawHeader(palette,mods);
         const ImVec2 area = ImGui::GetContentRegionAvail();
-        const float navWidth = std::min(320.f,std::max(130.f,area.x*.26f));
+        const float navWidth = std::min(320.f,std::max(100.f,area.x*.26f));
         DrawSidebar(palette,mods,navWidth,area.y);
         ImGui::SameLine(0.f,0.f);
         DrawDetail(palette,mods,std::max(0.f,area.x-navWidth),area.y);

@@ -85,12 +85,17 @@ void Load() noexcept {
                 atlas->AddFontFromFileTTF(filename.c_str(),18.f,&merged,iconRanges)!=nullptr;
         }
 
-        // Blender Pro comes from the owner's supplied fonts.zip. It is
-        // proprietary and is deliberately NOT in our public repo/artifacts.
-        // If it exists locally it enhances headings; otherwise use Karla.
-        titleMedium=Add(atlas,folder,L"BlenderPro-Medium.ttf",18.f,textRanges);
-        titleBold=Add(atlas,folder,L"BlenderPro-Bold.ttf",19.f,textRanges);
+        // Preserve the owner's purchased Blender Pro fonts as FIRST choice.
+        // Their provided ZIP does not include a redistributable license grant;
+        // loading locally honors those assets without silently publishing them.
+        // Chakra Petch (OFL) is the bundled, bold and legible fallback.
+        titleMedium=Add(atlas,folder,L"BlenderPro-Medium.ttf",19.f,textRanges);
+        titleBold=Add(atlas,folder,L"BlenderPro-Bold.ttf",20.f,textRanges);
         titleHeavy=Add(atlas,folder,L"BlenderPro-Heavy.ttf",22.f,textRanges);
+        if (!titleMedium) titleMedium=Add(atlas,folder,L"ChakraPetch-SemiBold.ttf",19.f,textRanges);
+        if (!titleBold) titleBold=Add(atlas,folder,L"ChakraPetch-SemiBold.ttf",20.f,textRanges);
+        if (!titleHeavy) titleHeavy=Add(atlas,folder,L"ChakraPetch-Bold.ttf",22.f,textRanges);
+        // Filesystem damage must not hide headings completely.
         if (!titleMedium) titleMedium=Add(atlas,folder,L"Karla-SemiBold.ttf",19.f,textRanges);
         if (!titleBold) titleBold=Add(atlas,folder,L"Karla-Bold.ttf",20.f,textRanges);
         if (!titleHeavy) titleHeavy=Add(atlas,folder,L"Karla-Bold.ttf",22.f,textRanges);

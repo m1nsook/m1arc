@@ -40,12 +40,22 @@ for in-game readability rather than extra-light/thin styling. Their OFL/MIT lice
 supplied `fonts.zip` contains Blender Pro Medium, Bold and Heavy, which are
 proprietary and deliberately **not published** by this repository: if you
 have the right to use them, extract those three files directly to
-`red4ext/plugins/m1arc/fonts/` to enable Blender Pro headings. Karla Bold headings remain the fallback if those files are absent.
+`red4ext/plugins/m1arc/fonts/` to enable Blender Pro headings. **Chakra Petch SemiBold/Bold** headings are bundled and used whenever Blender
+Pro is not installed locally; Karla SemiBold is the third fallback.
+Blender Pro is your preferred heading font, not an ignored design resource.
+The supplied ZIP contains fonts but no accompanying distribution terms,
+so it has not been copied into publicly downloadable releases.
 
 **Light is the first-run default**. The light/dark toggle stores a choice in
 `red4ext/plugins/m1arc/settings.json`, and existing saved preferences always win.
 If an older installation previously saved `"theme": "dark"`, it will
 keep starting dark until switched to light once.
+
+The native panel header reflows to two or three rows on narrower viewports.
+Sidebar mod titles are ellipsized (with full-name hover tooltips); setting
+labels wrap and controls stack if needed. Small windows are kept inside the
+visible game viewport instead of extending beyond the screen. Theme colors
+avoid black text on dark backgrounds while preserving the approved palette.
 
 On first launch the plugin prompts for an independent keyboard shortcut.
 It does not bind or edit CET's existing shortcut.
