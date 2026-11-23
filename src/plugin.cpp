@@ -303,6 +303,9 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     if (folder.empty()) return false;
     m1arc::Store().Configure(folder / L"settings.json");
     m1arc::breach::Initialize();
+    // Log exact reason even if the addon's own board capture never fires.
+    if (sdk && sdk->logger && sdk->logger->Info)
+        sdk->logger->Info(handle,m1arc::breach::StatusMessage());
     // Manifest discovery is native and data-only; REDscript supplies the
     // actual gameplay logic. No CET, Lua, or automatic code execution.
     const auto manifestReport=m1arc::LoadManifests(folder,m1arc::Settings());

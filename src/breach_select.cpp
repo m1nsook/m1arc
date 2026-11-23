@@ -33,6 +33,20 @@ constexpr std::array<std::uint8_t,37> kSelectorEntry{
 using NativeSelector = void(__fastcall*)(RED4ext::IScriptable*,
                                            const RED4ext::Vector2*);
 std::atomic<NativeSelector> g_selector{nullptr};
+enum class SelectorStatus {
+    Uninitialized,
+    UnsupportedVersion,
+    InvalidExecutable,
+    SignatureNotFound,
+    UnsafeFunctionEntry,
+    Ready
+};
+std::atomic<SelectorStatus> g_status{SelectorStatus::Uninitialized};
+
+NativeSelector Reject(SelectorStatus reason) noexcept {
+    g_status.store(reason,std::memory_order_release);
+    return nullptr;
+}
 
 bool ExactGameVersion(const std::wstring& exe) noexcept {
     DWORD unused=0;
@@ -54,24 +68,26 @@ bool ExactGameVersion(const std::wstring& exe) noexcept {
 
 NativeSelector ResolveSelector() noexcept {
     HMODULE module=GetModuleHandleW(nullptr);
-    if (!module) return nullptr;
+    if (!module) return Reject(SelectorStatus::InvalidExecutable);
     wchar_t exe[MAX_PATH+1]{};
     const DWORD length=GetModuleFileNameW(module,exe,MAX_PATH);
-    if (!length || length>=MAX_PATH || !ExactGameVersion(exe))
-        return nullptr;
+    if (!length || length>=MAX_PATH)
+        return Reject(SelectorStatus::InvalidExecutable);
+    if (!ExactGameVersion(exe))
+        return Reject(SelectorStatus::UnsupportedVersion);
 
     const auto* base=reinterpret_cast<const std::uint8_t*>(module);
     const auto* dos=reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
     if (dos->e_magic!=IMAGE_DOS_SIGNATURE ||
         dos->e_lfanew<0 || dos->e_lfanew>(1<<16))
-        return nullptr;
+        return Reject(SelectorStatus::InvalidExecutable);
     const auto* nt=reinterpret_cast<const IMAGE_NT_HEADERS64*>(
         base+dos->e_lfanew);
     if (nt->Signature!=IMAGE_NT_SIGNATURE ||
         nt->OptionalHeader.Magic!=IMAGE_NT_OPTIONAL_HDR64_MAGIC ||
         nt->OptionalHeader.SizeOfImage==0 ||
         nt->OptionalHeader.SizeOfImage>(1u<<30))
-        return nullptr;
+        return Reject(SelectorStatus::InvalidExecutable);
     const auto size=nt->OptionalHeader.SizeOfImage;
     const auto* sections=IMAGE_FIRST_SECTION(nt);
     const std::uint8_t* found=nullptr;
@@ -95,13 +111,15 @@ NativeSelector ResolveSelector() noexcept {
                 reinterpret_cast<DWORD64>(candidate),&imageBase,nullptr);
             if (!unwind || imageBase+unwind->BeginAddress!=
                                reinterpret_cast<DWORD64>(candidate))
-                return nullptr;
-            if (found) return nullptr;
+                return Reject(SelectorStatus::UnsafeFunctionEntry);
+            if (found) return Reject(SelectorStatus::UnsafeFunctionEntry);
             found=candidate;
         }
     }
-    return found ? reinterpret_cast<NativeSelector>(
-                       const_cast<std::uint8_t*>(found)) : nullptr;
+    if (!found) return Reject(SelectorStatus::SignatureNotFound);
+    g_status.store(SelectorStatus::Ready,std::memory_order_release);
+    return reinterpret_cast<NativeSelector>(
+        const_cast<std::uint8_t*>(found));
 }
 
 void SelectCell(RED4ext::IScriptable*,
@@ -131,7 +149,8 @@ void SelectCell(RED4ext::IScriptable*,
     auto* rtti=RED4ext::CRTTISystem::Get();
     auto* hackingClass=rtti ? rtti->GetClass(
         "gameuiHackingMinigameLogicController") : nullptr;
-    if (!hackingClass || context->GetType()!=hackingClass)
+    const auto* contextType=context->GetType();
+    if (!hackingClass || !contextType || !contextType->IsA(hackingClass))
         return;
     const auto selector=g_selector.load(std::memory_order_acquire);
     if (!selector) return;
@@ -151,6 +170,22 @@ void Initialize() noexcept {
 }
 bool Available() noexcept {
     return g_selector.load(std::memory_order_acquire)!=nullptr;
+}
+const char* StatusMessage() noexcept {
+    switch (g_status.load(std::memory_order_acquire)) {
+    case SelectorStatus::Ready:
+        return "m1arc Skip Breach: game 2.5 native selector signature verified; READY";
+    case SelectorStatus::UnsupportedVersion:
+        return "m1arc Skip Breach DISABLED: executable file version is not 3.0.88.46235 (2.5)";
+    case SelectorStatus::InvalidExecutable:
+        return "m1arc Skip Breach DISABLED: unable to inspect the game executable";
+    case SelectorStatus::SignatureNotFound:
+        return "m1arc Skip Breach DISABLED: native selector signature not found in this executable";
+    case SelectorStatus::UnsafeFunctionEntry:
+        return "m1arc Skip Breach DISABLED: native selector is ambiguous or not a safe function entry";
+    default:
+        return "m1arc Skip Breach DISABLED: native selector has not initialized";
+    }
 }
 
 void RegisterNative() noexcept {

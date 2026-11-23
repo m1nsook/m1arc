@@ -9,6 +9,8 @@ namespace m1arc::breach {
 // selector interface. All other builds fail closed.
 void Initialize() noexcept;
 bool Available() noexcept;
+// Human-readable status logged once at plugin startup, even when selector is disabled.
+const char* StatusMessage() noexcept;
 void RegisterNative() noexcept;
 
 } // namespace m1arc::breach
