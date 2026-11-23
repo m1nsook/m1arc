@@ -26,6 +26,10 @@
     "toast.info": "안내",
     "toast.warning": "경고",
     "toast.success": "성공",
-    "toast.error": "오류"
+    "toast.error": "오류",
+    "ui.hotkey.press": "키를 누르세요...",
+    "ui.hotkey.unbound": "미지정",
+    "ui.hotkey.clear": "지우기",
+    "ui.hotkey.help": "설정할 키를 누르세요. Escape는 취소하며 M1 Arc 메뉴 키는 사용할 수 없습니다."
   }
 }
