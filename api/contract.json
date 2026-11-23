@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "releaseStatus": "developer-preview",
+  "runtime": "m1core standalone RED4ext DLL / LuaJIT",
+  "sourceRepository": "https://github.com/m1nsook/CP2077",
+  "sourceBranch": "dev/m1core-cet-foundation",
+  "entrypoints": [
+    "init.m1s",
+    "init.lua",
+    "init.m1c"
+  ],
+  "events": [
+    {
+      "name": "onHook",
+      "params": []
+    },
+    {
+      "name": "onTweak",
+      "params": []
+    },
+    {
+      "name": "onInit",
+      "params": []
+    },
+    {
+      "name": "onUpdate",
+      "params": [
+        "deltaTime:number"
+      ]
+    },
+    {
+      "name": "onDraw",
+      "params": []
+    },
+    {
+      "name": "onOverlayOpen",
+      "params": []
+    },
+    {
+      "name": "onOverlayClose",
+      "params": []
+    },
+    {
+      "name": "onShutdown",
+      "params": []
+    }
+  ],
+  "globals": [
+    {
+      "name": "registerForEvent",
+      "args": [
+        "eventName:string",
+        "callback:function"
+      ],
+      "returns": "void",
+      "phase": "entrypoint"
+    },
+    {
+      "name": "registerHotkey",
+      "args": [
+        "id:string",
+        "name:string",
+        "description:string?",
+        "callback:function"
+      ],
+      "returns": "void",
+      "phase": "entrypoint"
+    },
+    {
+      "name": "registerInput",
+      "args": [
+        "id:string",
+        "name:string",
+        "description:string?",
+        "callback:function(isDown:boolean)"
+      ],
+      "returns": "void",
+      "phase": "entrypoint"
+    },
+    {
+      "name": "IsBound",
+      "args": [
+        "id:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "GetBind",
+      "args": [
+        "id:string"
+      ],
+      "returns": "string"
+    },
+    {
+      "name": "GetVersion",
+      "args": [],
+      "returns": "string"
+    },
+    {
+      "name": "GetDisplayResolution",
+      "args": [],
+      "returns": "number,number"
+    },
+    {
+      "name": "ModArchiveExists",
+      "args": [
+        "archiveName:string"
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "luaRegistry": [
+    {
+      "name": "registerJson",
+      "args": [
+        "modId:string",
+        "title:string",
+        "schemaJson:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "getJson",
+      "args": [
+        "modId:string",
+        "settingId:string"
+      ],
+      "returns": "string"
+    },
+    {
+      "name": "setJson",
+      "args": [
+        "modId:string",
+        "settingId:string",
+        "valueJson:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "resetSetting",
+      "args": [
+        "modId:string",
+        "settingId:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "resetMod",
+      "args": [
+        "modId:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "saveProfile",
+      "args": [
+        "name:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "loadProfile",
+      "args": [
+        "name:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "deleteProfile",
+      "args": [
+        "name:string"
+      ],
+      "returns": "boolean"
+    },
+    {
+      "name": "profiles",
+      "args": [],
+      "returns": "string[]"
+    },
+    {
+      "name": "lastError",
+      "args": [],
+      "returns": "string"
+    }
+  ],
+  "nativeRTTI": [
+    {
+      "name": "M1Core_Version",
+      "args": [],
+      "returns": "String"
+    },
+    {
+      "name": "M1Core_RegisterJson",
+      "args": [
+        "modId",
+        "displayName",
+        "schemaJson"
+      ],
+      "returns": "Bool"
+    },
+    {
+      "name": "M1Core_GetJson",
+      "args": [
+        "modId",
+        "settingId"
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "M1Core_SetJson",
+      "args": [
+        "modId",
+        "settingId",
+        "payload"
+      ],
+      "returns": "Bool"
+    },
+    {
+      "name": "M1Core_ResetSetting",
+      "args": [
+        "modId",
+        "settingId"
+      ],
+      "returns": "Bool"
+    },
+    {
+      "name": "M1Core_ResetMod",
+      "args": [
+        "modId"
+      ],
+      "returns": "Bool"
+    },
+    {
+      "name": "M1Core_SaveProfile",
+      "args": [
+        "name"
+      ],
+      "returns": "Bool"
+    },
+    {
+      "name": "M1Core_LoadProfile",
+      "args": [
+        "name"
+      ],
+      "returns": "Bool"
+    },
+    {
+      "name": "M1Core_DeleteProfile",
+      "args": [
+        "name"
+      ],
+      "returns": "Bool"
+    }
+  ]
+}

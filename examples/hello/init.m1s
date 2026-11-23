@@ -1,0 +1,8 @@
+-- Minimal m1script source mod, executed by standalone m1core.dll.
+registerForEvent("onInit", function()
+    print("[hello] m1script ready")
+end)
+
+registerForEvent("onShutdown", function()
+    print("[hello] goodbye")
+end)
