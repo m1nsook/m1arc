@@ -235,6 +235,7 @@ std::string FitLabel(std::string label, float available) {
         while (!label.empty() &&
             (static_cast<unsigned char>(label.back()) & 0xC0u) == 0x80u)
             label.pop_back();
+        if (!label.empty()) label.pop_back(); // remove UTF-8 lead byte as well
     }
     return label + "...";
 }
