@@ -104,12 +104,18 @@ NativeSelector ResolveSelector() noexcept {
                        const_cast<std::uint8_t*>(found)) : nullptr;
 }
 
-void SelectCell(RED4ext::IScriptable* context,
+void SelectCell(RED4ext::IScriptable*,
                 RED4ext::CStackFrame* frame,bool* output,std::int64_t) {
+    // Use the global native route rather than @addMethod on a game RTTI
+    // class, which triggered RED4ext invalid native definitions at launch.
+    RED4ext::WeakHandle<RED4ext::IScriptable> weakController;
     RED4ext::Vector2 position{};
+    RED4ext::GetParameter(frame,&weakController);
     RED4ext::GetParameter(frame,&position);
     frame->code++;
     if (output) *output=false;
+    auto controller=weakController.Lock();
+    auto* context=controller.GetPtr();
     if (!output || !context || !std::isfinite(position.X) ||
         !std::isfinite(position.Y) ||
         position.X<0.f || position.Y<0.f ||
@@ -160,14 +166,17 @@ void RegisterNative() noexcept {
     available->SetReturnType("Bool");
     rtti->RegisterFunction(available);
 
-    auto* logic=rtti->GetClass("inkLogicController");
-    if (!logic) return;
-    auto* select=RED4ext::CClassFunction::Create(
-        logic,"M1Arc_BreachSelectCell","M1Arc_BreachSelectCell",
+    // A matched global RTTI definition means missing engine methods do
+    // not invalidate the entire installed M1Arc.reds API at startup.
+    auto* select=RED4ext::CGlobalFunction::Create(
+        "M1Arc_BreachSelectCell","M1Arc_BreachSelectCell",
         reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SelectCell));
-    select->flags=RED4ext::CBaseFunction::Flags{.isNative=true};
+    select->flags=RED4ext::CBaseFunction::Flags{
+        .isNative=true,.isStatic=true
+    };
+    select->AddParam("whandle:inkLogicController","controller");
     select->AddParam("Vector2","position");
     select->SetReturnType("Bool");
-    logic->RegisterFunction(select);
+    rtti->RegisterFunction(select);
 }
 } // namespace m1arc::breach

@@ -23,5 +23,7 @@ native func M1Arc_DeleteProfile(name: String) -> Bool;
 // Optional internal game-action bridge for compatible Cyberpunk 2077 2.5
 // builds. False on unsupported versions or signature mismatch.
 native func M1Arc_BreachInputAvailable() -> Bool;
-@addMethod(inkLogicController)
-public native func M1Arc_BreachSelectCell(position: Vector2) -> Bool;
+// Global native declaration, like the proven M1 Arc typed settings API.
+// Pass the weak game-controller handle explicitly instead of declaring
+// a native method added to an engine-owned class.
+native func M1Arc_BreachSelectCell(controller: wref<inkLogicController>, position: Vector2) -> Bool;

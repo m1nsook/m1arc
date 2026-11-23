@@ -5,13 +5,20 @@ The native M1 Arc plugin exposes **one narrowly-scoped internal action**:
 - \`M1Arc_BreachInputAvailable() -> Bool\` — true only when the exact
   Cyberpunk 2077 2.5 executable version and a unique verified native
   function-entry fingerprint are present.
-- \`inkLogicController.M1Arc_BreachSelectCell(Vector2)\` — supplies a
+- \`M1Arc_BreachSelectCell(wref<inkLogicController>, Vector2)\` — supplies a
   native (row, column) selection to the game's hacking logic controller.
 
 **Reference source:** the user's supplied AutoBreach 0.4.0 game-root ZIP
 for Cyberpunk 2077 2.5. We learned the *interface*, game version and
 entry signature, but do not redistribute its DLL, Lua or REDscript.
 M1 Arc's implementation is standalone C++.
+
+**Native declaration correction:** The previous native `@addMethod`
+declaration triggered a RED4ext invalid-native-definition startup error.
+This version registers a global RTTI native that receives the weak hacking
+logic controller explicitly. It requires reinstallation of both the DLL
+and the matching `M1Arc.reds`. Native script validation still needs an
+in-game confirmation.
 
 **Safeguards:** fail closed on any different executable version, missing
 signature, duplicate signature, non-function-entry match, inactive game
