@@ -73,6 +73,7 @@ struct Toast {
     std::string text;
     float elapsed  = 0.f;
     float duration = 3.2f;
+    ToastKind kind = ToastKind::Info;
 };
 std::deque<Toast>& ToastQueue() {
     static std::deque<Toast> queue;
@@ -87,10 +88,12 @@ void ToggleTheme() {
     })) {
         theme.dark = next;
         theme.message.clear();
-        ShowToast(next ? "Theme: dark" : "Theme: light");
+        ShowToast(next ? "Your theme has been updated to Dark mode!"
+                       : "Your theme has been updated to Light mode!",
+                  3.2f, ToastKind::Success);
     } else {
         theme.message = "Theme could not be saved";
-        ShowToast("Theme could not be saved");
+        ShowToast("Theme could not be saved", 3.2f, ToastKind::Error);
     }
 }
 void ApplyTheme(const Palette& p) {
@@ -297,62 +300,110 @@ std::string FitLabel(std::string label, float available) {
     return label + "...";
 }
 
-void DrawToasts(const Palette& p, const ImVec2& origin, const ImVec2& size) {
+// Draw-list only: the floating card never creates another ImGui window,
+// focus target, mouse hitbox, or gameplay input capture.
+void DrawToasts(const ImGuiViewport* viewport, const ImVec2& panelPos,
+                const ImVec2& panelSize) {
     auto& queue = ToastQueue();
-    if (queue.empty()) return;
+    if (queue.empty() || !viewport) return;
 
-    auto& io = ImGui::GetIO();
     auto& toast = queue.front();
-    toast.elapsed += io.DeltaTime;
-
-    constexpr float kHeight  = 46.f;
-    constexpr float kSlideIn = 0.32f;
-    constexpr float kFadeOut = 0.50f;
-    const float fadeStart = std::max(kSlideIn, toast.duration - kFadeOut);
-
-    float alpha = 1.f;
-    float slide = 0.f;                     // negative = above resting position
-    if (toast.elapsed < kSlideIn) {
-        // ease-out cubic slide + fade in
-        float k = std::clamp(toast.elapsed / kSlideIn, 0.f, 1.f);
-        k = 1.f - (1.f - k) * (1.f - k) * (1.f - k);
-        alpha = k;
-        slide = -(1.f - k) * kHeight;
-    } else if (toast.elapsed >= fadeStart) {
-        // fade out with a soft lift
-        float k = std::clamp((toast.elapsed - fadeStart) / kFadeOut, 0.f, 1.f);
-        alpha = 1.f - k;
-        slide = -k * kHeight * 0.35f;
-    }
-
+    toast.elapsed += std::max(0.f, ImGui::GetIO().DeltaTime);
     if (toast.elapsed >= toast.duration) {
         queue.pop_front();
         return;
     }
 
-    const ImU32 a8 = static_cast<ImU32>(std::clamp(alpha, 0.f, 1.f) * 255.f + 0.5f);
-    const auto tint = [a8](ImU32 col) { return (col & 0x00FFFFFFu) | (a8 << 24); };
+    constexpr float kHeight = 76.f;
+    constexpr float kIntro = .28f;
+    constexpr float kOutro = .42f;
+    const float fadeStart = std::max(kIntro, toast.duration - kOutro);
+    float alpha = 1.f;
+    float movement = 0.f;
+    if (toast.elapsed < kIntro) {
+        float t = std::clamp(toast.elapsed / kIntro, 0.f, 1.f);
+        t = 1.f - (1.f - t) * (1.f - t) * (1.f - t);
+        alpha = t;
+        movement = (1.f - t) * 20.f; // rise into the resting position
+    } else if (toast.elapsed > fadeStart) {
+        const float t = std::clamp((toast.elapsed - fadeStart) / kOutro, 0.f, 1.f);
+        alpha = 1.f - t;
+        movement = -12.f * t;
+    }
 
-    ImDrawList* draw = ImGui::GetForegroundDrawList();
-    const float x = origin.x;
-    const float y = origin.y + slide;
-    const float w = size.x;
-    const float h = kHeight;
+    // Prefer 48 px below the control panel, as in the reference screenshot.
+    // Clamp to the viewport on shorter displays instead of going offscreen.
+    const float width = std::min(840.f, std::max(1.f, viewport->Size.x - 36.f));
+    const float x = viewport->Pos.x + (viewport->Size.x - width) * .5f;
+    const float idealY = panelPos.y + panelSize.y + 48.f;
+    const float lastY = viewport->Pos.y + viewport->Size.y - kHeight - 18.f;
+    const float y = std::max(viewport->Pos.y + 10.f,
+                              std::min(idealY, lastY)) + movement;
 
-    // Inverted header bar: dark plate, amber accent rule, light text.
-    draw->AddRectFilled(ImVec2(x, y), ImVec2(x + w, y + h), tint(Color(p.ink)));
-    draw->AddLine(ImVec2(x, y + h), ImVec2(x + w, y + h),
-                  tint(Color(p.amber)), 2.f);
+    const char* label = "NOTICE";
+    ImU32 accent = IM_COL32(242, 178, 41, 255);
+    switch (toast.kind) {
+    case ToastKind::Success:
+        label = "SUCCESS";
+        accent = IM_COL32(0, 222, 130, 255);
+        break;
+    case ToastKind::Error:
+        label = "ERROR";
+        accent = IM_COL32(255, 104, 112, 255);
+        break;
+    case ToastKind::Info:
+        break;
+    }
 
-    const float pad = 18.f;
-    const std::string prefix = fonts::HasIcons() ? ARC_ICON_SLIDERS "  " : "";
-    const float prefixWidth  = ImGui::CalcTextSize(prefix.c_str()).x;
-    const float maxText      = std::max(20.f, w - 2.f * pad - prefixWidth);
-    const std::string body     = FitLabel(toast.text, maxText);
-    const std::string rendered = prefix + body;
-    const ImVec2 ts = ImGui::CalcTextSize(rendered.c_str());
-    draw->AddText(ImVec2(x + (w - ts.x) * 0.5f, y + (h - ts.y) * 0.5f),
-                  tint(Color(p.paper)), rendered.c_str());
+    // Multiply source transparency instead of replacing it. No extra
+    // ImGui style state survives after drawing the notification.
+    const auto faded = [alpha](ImU32 color) -> ImU32 {
+        const auto original = (color >> 24) & 255u;
+        const auto a = static_cast<ImU32>(original * alpha + .5f);
+        return (color & 0x00FFFFFFu) | (a << 24);
+    };
+    auto* draw = ImGui::GetForegroundDrawList(viewport);
+    const ImVec2 topLeft(x, y), bottomRight(x + width, y + kHeight);
+    draw->AddRectFilled(topLeft, bottomRight,
+                        faded(IM_COL32(27, 34, 31, 250)), 6.f);
+    draw->AddRect(topLeft, bottomRight,
+                  faded(IM_COL32(69, 83, 73, 210)), 6.f);
+    // Reference: a slim colored bar, independent of the M1 Arc theme.
+    draw->AddRectFilled(ImVec2(x, y + 5.f), ImVec2(x + 11.f, y + kHeight - 5.f),
+                        faded(accent), 3.f);
+
+    constexpr float iconSize = 40.f;
+    const float iconX = x + 28.f;
+    const float iconY = y + (kHeight - iconSize) * .5f;
+    draw->AddRectFilled(ImVec2(iconX, iconY),
+                        ImVec2(iconX + iconSize, iconY + iconSize),
+                        faded(accent), 5.f);
+    const ImU32 mark = faded(IM_COL32(255, 255, 255, 255));
+    if (toast.kind == ToastKind::Success) {
+        draw->AddLine(ImVec2(iconX + 9.f, iconY + 20.f),
+                      ImVec2(iconX + 17.f, iconY + 28.f), mark, 3.7f);
+        draw->AddLine(ImVec2(iconX + 17.f, iconY + 28.f),
+                      ImVec2(iconX + 31.f, iconY + 13.f), mark, 3.7f);
+    } else if (toast.kind == ToastKind::Error) {
+        draw->AddLine(ImVec2(iconX + 12.f, iconY + 12.f),
+                      ImVec2(iconX + 28.f, iconY + 28.f), mark, 3.5f);
+        draw->AddLine(ImVec2(iconX + 28.f, iconY + 12.f),
+                      ImVec2(iconX + 12.f, iconY + 28.f), mark, 3.5f);
+    } else {
+        draw->AddCircleFilled(ImVec2(iconX + 20.f, iconY + 20.f), 5.f, mark);
+    }
+
+    const float textX = iconX + iconSize + 35.f;
+    const ImVec2 statusSize = ImGui::CalcTextSize(label);
+    const float statusX = x + width - 34.f - statusSize.x;
+    const float available = std::max(20.f, statusX - textX - 20.f);
+    const std::string fitted = FitLabel(toast.text, available);
+    const ImVec2 messageSize = ImGui::CalcTextSize(fitted.c_str());
+    const ImU32 textColor = faded(accent);
+    draw->AddText(ImVec2(textX, y + (kHeight - messageSize.y) * .5f),
+                  textColor, fitted.c_str());
+    draw->AddText(ImVec2(statusX, y + (kHeight - statusSize.y) * .5f),
+                  textColor, label);
 }
 
 void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
@@ -634,7 +685,8 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                           ImVec2(116.f,32.f))) {
             const bool restored = Settings().ResetMod(selected->id);
             ShowToast(restored ? "Defaults restored for " + selected->title
-                               : "Failed to reset " + selected->title);
+                               : "Failed to reset " + selected->title,
+                      3.2f, restored ? ToastKind::Success : ToastKind::Error);
         }
         ImGui::PopStyleColor(4);
     }
@@ -668,9 +720,9 @@ void DrawRebindModal() {
 
 } // namespace
 
-void ShowToast(std::string message, float seconds) {
+void ShowToast(std::string message, float seconds, ToastKind kind) {
     auto& queue = ToastQueue();
-    queue.push_back({std::move(message), 0.f, std::max(0.6f, seconds)});
+    queue.push_back({std::move(message), 0.f, std::max(0.6f, seconds), kind});
     while (queue.size() > 4) queue.pop_front();   // cap backlog
 }
 
@@ -715,10 +767,10 @@ void DrawArcUI() {
         ImGui::PopStyleVar();
     }
     ImGui::End();
-    // Full-width toast overlay pinned to the top edge of the panel.
+    // Floating toast, centered below the panel when display height permits.
     const ImVec2 windowPos(viewport->GetCenter().x - width * 0.5f,
                            viewport->GetCenter().y - height * 0.5f);
-    DrawToasts(palette, windowPos, ImVec2(width, height));
+    DrawToasts(viewport, windowPos, ImVec2(width, height));
     // Keep existing first-run setup/rebind behavior, independently of the
     // visual theme. Does not touch the previously working input/router code.
     DrawRebindModal();
