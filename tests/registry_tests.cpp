@@ -164,6 +164,87 @@ int main()
     REQUIRE(scoped[0].scope=="UI/UX");
     REQUIRE(scoped[0].shortDesc=="Adjusts interface and HUD");
 
+    // Checkbox styles, grouped sections, standalone actions and an inline
+    // slider action. Only real settings are saved; clicks are ephemeral.
+    const auto actionsSchema = json::array({
+        {{"id","ammo"},{"kind","integer"},{"min",1},{"max",999},
+         {"default",50},{"label","Ammunition"},{"group","Weapons"},
+         {"button",{{"id","spawn_ammo"},{"label","Spawn"}}}},
+        {{"id","light"},{"kind","boolean"},{"default",true},
+         {"label","Light Ammo"},{"group","Weapons"},{"presentation","checkbox"}},
+        {{"id","heavy"},{"kind","boolean"},{"default",false},
+         {"label","Heavy Ammo"},{"group","Weapons"},{"presentation","checkbox"}},
+        {{"id","spawn_all"},{"kind","action"},{"label","Spawn selected ammunition"},
+         {"buttonLabel","Spawn all"},{"group","Weapons"}}
+    });
+    m1arc::Registry actionsRegistry(store);
+    REQUIRE(actionsRegistry.Register("ammo.mod","Ammo",actionsSchema));
+    const auto ammoMod=actionsRegistry.Snapshot().front();
+    REQUIRE(ammoMod.settings.size()==4);
+    REQUIRE(ammoMod.settings[0].group=="Weapons");
+    REQUIRE(ammoMod.settings[0].buttonId=="spawn_ammo");
+    REQUIRE(ammoMod.settings[0].buttonLabel=="Spawn");
+    REQUIRE(ammoMod.settings[1].checkbox);
+    REQUIRE(ammoMod.settings[2].checkbox);
+    REQUIRE(ammoMod.settings[3].kind==m1arc::SettingKind::Action);
+    REQUIRE(ammoMod.settings[3].buttonLabel=="Spawn all");
+    REQUIRE(!actionsRegistry.Get("ammo.mod","spawn_all").has_value());
+    REQUIRE(!actionsRegistry.Set("ammo.mod","spawn_all",true));
+    REQUIRE(!actionsRegistry.Reset("ammo.mod","spawn_all"));
+    REQUIRE(!actionsRegistry.QueueAction("ammo.mod","wrong"));
+    REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","wrong"));
+    const auto beforeClick=store.Snapshot();
+    const auto revisionBeforeClick=store.Revision();
+    REQUIRE(actionsRegistry.QueueAction("ammo.mod","spawn_ammo"));
+    REQUIRE(actionsRegistry.QueueAction("ammo.mod","spawn_ammo"));
+    REQUIRE(actionsRegistry.QueueAction("ammo.mod","spawn_all"));
+    REQUIRE(store.Snapshot()==beforeClick);
+    REQUIRE(store.Revision()==revisionBeforeClick);
+    REQUIRE(actionsRegistry.ConsumeAction("ammo.mod","spawn_ammo"));
+    REQUIRE(actionsRegistry.ConsumeAction("ammo.mod","spawn_ammo"));
+    REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","spawn_ammo"));
+    REQUIRE(actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
+    REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
+    for (int i=0;i<30;++i) REQUIRE(actionsRegistry.QueueAction("ammo.mod","spawn_all"));
+    for (int i=0;i<16;++i) REQUIRE(actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
+    REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
+    REQUIRE(actionsRegistry.SaveProfile("ammo_profile"));
+    const auto savedActions=json::parse(store.Snapshot());
+    REQUIRE(!savedActions["profiles"]["ammo_profile"]["ammo.mod"].contains("spawn_all"));
+    REQUIRE(savedActions["profiles"]["ammo_profile"]["ammo.mod"]["ammo"]==50);
+    REQUIRE(actionsRegistry.ResetMod("ammo.mod"));
+    REQUIRE(!json::parse(store.Snapshot())["values"]["ammo.mod"].contains("spawn_all"));
+    REQUIRE(actionsRegistry.QueueAction("ammo.mod","spawn_ammo"));
+    REQUIRE(actionsRegistry.Register("ammo.mod","Ammo",actionsSchema));
+    REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","spawn_ammo"));
+    REQUIRE(actionsRegistry.Set("ammo.mod","light",false));
+    REQUIRE(actionsRegistry.Get("ammo.mod","light").value()==false);
+    REQUIRE(actionsRegistry.LoadProfile("ammo_profile"));
+    REQUIRE(actionsRegistry.Get("ammo.mod","light").value()==true);
+
+    const auto noDefaultAction=json::array({
+        {{"id","press"},{"kind","action"},{"label","Press"}}
+    });
+    REQUIRE(actionsRegistry.Register("action.only","Only Button",noDefaultAction));
+    auto invalidAction=noDefaultAction;
+    invalidAction[0]["default"]=true;
+    REQUIRE(!actionsRegistry.Register("bad.action","Bad",invalidAction));
+    auto invalidStyle=actionsSchema;
+    invalidStyle[1]["presentation"]="radio";
+    REQUIRE(!actionsRegistry.Register("bad.style","Bad",invalidStyle));
+    invalidStyle=actionsSchema;
+    invalidStyle[0]["presentation"]="checkbox";
+    REQUIRE(!actionsRegistry.Register("bad.number.checkbox","Bad",invalidStyle));
+    invalidStyle=actionsSchema;
+    invalidStyle[0]["button"]["id"]="heavy";
+    REQUIRE(!actionsRegistry.Register("bad.duplicate.button","Bad",invalidStyle));
+    invalidStyle=actionsSchema;
+    invalidStyle[3]["id"]="spawn_ammo";
+    REQUIRE(!actionsRegistry.Register("bad.duplicate.action","Bad",invalidStyle));
+    invalidStyle=actionsSchema;
+    invalidStyle[0]["button"]["id"]="../unsafe";
+    REQUIRE(!actionsRegistry.Register("bad.unsafe.button","Bad",invalidStyle));
+
     // Corrupt settings state must be read-only: profile/reset operations
     // must return useful errors and never pretend to persist live changes.
     const auto brokenPath = path.parent_path() / "broken.json";
