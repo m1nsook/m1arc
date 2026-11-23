@@ -1,5 +1,6 @@
 #include "breach_select.hpp"
 #include "input.hpp"
+#include "mouse_click.hpp"
 #include "graphics.hpp"
 
 #include <RED4ext/Scripting/Natives/Generated/Vector2.hpp>
@@ -190,6 +191,72 @@ void SelectCell(RED4ext::IScriptable*,
     *output=true; // means dispatched; REDscript still awaits acknowledgement
 }
 
+// Alternative to the game-internal controller selector: physical Win32 input
+// at the centre of an actual live ink grid widget. The caller supplies a
+// screen-normalized point resolved from that widget's current draw bounds.
+// Unlike an internal RTTI selector dispatch, SendInput follows the ordinary
+// player pointer route; dispatch success is NOT acceptance in the game.
+void ClickAt(RED4ext::IScriptable*,
+             RED4ext::CStackFrame* frame,bool* output,std::int64_t) {
+    RED4ext::WeakHandle<RED4ext::IScriptable> weakController;
+    RED4ext::Vector2 normalized{};
+    RED4ext::GetParameter(frame,&weakController);
+    RED4ext::GetParameter(frame,&normalized);
+    frame->code++;
+    if (output) *output=false;
+    if (!output) return;
+
+    auto controller=weakController.Lock();
+    auto* context=controller.GetPtr();
+    if (!context || !std::isfinite(normalized.X) ||
+        !std::isfinite(normalized.Y) ||
+        normalized.X<0.02f || normalized.X>0.98f ||
+        normalized.Y<0.02f || normalized.Y>0.98f) {
+        ActionState(10,"m1arc Breach: physical click rejected (controller or coordinates)");
+        return;
+    }
+    auto* rtti=RED4ext::CRTTISystem::Get();
+    auto* hackingClass=rtti ? rtti->GetClass(
+        "gameuiHackingMinigameLogicController") : nullptr;
+    const auto* contextType=context->GetType();
+    if (!hackingClass || !contextType || !contextType->IsA(hackingClass)) {
+        ActionState(11,"m1arc Breach: physical click rejected (not hacking controller)");
+        return;
+    }
+
+    const auto& input=InputRouter::Get();
+    const HWND game=input.Window();
+    if (!game || !IsWindow(game) || GetForegroundWindow()!=game ||
+        input.IsOpen() || input.IsRecording()) {
+        ActionState(12,"m1arc Breach: physical click rejected (focus or overlay)");
+        return;
+    }
+    RECT client{};
+    if (!GetClientRect(game,&client)) {
+        ActionState(13,"m1arc Breach: physical click rejected (client geometry)");
+        return;
+    }
+    const long width=client.right-client.left;
+    const long height=client.bottom-client.top;
+    if (width<640 || height<480) {
+        ActionState(14,"m1arc Breach: physical click rejected (invalid viewport)");
+        return;
+    }
+    const long x=static_cast<long>(std::lround(
+        static_cast<double>(normalized.X)*static_cast<double>(width-1)));
+    const long y=static_cast<long>(std::lround(
+        static_cast<double>(normalized.Y)*static_cast<double>(height-1)));
+    const auto sent=m1arc::input::ClickGameClient(
+        game,{x,y},m1arc::input::MouseButton::Left,true);
+    if (sent!=m1arc::input::ClickResult::Sent) {
+        ActionState(15,"m1arc Breach: physical click rejected (Win32 input failed)");
+        return;
+    }
+    m1arc::RenderBridge::Get().LogInfo(
+        "[Skip Breach] Physical grid click sent; awaiting native OnPositionSelected acknowledgement");
+    *output=true; // SendInput submitted, NEVER proof that a cell was accepted
+}
+
 void AvailableNative(RED4ext::IScriptable*,
                      RED4ext::CStackFrame* frame,bool* output,std::int64_t) {
     frame->code++;
@@ -281,6 +348,19 @@ void RegisterNative() noexcept {
     select->AddParam("Vector2","position");
     select->SetReturnType("Bool");
     rtti->RegisterFunction(select);
+
+    // Real mouse-button path reuses the existing guarded m1core-derived
+    // Win32 helper. No OCR/CMD/other DLL; game handles normal UI clicks.
+    auto* click=RED4ext::CGlobalFunction::Create(
+        "M1Arc_BreachClickAt","M1Arc_BreachClickAt",
+        reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&ClickAt));
+    click->flags=RED4ext::CBaseFunction::Flags{
+        .isNative=true,.isStatic=true
+    };
+    click->AddParam("whandle:inkLogicController","controller");
+    click->AddParam("Vector2","normalized");
+    click->SetReturnType("Bool");
+    rtti->RegisterFunction(click);
 
     // Paired addon-only declaration in M1ArcBreachNative.reds.
     // Never modify the known-working core M1Arc.reds native definitions.
