@@ -1,0 +1,51 @@
+name: M1 Arc native build
+
+on:
+  push:
+    branches:
+      - feat/m1arc-native-redscript-imgui
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/native.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-native:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native RED4ext x64 DLL
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+          if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
+      - name: Build native DLL and tests
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE -ne 0) { throw "Native M1 Arc build failed" }
+      - name: Run native settings and persistence tests
+        shell: pwsh
+        run: |
+          ctest --test-dir build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw "Native tests failed" }
+      - name: Package single game-root ZIP layout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dst = "package/red4ext/plugins/m1arc"
+          New-Item -ItemType Directory -Path $dst -Force | Out-Null
+          Copy-Item "build/Release/m1arc.dll" "$dst/m1arc.dll"
+          Copy-Item LICENSE "$dst/LICENSE"
+          if (!(Test-Path "$dst/m1arc.dll")) { throw "DLL missing" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m1arc-native-x64
+          path: package/
+          if-no-files-found: error
+          retention-days: 14

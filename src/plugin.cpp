@@ -1,0 +1,216 @@
+// M1 Arc RED4ext plugin: native REDscript settings and standalone ImGui.
+// CET may coexist; we neither depend on it nor modify its state.
+#include "registry.hpp"
+#include "graphics.hpp"
+#include "input.hpp"
+#include "state.hpp"
+
+
+#include <RED4ext/Api/v1/GameState.hpp>
+#include <RED4ext/GameStates.hpp>
+
+#include <RED4ext/RED4ext.hpp>
+#include <Windows.h>
+
+#include <atomic>
+#include <cstdint>
+#include <filesystem>
+#include <string>
+
+namespace {
+using RED4ext::CString;
+using RED4ext::CStackFrame;
+using RED4ext::IScriptable;
+
+void Version(IScriptable*,CStackFrame* frame,CString* output,std::int64_t)
+{
+    frame->code++;
+    if (output) *output=CString("0.1.0");
+}
+void Register(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString id,title,definitions;
+    RED4ext::GetParameter(frame,&id);
+    RED4ext::GetParameter(frame,&title);
+    RED4ext::GetParameter(frame,&definitions);
+    frame->code++;
+    bool ok=false;
+    try {
+        const auto schema=nlohmann::json::parse(definitions.c_str());
+        ok=m1arc::Settings().Register(id.c_str(),title.c_str(),schema);
+    } catch (...) {}
+    if (output) *output=ok;
+}
+void GetValue(IScriptable*,CStackFrame* frame,CString* output,std::int64_t)
+{
+    CString mod,key;
+    RED4ext::GetParameter(frame,&mod);
+    RED4ext::GetParameter(frame,&key);
+    frame->code++;
+    if (output) {
+        const auto found=m1arc::Settings().Get(mod.c_str(),key.c_str());
+        const auto value=found ? found->dump() : "null";
+        *output=CString(value.c_str());
+    }
+}
+void SetValue(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString mod,key,value;
+    RED4ext::GetParameter(frame,&mod);
+    RED4ext::GetParameter(frame,&key);
+    RED4ext::GetParameter(frame,&value);
+    frame->code++;
+    bool ok=false;
+    try {
+        ok=m1arc::Settings().Set(mod.c_str(),key.c_str(),
+                                 nlohmann::json::parse(value.c_str()));
+    } catch (...) {}
+    if (output) *output=ok;
+}
+void ResetValue(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString mod,key;
+    RED4ext::GetParameter(frame,&mod);
+    RED4ext::GetParameter(frame,&key);
+    frame->code++;
+    if (output) *output=m1arc::Settings().Reset(mod.c_str(),key.c_str());
+}
+void ResetMod(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString mod;
+    RED4ext::GetParameter(frame,&mod);
+    frame->code++;
+    if (output) *output=m1arc::Settings().ResetMod(mod.c_str());
+}
+void SaveProfile(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString name;
+    RED4ext::GetParameter(frame,&name);
+    frame->code++;
+    if (output) *output=m1arc::Settings().SaveProfile(name.c_str());
+}
+void LoadProfile(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString name;
+    RED4ext::GetParameter(frame,&name);
+    frame->code++;
+    if (output) *output=m1arc::Settings().LoadProfile(name.c_str());
+}
+void DeleteProfile(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString name;
+    RED4ext::GetParameter(frame,&name);
+    frame->code++;
+    if (output) *output=m1arc::Settings().DeleteProfile(name.c_str());
+}
+
+bool GameStateContinue(RED4ext::CGameApplication*) { return true; }
+bool BaseInitializationFinished(RED4ext::CGameApplication*)
+{
+    m1arc::InputRouter::Get().ArmFirstRun();
+    m1arc::RenderBridge::Get().LogInfo(
+        "m1arc: game base initialization complete; shortcut setup armed");
+    return true;
+}
+RED4ext::v1::GameState baseGameCallbacks{
+    &GameStateContinue, &GameStateContinue, &BaseInitializationFinished
+};
+
+void RegisterTypes() {}
+void PostRegisterTypes()
+{
+    auto* rtti=RED4ext::CRTTISystem::Get();
+    if (!rtti) return;
+    const auto add=[&](const char* name,
+                       RED4ext::ScriptingFunction_t<void*> callback,
+                       const char* type,const char* const* args,
+                       std::size_t count) {
+        auto* fn=RED4ext::CGlobalFunction::Create(name,name,callback);
+        fn->flags=RED4ext::CBaseFunction::Flags{
+            .isNative=true,.isStatic=true
+        };
+        fn->SetReturnType(type);
+        for (std::size_t i=0;i<count;++i)
+            fn->AddParam("String",args[i]);
+        rtti->RegisterFunction(fn);
+    };
+    const char* one[]={"name"};
+    const char* two[]={"modId","settingId"};
+    const char* three[]={"modId","settingId","payload"};
+    const char* registerArgs[]={"modId","displayName","schemaJson"};
+
+    add("M1Arc_Version",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Version),"String",nullptr,0);
+    add("M1Arc_RegisterJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Register),"Bool",registerArgs,3);
+    add("M1Arc_GetJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetValue),"String",two,2);
+    add("M1Arc_SetJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SetValue),"Bool",three,3);
+    add("M1Arc_ResetSetting",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&ResetValue),"Bool",two,2);
+    add("M1Arc_ResetMod",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&ResetMod),"Bool",one,1);
+    add("M1Arc_SaveProfile",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SaveProfile),"Bool",one,1);
+    add("M1Arc_LoadProfile",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&LoadProfile),"Bool",one,1);
+    add("M1Arc_DeleteProfile",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&DeleteProfile),"Bool",one,1);
+}
+
+std::filesystem::path ModuleDirectory()
+{
+    HMODULE dll=nullptr;
+    const auto address=reinterpret_cast<LPCWSTR>(&ModuleDirectory);
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,address,&dll))
+        return {};
+    wchar_t buffer[MAX_PATH+1]{};
+    const auto size=GetModuleFileNameW(dll,buffer,MAX_PATH);
+    return size && size<MAX_PATH ?
+        std::filesystem::path(buffer).parent_path() : std::filesystem::path{};
+}
+}
+
+RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
+    RED4ext::v1::PluginHandle handle,RED4ext::v1::EMainReason reason,
+    const RED4ext::v1::Sdk* sdk)
+{
+    if (reason==RED4ext::v1::EMainReason::Unload) {
+        m1arc::RenderBridge::Get().Uninstall();
+        return true;
+    }
+    if (reason!=RED4ext::v1::EMainReason::Load) return true;
+
+    const auto folder=ModuleDirectory();
+    if (folder.empty()) return false;
+    m1arc::Store().Configure(folder / L"settings.json");
+    auto* rtti=RED4ext::CRTTISystem::Get();
+    if (!rtti) return false;
+    rtti->AddRegisterCallback(RegisterTypes);
+    rtti->AddPostRegisterCallback(PostRegisterTypes);
+
+    // Preserve the proven first-run lifecycle: no input takeover before base initialization.
+    // Use RED4ext's public game-state lifecycle callback, independently.
+    if (!sdk || !sdk->gameStates || !sdk->gameStates->Add ||
+        !sdk->gameStates->Add(handle, RED4ext::EGameStateType::BaseInitialization,
+                             &baseGameCallbacks)) {
+        if (sdk && sdk->logger && sdk->logger->Warn)
+            sdk->logger->Warn(handle,
+                "m1arc: base initialization callback unavailable; first-run setup deferred");
+    }
+
+    if (!m1arc::RenderBridge::Get().Install(handle,sdk)) {
+        // A missing or version-incompatible graphics symbol must never
+        // prevent Cyberpunk from starting or block its input.
+        if (sdk && sdk->logger && sdk->logger->Warn)
+            sdk->logger->Warn(handle,
+                "m1arc: renderer unavailable for this game build; overlay disabled");
+    }
+    return true;
+}
+
+RED4EXT_C_EXPORT void RED4EXT_CALL Query(RED4ext::v1::PluginInfo* info)
+{
+    info->name=L"m1arc";
+    info->author=L"MISO";
+    info->version=RED4EXT_V1_SEMVER(0,1,0);
+    info->runtime=RED4EXT_V1_RUNTIME_VERSION_LATEST;
+    info->sdk=RED4EXT_V1_SDK_VERSION_CURRENT;
+}
+RED4EXT_C_EXPORT std::uint32_t RED4EXT_CALL Supports()
+{
+    return RED4EXT_API_VERSION_1;
+}
