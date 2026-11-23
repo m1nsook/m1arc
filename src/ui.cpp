@@ -646,32 +646,57 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         row.y+std::max(12.f,(rowHeight-32.f)*.5f);
     ImGui::SetCursorScreenPos(ImVec2(x,y));
     ImGui::SetNextItemWidth(controls);
+    const bool hasInlineAction = !setting.buttonId.empty();
+    const float sliderWidth = hasInlineAction ? std::max(56.f,controls-92.f) : controls;
+    const auto drawInlineAction = [&] {
+        if (!hasInlineAction) return;
+        ImGui::SameLine(0.f,8.f);
+        const auto caption = FitLabel(setting.buttonLabel,76.f);
+        if (ImGui::Button((caption+"##inline-action").c_str(),
+                          ImVec2(std::max(32.f,controls-sliderWidth-8.f),32.f)))
+            (void)Settings().QueueAction(mod.id,setting.buttonId);
+    };
     switch (setting.kind) {
     case SettingKind::Boolean:
-        DrawSwitch(mod,setting,p,controls);
+        if (setting.checkbox) {
+            bool checked = setting.value.get<bool>();
+            if (ImGui::Checkbox("##checkbox", &checked))
+                (void)Settings().Set(mod.id,setting.id,checked);
+        } else {
+            DrawSwitch(mod,setting,p,controls);
+        }
         break;
     case SettingKind::Integer: {
         int value=setting.value.get<int>();
         const int lower=static_cast<int>(setting.minimum);
         const int upper=static_cast<int>(setting.maximum);
+        ImGui::SetNextItemWidth(sliderWidth);
         if (ImGui::SliderInt("##value",&value,lower,upper,"%d",
                              ImGuiSliderFlags_AlwaysClamp))
             (void)Settings().Set(mod.id,setting.id,value);
         DrawSliderGrabOutline(p,value,lower,upper,true);
+        drawInlineAction();
         break;
     }
     case SettingKind::Float: {
         float value=setting.value.get<float>();
         const float lower=static_cast<float>(setting.minimum);
         const float upper=static_cast<float>(setting.maximum);
+        ImGui::SetNextItemWidth(sliderWidth);
         if (ImGui::SliderFloat("##value",&value,lower,upper,"%.2f",
                                ImGuiSliderFlags_AlwaysClamp))
             (void)Settings().Set(mod.id,setting.id,static_cast<double>(value));
         DrawSliderGrabOutline(p,value,lower,upper,false);
+        drawInlineAction();
         break;
     }
     case SettingKind::Choice:
         DrawChoice(mod,setting,p,controls);
+        break;
+    case SettingKind::Action:
+        if (ImGui::Button((FitLabel(setting.buttonLabel,controls-15.f)+"##action").c_str(),
+                          ImVec2(controls,32.f)))
+            (void)Settings().QueueAction(mod.id,setting.id);
         break;
     }
     if (disabled) ImGui::EndDisabled();
@@ -705,10 +730,28 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
         const bool active = Enabled(*selected);
         // Settings are native live controls, derived from each REDscript mod's
         // own registered schema. Never substitute the HTML's demo mod data.
-        for (const auto& setting : selected->settings)
+        // Group headers use the mod author's existing "group" field.
+        // Legacy, ungrouped mods keep their exact previous row layout.
+        const bool showGroups = std::any_of(selected->settings.begin(),
+            selected->settings.end(), [](const SettingView& s) {
+                return s.group != "General";
+            });
+        std::string previousGroup;
+        for (const auto& setting : selected->settings) {
+            if (showGroups && setting.group != previousGroup) {
+                ImGui::Spacing();
+                ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
+                if (fonts::titleMedium) ImGui::PushFont(fonts::titleMedium);
+                ImGui::SeparatorText(setting.group.c_str());
+                if (fonts::titleMedium) ImGui::PopFont();
+                ImGui::PopStyleColor();
+                ImGui::Spacing();
+                previousGroup = setting.group;
+            }
             DrawSetting(*selected,setting,p,
                 std::max(1.f,ImGui::GetContentRegionAvail().x-8.f),
                 !active && !IsMasterSwitch(setting));
+        }
     } else {
         ImGui::TextDisabled("%s", Tr("ui.no_mods_detail", "No registered mods yet.").c_str());
         ImGui::Spacing();
