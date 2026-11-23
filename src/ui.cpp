@@ -157,8 +157,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     ImGui::TextUnformatted("M1 ARC");
 
     // Keep the theme button independent of the game's overlay hotkey.
-    const ImVec2 afterTitle = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(ImVec2(afterTitle.x+12.f,origin.y+5.f));
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+224.f,origin.y+5.f));
     ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered,p.ink);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,p.amber);
@@ -168,6 +167,18 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         ToggleTheme();
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(4);
+
+    // Rebinding must remain available after first run, regardless of theme.
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+372.f,origin.y+5.f));
+    ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,p.ink);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,p.amber);
+    const std::string keyText = "KEY: " + input.KeyLabel() + "##arc-bind";
+    if (ImGui::Button(keyText.c_str(),ImVec2(144.f,30.f)))
+        input.BeginRebind();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Change M1 Arc's menu key (independent of CET)");
+    ImGui::PopStyleColor(3);
 
     // The source mockup is visual only; these are real registered mods.
     const auto online = std::count_if(mods.begin(),mods.end(),Enabled);
@@ -355,7 +366,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     }
     ImGui::EndChild();
 }
-void DrawRebindModal(const Palette& p) {
+void DrawRebindModal() {
     auto& input = InputRouter::Get();
     if (input.IsRecording()) ImGui::OpenPopup("M1 ARC - CHOOSE MENU KEY");
     ImGui::SetNextWindowSize(ImVec2(390,0),ImGuiCond_Always);
@@ -410,6 +421,6 @@ void DrawArcUI() {
 
     // Keep existing first-run setup/rebind behavior, independently of the
     // visual theme. Does not touch the previously working input/router code.
-    DrawRebindModal(palette);
+    DrawRebindModal();
 }
 } // namespace m1arc
