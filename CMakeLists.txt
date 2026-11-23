@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.25)
-project(M1Arc VERSION 0.1.0 LANGUAGES CXX)
+project(M1Arc VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
 include(FetchContent)
 
 # Same RED4ext SDK pin as the saved native M1Core prototype.
@@ -53,6 +56,10 @@ add_library(m1arc_registry STATIC src/registry.cpp src/mod_manifest.cpp)
 target_include_directories(m1arc_registry PUBLIC src)
 target_link_libraries(m1arc_registry PUBLIC m1arc_state)
 
+add_library(m1arc_localization STATIC src/localization.cpp)
+target_include_directories(m1arc_localization PUBLIC src)
+target_link_libraries(m1arc_localization PUBLIC m1arc_registry)
+
 if(WIN32)
     add_library(m1arc SHARED
         src/plugin.cpp
@@ -65,7 +72,7 @@ if(WIN32)
     )
     target_include_directories(m1arc PRIVATE src)
     target_link_libraries(m1arc PRIVATE
-        m1arc_registry RED4ext::SDK m1arc_imgui
+        m1arc_localization RED4ext::SDK m1arc_imgui
         d3d12 dxgi user32 version)
     target_compile_definitions(m1arc PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE RED4EXT_HEADER_ONLY)
@@ -98,6 +105,10 @@ if(BUILD_TESTING)
     add_executable(m1arc_dev_fixture_tests tests/dev_fixture_tests.cpp)
     target_link_libraries(m1arc_dev_fixture_tests PRIVATE m1arc_registry)
     add_test(NAME dev_fixture COMMAND m1arc_dev_fixture_tests)
+
+    add_executable(m1arc_localization_tests tests/localization_tests.cpp)
+    target_link_libraries(m1arc_localization_tests PRIVATE m1arc_localization)
+    add_test(NAME localization COMMAND m1arc_localization_tests)
 
     add_executable(m1arc_state_tests tests/state_tests.cpp)
     target_link_libraries(m1arc_state_tests PRIVATE m1arc_state)

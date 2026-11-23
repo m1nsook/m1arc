@@ -1,5 +1,6 @@
 #include "input.hpp"
 #include "graphics.hpp"
+#include "registry.hpp"
 #include "state.hpp"
 #include "backends/win32.h"
 
@@ -86,6 +87,7 @@ void InputRouter::Detach() noexcept
     auto* hwnd = window_.load();
     open_.store(false);
     recording_.store(false);
+    CancelModRebind();
     rendererReady_.store(false);
     if (hwnd && IsWindow(hwnd)) {
         // Release our cursor reason *before* restoring the original WndProc,
@@ -157,6 +159,42 @@ void InputRouter::Toggle() noexcept
         PostMessageW(hwnd, kCursorSync, 0, 0);
 }
 
+bool InputRouter::BeginModRebind(std::string modId, std::string settingId) noexcept
+{
+    if (!open_.load() || recording_.load() || modRecording_.load() || !HasKey())
+        return false;
+    const auto mods = Settings().Snapshot();
+    const bool valid = std::any_of(mods.begin(), mods.end(), [&](const auto& mod) {
+        return mod.id == modId && std::any_of(mod.settings.begin(),
+            mod.settings.end(), [&](const auto& setting) {
+                return setting.id == settingId && setting.kind == SettingKind::Hotkey;
+            });
+    });
+    if (!valid) return false;
+    std::lock_guard lock(stateMutex_);
+    if (modRecording_.load() || recording_.load()) return false;
+    modCaptureId_ = std::move(modId);
+    modCaptureSetting_ = std::move(settingId);
+    modRecording_.store(true);
+    return true;
+}
+
+void InputRouter::CancelModRebind() noexcept
+{
+    std::lock_guard lock(stateMutex_);
+    modRecording_.store(false);
+    modCaptureId_.clear();
+    modCaptureSetting_.clear();
+}
+
+bool InputRouter::RecordingModKey(const std::string& modId,
+                                  const std::string& settingId) const noexcept
+{
+    std::lock_guard lock(stateMutex_);
+    return modRecording_.load() && modCaptureId_ == modId &&
+           modCaptureSetting_ == settingId;
+}
+
 void InputRouter::BeginRebind() noexcept
 {
     if (open_.load()) recording_.store(true);
@@ -169,6 +207,7 @@ void InputRouter::CancelRebind() noexcept
 
 void InputRouter::Close() noexcept
 {
+    CancelModRebind();
     if (recording_.load() && !HasKey()) return; // First-run binding mandatory.
     recording_.store(false);
     open_.store(false);
@@ -199,6 +238,26 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
     std::lock_guard lock(stateMutex_);
     if (held_[code] == down) return;
     held_[code] = down;
+    if (modRecording_.load()) {
+        // Key capture happens only while the M1 Arc menu is visible.
+        // Escape cancels this capture only; it never closes the menu.
+        if (down && code == VK_ESCAPE) {
+            modRecording_.store(false);
+            modCaptureId_.clear();
+            modCaptureSetting_.clear();
+        } else if (down && Bindable(static_cast<int>(code)) &&
+                   static_cast<int>(code) != hotkey_.load()) {
+            if (Settings().Set(modCaptureId_,modCaptureSetting_,static_cast<int>(code))) {
+                modRecording_.store(false);
+                modCaptureId_.clear();
+                modCaptureSetting_.clear();
+                // Do not fire the newly assigned shortcut on release.
+                justAssigned_ = static_cast<int>(code);
+                skipAssignedKeyRelease_ = true;
+            }
+        }
+        return;
+    }
     if (recording_.load() && down) {
         CommitKey(static_cast<int>(code));
         return;
@@ -209,8 +268,21 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
         return;
     }
     // A dedicated M1 Arc shortcut, never CET's binding or key namespace.
-    if (!down && static_cast<int>(code) == hotkey_.load())
+    if (!down && static_cast<int>(code) == hotkey_.load()) {
         Toggle();
+        return;
+    }
+    // Dispatch mod shortcuts only on the physical key-down edge, while
+    // gameplay owns focus. Leave all OS/game input passing through as before.
+    if (down && baseReady_.load() && HasKey() && !open_.load() &&
+        window_.load() == GetForegroundWindow() &&
+        static_cast<int>(code) != hotkey_.load() &&
+        !(GetKeyState(VK_MENU) & 0x8000) &&
+        !(GetKeyState(VK_CONTROL) & 0x8000) &&
+        !(GetKeyState(VK_LWIN) & 0x8000) &&
+        !(GetKeyState(VK_RWIN) & 0x8000)) {
+        Settings().QueueHotkeyKey(static_cast<int>(code));
+    }
 }
 
 void InputRouter::HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept
@@ -268,7 +340,11 @@ void InputRouter::HandleRawInput(HRAWINPUT raw) noexcept
 
 std::string InputRouter::KeyLabel() const
 {
-    const int key = hotkey_.load();
+    return DescribeKey(hotkey_.load());
+}
+
+std::string InputRouter::DescribeKey(int key)
+{
     if (!key) return "Not assigned";
     wchar_t buf[96]{};
     UINT code = MapVirtualKeyW(static_cast<UINT>(key),MAPVK_VK_TO_VSC);
@@ -303,6 +379,9 @@ LRESULT InputRouter::Process(HWND hwnd, UINT msg, WPARAM w, LPARAM l) noexcept
             {
                 std::lock_guard lock(stateMutex_);
                 held_.fill(false);
+                modRecording_.store(false);
+                modCaptureId_.clear();
+                modCaptureSetting_.clear();
             }
             // Restore game cursor without modifying menu-open intent.
             if (cursorOwned_.load()) {

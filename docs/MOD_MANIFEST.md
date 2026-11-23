@@ -23,16 +23,16 @@ Cyberpunk 2077/
   "format": 1,
   "id": "m1nsook.weight",
   "name": "Weight Limit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "scope": "Gameplay",
   "shortDesc": "Customize V's carrying capacity",
-  "requires": { "m1arc": "0.1.0" }
+  "requires": { "m1arc": "1.0.0" }
 }
 \`\`\`
 
 The folder name **must match** \`id\` (ASCII letters, digits, \`.\`, \`-\`,
 \`_\`; maximum 96 characters). Version strings use numeric \`major.minor.patch\`.
-\`requires.m1arc\` is a minimum version (M1 Arc currently 0.1.0).
+\`requires.m1arc\` is a minimum version (M1 Arc currently 1.0.0).
 A missing \`requires\` field is permitted; including it is recommended.
 
 
@@ -107,6 +107,146 @@ All user choices are persisted to the central
 on the next game launch. Uninstalling a mod leaves its values in storage
 so reinstalling can restore them.
 
-The language directory is a **reserved extension point**, not a functional
-translator yet. \`en_US.json\` files will be used when native localization is
-implemented. Never include Lua, CET files or \`.m1s\`/\`.m1c\` entrypoints.
+## Native translations
+
+M1 Arc ships framework language catalogs under
+\`red4ext/plugins/m1arc/locales/en_US.json\`,
+\`pl_PL.json\`, and \`ko_KR.json\`. The in-game language selector saves
+\`overlay.language\` in M1 Arc's central settings.json. Additional
+\`<locale>.json\` framework catalogs appear in the selector automatically.
+
+Mods may override their own **display text only** using
+\`red4ext/plugins/m1arc/mods/<mod-id>/language/<locale>.json\`.
+For example, \`m1nsook.weight/language/ko_KR.json\`:
+
+\`\`\`json
+{
+  "name": "무게 제한",
+  "shortDesc": "소지 용량을 조절합니다",
+  "settings": {
+    "enabled": {
+      "label": "활성화",
+      "description": "무게 제한 기능을 켜거나 끕니다.",
+      "group": "일반"
+    },
+    "mode": {
+      "label": "모드",
+      "choices": {
+        "High": "높음",
+        "Low": "낮음"
+      }
+    }
+  }
+}
+\`\`\`
+
+\`choices\` maps the **original choice value** to localized text. It
+must never rename choice IDs in \`settings.json\` or REDscript; saved values
+and native getters always use original IDs and options. Missing or invalid
+translation entries fall back to the mod's English/default text.
+No Lua, CET dependency, new scripting language, or execution is involved.
+
+
+## Buttons, checkboxes and sections
+
+M1 Arc uses existing native settings definitions. Set \`group\` to display
+section headings; use \`presentation: "checkbox"\` for a Boolean checkbox
+(the existing ON/OFF switch stays the default).
+
+For example, add these rows to a mod's **settings.json** array:
+
+\`\`\`json
+[
+  {
+    "id": "ammo_count",
+    "kind": "integer",
+    "label": "Ammunition",
+    "min": 1,
+    "max": 999,
+    "default": 50,
+    "group": "Weapons",
+    "button": { "id": "spawn_ammo", "label": "Spawn" }
+  },
+  {
+    "id": "light_ammo",
+    "kind": "boolean",
+    "label": "Light Ammo",
+    "default": true,
+    "presentation": "checkbox",
+    "group": "Weapons"
+  },
+  {
+    "id": "heavy_ammo",
+    "kind": "boolean",
+    "label": "Heavy Ammo",
+    "default": true,
+    "presentation": "checkbox",
+    "group": "Weapons"
+  },
+  {
+    "id": "spawn_selected",
+    "kind": "action",
+    "label": "Spawn selected ammunition",
+    "buttonLabel": "Spawn all",
+    "group": "Weapons"
+  }
+]
+\`\`\`
+
+**An action is only a button press.** JSON cannot contain arbitrary
+console commands, script callbacks or executable expressions.
+The mod author implements its own game behavior in ordinary REDscript
+and polls \`M1Arc_ConsumeAction("mod.id", "spawn_ammo")\`.
+When it returns \`true\`, the mod may read \`M1Arc_GetInt\` and
+\`M1Arc_GetBool\` and safely perform the requested gameplay action using
+its own code. Each click is consumed once; up to 16 pending clicks are
+stored per action until the owning mod consumes them. Presses are never
+written into saved settings or profiles and do not increase the settings
+revision counter.
+
+A standalone \`kind: "action"\` row has **no** \`default\`; numeric and
+Boolean controls require their ordinary defaults. Button IDs must be
+unique and cannot collide with setting IDs. Localized button captions
+use the per-setting \`buttonLabel\` in each mod's language JSON.
+Old schemas work unchanged, and setting values remain the original IDs.
+
+## Native mod hotkey controls
+
+Mod authors may add \`kind: "hotkey"\` to a normal settings.json row.
+This uses the same input router as the standalone M1 Arc menu and never
+requires Lua, CET's \`registerHotkey\`, or a separate input hook.
+
+\`\`\`json
+{
+  "id": "spawn_hotkey",
+  "kind": "hotkey",
+  "label": "Spawn ammunition hotkey",
+  "description": "Press this key in-game to request ammunition.",
+  "group": "Weapons",
+  "default": 0
+}
+\`\`\`
+
+\`default: 0\` means unassigned. Press the keybinding control in the
+M1 Arc menu to capture a physical key, or **Clear** to unbind. Escape
+cancels capture. The framework menu shortcut, Windows keys and modifier
+keys cannot be used as mod shortcuts. For gameplay hotkeys, use plain
+single keys rather than Ctrl/Alt/Win chords.
+
+The key code is saved with other mod settings, and can be reset or saved
+in profiles. Key presses are queued **only when the game window has focus
+and the M1 Arc menu is closed**, once per key-down edge. A disabled mod
+(\`enabled: false\` or \`active: false\`) does not receive hotkey presses.
+Actions are not executed from JSON. Your REDscript mod polls the same
+native one-shot action function used for buttons:
+
+\`\`\`reds
+if M1Arc_ConsumeAction("example.my-mod", "spawn_hotkey") {
+  // Perform the gameplay action in this mod's REDscript code.
+}
+\`\`\`
+
+\`M1Arc_GetInt("example.my-mod", "spawn_hotkey")\` returns the stored
+Win32 virtual-key code, or 0 if unbound. The key press itself is
+**not** saved as a setting and does not change the revision number.
+The existing game input continues to receive the key normally.
