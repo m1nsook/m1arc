@@ -99,6 +99,7 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
 
     for (const auto& folder:dirs) {
         const auto id=folder.filename().string();
+        try {
         if (!ValidId(id)) {
             Reject(report,id,"invalid mod folder name");
             continue;
@@ -109,7 +110,9 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
             Reject(report,id,"missing or invalid mod.json");
             continue;
         }
-        if (manifest.value("format",0)!=1 ||
+        if (!manifest.contains("format") ||
+            !manifest["format"].is_number_integer() ||
+            manifest["format"].get<int>()!=1 ||
             !manifest.contains("id") || !manifest["id"].is_string() ||
             manifest["id"].get<std::string>()!=id ||
             !manifest.contains("name") || !manifest["name"].is_string() ||
@@ -144,6 +147,12 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
             continue;
         }
         ++report.registered;
+        } catch (...) {
+            // Malformed inputs must NEVER unwind across the RED4ext DLL entrypoint.
+            Reject(report,id,"invalid manifest or settings field type");
+        }
     }
     return report;
 }
+
+} // namespace m1arc
