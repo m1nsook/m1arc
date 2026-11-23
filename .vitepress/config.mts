@@ -21,7 +21,7 @@ export default defineConfig({
         items: [
           { text: 'Install M1 Arc', link: '/quickstart' },
           { text: 'Settings and profiles', link: '/settings' },
-          { text: 'Languages', link: '/localization' }
+          { text: 'Languages', link: '/localization' },
           { text: 'Shortcut and keybinds', link: '/keybinds' },
           { text: 'Troubleshooting', link: '/troubleshooting' }
         ]
@@ -30,7 +30,7 @@ export default defineConfig({
         text: 'For mod authors',
         items: [
           { text: 'mod.json and settings.json', link: '/mod-manifest' },
-          { text: 'JSON translations', link: '/localization' }
+          { text: 'JSON translations', link: '/localization' },
           { text: 'REDscript native API', link: '/native-api' },
           { text: 'How M1 Arc works', link: '/architecture' }
         ]
