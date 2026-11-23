@@ -74,6 +74,16 @@ void SetValue(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
     if (output) *output=ok;
 }
 
+// Called by the owning REDscript mod from its ordinary update logic.
+// Actions do not execute code from JSON and are not persistent.
+void ConsumeAction(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
+{
+    CString mod, action;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &action);
+    frame->code++;
+    if (output) *output = m1arc::Settings().ConsumeAction(mod.c_str(), action.c_str());
+}
 void GetBool(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
 {
     CString mod, key;
@@ -242,6 +252,7 @@ void PostRegisterTypes()
     add("M1Arc_Version",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Version),"String",nullptr,0);
     add("M1Arc_RegisterJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Register),"Bool",registerArgs,3);
     add("M1Arc_GetJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetValue),"String",two,2);
+    add("M1Arc_ConsumeAction",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&ConsumeAction),"Bool",two,2);
     add("M1Arc_GetBool",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetBool),"Bool",two,2);
     add("M1Arc_GetInt",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetInt),"Int32",two,2);
     add("M1Arc_GetFloat",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetFloat),"Float",two,2);
