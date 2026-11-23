@@ -24,6 +24,13 @@ The theme toggle is part of the M1 Arc panel itself, not part of an
 installed mod's settings. It is remembered across restarts.
 The default theme for a first-time user is light.
 
+## Language selection
+
+The language menu in the panel footer remembers your chosen language
+across restarts. English, Polish and Korean are included. Mod settings
+values and profiles never change when you switch languages.
+See [languages and translations](/localization).
+
 ## Mod scope and short description
 
 Mod authors choose these display-only values in `mod.json`:
