@@ -38,6 +38,7 @@ int main() {
         hasAction |= setting.kind==m1arc::SettingKind::Action;
         hasInlineAction |= setting.buttonId=="spawn_ammo";
         hasWeapons |= setting.group=="Weapons";
+        hasHotkey |= setting.kind==m1arc::SettingKind::Hotkey;
     }
     REQUIRE(hasBool && hasInteger && hasFloat && hasChoice && hasLong);
     REQUIRE(hasCheckbox && hasAction && hasInlineAction && hasWeapons);
