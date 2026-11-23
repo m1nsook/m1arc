@@ -1,61 +1,30 @@
-# Breach Protocol native selection interface (experimental)
+# Breach Protocol input bridges (experimental)
 
-The native M1 Arc plugin exposes **one narrowly-scoped internal action**:
+M1 Arc (native RED4ext C++) contains two different hacking input routes:
 
-- \`M1Arc_BreachInputAvailable() -> Bool\` — true only when the exact
-  Cyberpunk 2077 2.5 executable version and a unique verified native
-  function-entry fingerprint are present.
-- \`M1Arc_BreachSelectCell(wref<inkLogicController>, Vector2)\` — supplies a
-  native (row, column) selection to the game's hacking logic controller.
+- **Legacy game-internal selector:** `M1Arc_BreachSelectCell(controller, Vector2(row,col))` calls a game 2.5 function found by a guarded signature scan. The user's first stealth puzzle did not acknowledge this dispatch, while the second puzzle did.
+- **New real Windows click:** `M1Arc_BreachClickAt(controller, normalizedPoint)` calls M1 Arc's already existing native `ClickGameClient` helper, based on Win32 `SetCursorPos` and `SendInput(MOUSEEVENTF_LEFTDOWN/UP)`. It does not call the internal game selector. This is the new Skip Breach route.
 
-**Skip Breach runtime log (development builds):** the paired addon declares
-`M1Arc_BreachTrace(message: String) -> Bool` next to the native selector
-functions. The M1 Arc DLL registers this narrow native and forwards REDscript
-controller/capture/state/acknowledgement messages to the **same RED4ext
-M1 Arc plugin log** at `Cyberpunk 2077/red4ext/logs/m1arc*.log`, prefixed
-`[Skip Breach]`. The old `LogChannel(DEBUG)` was not readable in that log.
-The bridge is diagnostic only: max 480 message bytes per call, no
-scripting engine and no modification of the game/puzzle. Every dispatched
-cell is logged with row/column even when consecutive dispatches have the
-same native state (previously `ActionState` hid them). The REDscript
-consumer still waits for its real game callback; a native "dispatched"
-line is **not proof** that the game acknowledged it.
+## Safety and integration
 
-**Match DLL + addon revisions.** Older M1 Arc DLLs do not register
-`M1Arc_BreachTrace`. Don't install only the newer addon, or the optional
-REDscript native declaration can fail validation at startup.
+`M1Arc_BreachClickAt` requires a live `gameuiHackingMinigameLogicController` RTTI object, current Cyberpunk foreground HWND, an unoccupied M1 Arc overlay, a finite normalized position strictly within the client window, and a valid 640x480-or-larger client area. The existing click backend additionally checks process ID and client pixel bounds and sends a release on partial injection.
 
-**Reference source:** the user's supplied AutoBreach 0.4.0 game-root ZIP
-for Cyberpunk 2077 2.5. We learned the *interface*, game version and
-entry signature, but do not redistribute its DLL, Lua or REDscript.
-M1 Arc's implementation is standalone C++.
+The REDscript addon derives the point from **live** `GetScreenPosition` rectangles in the base-game 2.5 widget hierarchy:
 
-**Native declaration correction:** The previous native `@addMethod`
-declaration triggered a RED4ext invalid-native-definition startup error.
-This version registers a global RTTI native that receives the weak hacking
-logic controller explicitly. Its experimental REDscript declarations
-are shipped **inside Skip Breach** (`M1ArcBreachNative.reds`), not in the
-working M1 Arc core `M1Arc.reds` declarations. Update the M1 Arc DLL and
-install the matching Skip Breach package together. Native script validation
-still needs an in-game confirmation.
+`AllParts/Top/NetworkCodeMapAndButton/wrapper/NetworkCodeMap/NetworkCodeMap/ContentWithBorder/ContentContainer/GridContainer/Grid`
 
-**Safeguards:** fail closed on any different executable version, missing
-signature, duplicate signature, non-function-entry match, inactive game
-window, open M1 Arc overlay/keybinding dialog, incorrect logic controller
-RTTI type, non-finite or out-of-bounds/non-integer coordinates. There is
-no generic mouse movement or raw input injection.
+The recovered original `hacking_minigame.inkwidget` has 48 `GridCell6` children and default `wrappingWidgetCount=6`. The consumer checks that the *live* grid wrap equals the currently captured puzzle dimension, validates that the first, right, and down cell positions form a coherent two-dimensional layout, and calculates the cell centre relative to the root bounds. **No fixed 1080p coordinates, OCR or CMD executable.** If any geometry is missing or inconsistent, it does not click.
 
-A return value of \`true\` means the call was *dispatched* — not that the
-game accepted it. The Skip Breach REDscript consumer **must** observe its
-own \`HackingMinigameGameController.OnPositionSelected(Vector2)\` event and
-advance only after matching the acknowledgement. Gamepad/cursor input
-must not be intercepted.
+`M1Arc_BreachInputAvailable` still checks the exact current 2.5 build and the old selector signature as a strict preflight; even though the new click no longer invokes that selector, the supported-version check is retained.
 
-**Compatibility:** fingerprint and version checks are based on the
-observed user reference, NOT a successfully tested live game executable
-by this project. Native compilation alone cannot guarantee that direct
-calling is safe on a user's installation; keep the draft and test on a
-version-matched copy of game 2.5 before release.
+A true native return means only that `SendInput` submitted events. The REDscript addon advances one cell **only after** a matching `HackingMinigameGameController.OnPositionSelected` acknowledgement. It never blindly repeats a submitted but unacknowledged click, changes quest facts, marks daemons complete, pauses the hacking timer, or closes/reopens the puzzle.
 
-This interface is an optional helper. M1 Arc settings and manifests
-continue to function when it is unavailable.
+**Origin:** `yuri-sevatz/cyber_breach` (BSD-2-Clause) independently demonstrates real Win32 pointer input for Breach Protocol. M1 Arc reuses its own pre-existing mouse helper; it does not bundle that project's executable or copy its OCR/solver implementation. The game UI structure was checked against the user's extracted original 2.5 UI assets.
+
+## Packaging and status
+
+Install **matching** M1 Arc PR #1 DLL and CP2077 Skip Breach PR #46 source/addon. `M1Arc_BreachInputAvailable`, `M1Arc_BreachSelectCell`, `M1Arc_BreachClickAt`, and `M1Arc_BreachTrace` are registered globally by the M1 Arc DLL and declared only in the Skip Breach addon. The existing stable `r6/scripts/m1arc/M1Arc.reds` is unchanged. Wrong DLL/addon revision can cause REDscript native validation errors on startup.
+
+The original game-internal selector is retained for diagnostics and compatibility but is not used by the current Skip Breach script.
+
+**Important:** Windows C++ CI compilation and REDscript parser checks do **not** prove first-puzzle gameplay acceptance. This remains an experimental draft. The user's stealth mission fails on puzzle cancellation; **do not ask the user to repeat that mission test**. M1 Arc core settings functionality remains independent of this optional mod.
