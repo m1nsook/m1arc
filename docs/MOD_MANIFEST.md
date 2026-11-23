@@ -24,6 +24,8 @@ Cyberpunk 2077/
   "id": "m1nsook.weight",
   "name": "Weight Limit",
   "version": "0.1.0",
+  "scope": "Gameplay",
+  "shortDesc": "Customize V's carrying capacity",
   "requires": { "m1arc": "0.1.0" }
 }
 \`\`\`
@@ -33,6 +35,40 @@ The folder name **must match** \`id\` (ASCII letters, digits, \`.\`, \`-\`,
 \`requires.m1arc\` is a minimum version (M1 Arc currently 0.1.0).
 A missing \`requires\` field is permitted; including it is recommended.
 
+
+## Mod scope and sidebar description
+
+The **mod author** may add `scope` and `shortDesc` to `mod.json`.
+Scope chooses the Phosphor icon displayed **before the mod name**;
+`shortDesc` appears **under the name** in smaller Karla text.
+These are visual metadata, not gameplay settings.
+
+| Scope | Description | Phosphor icon |
+| --- | --- | --- |
+| `Gameplay` | Mechanics, combat AI, driving, economy, progression | `game-controller` |
+| `Crafting` | Creation, upgrading, dismantling, recipes, components | `wrench` |
+| `Cheats` | Debug menus, god mode, money/items, noclip, console | `terminal` |
+| `Weapons` | Firearms, melee weapons, attachments, weapon balance | `sword` |
+| `Locations` | Interiors, apartments, map and environment edits | `map-pin` |
+| `Appearance` | Clothing, hairstyles, cosmetics, meshes, character creator | `t-shirt` |
+| `Characters` | NPCs, companions, romances, interactions | `users` |
+| `Miscellaneous` | Utilities, audio replacements, bug fixes, other mods | `toolbox` |
+| `UI/UX` | User interface and HUD tweaks | `sliders` |
+
+Exact spelling and capitalization matters. `scope` defaults to
+`Miscellaneous` (toolbox icon) when omitted. `shortDesc` is optional;
+when absent the sidebar retains its original one-line height.
+
+`shortDesc` must be a JSON string of no more than **180 UTF-8 bytes**
+without line breaks or control characters. Mod name remains the main
+title; both title and subtitle are clipped to fit the sidebar, and the
+full text is shown on hover. An unknown scope, incorrect field type,
+or oversized description rejects only the corresponding mod at load.
+The RED4ext log contains the rejected mod's ID and reason.
+
+Old manifests and the three-argument `M1Arc_RegisterJson` native
+function remain compatible. Only data-only manifests declare these
+two optional display fields; no additional native API is required.
 **\`settings.json\`** is an array of up to 250 native setting definitions:
 
 \`\`\`json

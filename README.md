@@ -95,6 +95,15 @@ Mods can register **without any runtime registration script**: put
 `red4ext/plugins/m1arc/mods/<mod-id>/`, and install that mod's normal
 REDscript under `r6/scripts/`. M1 Arc scans and validates manifests
 at startup. See [Mod manifest specification](docs/MOD_MANIFEST.md).
+An optional `scope` field selects one of nine Phosphor category icons
+(Gameplay, Crafting, Cheats, Weapons, Locations, Appearance, Characters,
+Miscellaneous or UI/UX), shown before each mod's name. `shortDesc`
+(maximum 180 UTF-8 bytes) is displayed on a smaller line underneath.
+Older manifests default to the Miscellaneous toolbox icon and a
+single-line row. Both values belong to `mod.json`, not to the player's
+saved settings. The [manifest guide](docs/MOD_MANIFEST.md) lists the
+exact scope names and icons.
+
 
 The sample carry-weight mod lives in the [CP2077 repository](https://github.com/m1nsook/CP2077)
 and uses this folder convention.
