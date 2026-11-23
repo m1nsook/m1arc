@@ -146,3 +146,66 @@ and native getters always use original IDs and options. Missing or invalid
 translation entries fall back to the mod's English/default text.
 No Lua, CET dependency, new scripting language, or execution is involved.
 
+
+## Buttons, checkboxes and sections
+
+M1 Arc uses existing native settings definitions. Set \`group\` to display
+section headings; use \`presentation: "checkbox"\` for a Boolean checkbox
+(the existing ON/OFF switch stays the default).
+
+For example, add these rows to a mod's **settings.json** array:
+
+\`\`\`json
+[
+  {
+    "id": "ammo_count",
+    "kind": "integer",
+    "label": "Ammunition",
+    "min": 1,
+    "max": 999,
+    "default": 50,
+    "group": "Weapons",
+    "button": { "id": "spawn_ammo", "label": "Spawn" }
+  },
+  {
+    "id": "light_ammo",
+    "kind": "boolean",
+    "label": "Light Ammo",
+    "default": true,
+    "presentation": "checkbox",
+    "group": "Weapons"
+  },
+  {
+    "id": "heavy_ammo",
+    "kind": "boolean",
+    "label": "Heavy Ammo",
+    "default": true,
+    "presentation": "checkbox",
+    "group": "Weapons"
+  },
+  {
+    "id": "spawn_selected",
+    "kind": "action",
+    "label": "Spawn selected ammunition",
+    "buttonLabel": "Spawn all",
+    "group": "Weapons"
+  }
+]
+\`\`\`
+
+**An action is only a button press.** JSON cannot contain arbitrary
+console commands, script callbacks or executable expressions.
+The mod author implements its own game behavior in ordinary REDscript
+and polls \`M1Arc_ConsumeAction("mod.id", "spawn_ammo")\`.
+When it returns \`true\`, the mod may read \`M1Arc_GetInt\` and
+\`M1Arc_GetBool\` and safely perform the requested gameplay action using
+its own code. Each click is consumed once; up to 16 pending clicks are
+stored per action until the owning mod consumes them. Presses are never
+written into saved settings or profiles and do not increase the settings
+revision counter.
+
+A standalone \`kind: "action"\` row has **no** \`default\`; numeric and
+Boolean controls require their ordinary defaults. Button IDs must be
+unique and cannot collide with setting IDs. Localized button captions
+use the per-setting \`buttonLabel\` in each mod's language JSON.
+Old schemas work unchanged, and setting values remain the original IDs.
