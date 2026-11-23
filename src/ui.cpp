@@ -115,8 +115,12 @@ void ApplyTheme(const Palette& p) {
     const ImVec4 hover = dark ? ImVec4(.22f,.25f,.22f,1.f) : p.amber;
     const ImVec4 pressed = dark ? ImVec4(.29f,.32f,.28f,1.f)
                                 : ImVec4(.84f,.60f,.12f,1.f);
-    c[ImGuiCol_FrameBgHovered] = hover;
-    c[ImGuiCol_FrameBgActive] = pressed;
+    // A hovered slider must NOT turn into a solid amber bar.
+    // Only the thumb uses the amber accent; the track remains neutral.
+    c[ImGuiCol_FrameBgHovered] = dark ? ImVec4(.23f,.27f,.23f,1.f)
+                                          : ImVec4(.83f,.80f,.68f,1.f);
+    c[ImGuiCol_FrameBgActive] = dark ? ImVec4(.28f,.31f,.27f,1.f)
+                                         : ImVec4(.78f,.74f,.61f,1.f);
     c[ImGuiCol_Button] = p.fill;
     c[ImGuiCol_ButtonHovered] = hover;
     c[ImGuiCol_ButtonActive] = pressed;
@@ -125,12 +129,14 @@ void ApplyTheme(const Palette& p) {
     c[ImGuiCol_HeaderActive] = dark ? ImVec4(.32f,.36f,.29f,1.f) : p.fill;
     c[ImGuiCol_CheckMark] = p.amber;
     c[ImGuiCol_SliderGrab] = p.amber;
-    c[ImGuiCol_SliderGrabActive] = p.amber;
+    c[ImGuiCol_SliderGrabActive] = ImVec4(.92f,.63f,.10f,1.f);
     c[ImGuiCol_ScrollbarBg] = p.fill;
     c[ImGuiCol_ScrollbarGrab] = p.ink;
     c[ImGuiCol_ScrollbarGrabHovered] = p.amber;
     c[ImGuiCol_ScrollbarGrabActive] = p.amber;
     c[ImGuiCol_NavHighlight] = p.amber;
+    // Tooltips use the correct foreground even after colored header text.
+    c[ImGuiCol_PlotHistogram] = p.amber;
 }
 
 bool Enabled(const ModView& mod) {
@@ -149,6 +155,27 @@ bool IsMasterSwitch(const SettingView& setting) {
 std::string& SelectedMod() {
     static std::string selected;
     return selected;
+}
+
+void ShowTooltip(const std::string& message, const Palette& p) {
+    if (message.empty()) return;
+    const auto* viewport = ImGui::GetMainViewport();
+    const float wrap = std::max(150.f,std::min(360.f,viewport->Size.x-80.f));
+    ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
+    ImGui::PushStyleColor(ImGuiCol_PopupBg,p.paper);
+    ImGui::PushStyleColor(ImGuiCol_Border,p.ink);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(14.f,12.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,1.f);
+    // A tooltip with unbounded SetTooltip() escaped across the viewport.
+    // The wrap position is WINDOW-LOCAL, not the screen-space X coordinate.
+    if (ImGui::BeginTooltip()) {
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+wrap);
+        ImGui::TextUnformatted(message.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(3);
 }
 
 void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
@@ -227,15 +254,8 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     const float shortcutX = themeX + themeWidth + 10.f;
     if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
-        // Do not inherit header cream foreground onto the cream tooltip.
-        ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
-        ImGui::PushStyleColor(ImGuiCol_PopupBg,p.paper);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(12.f,9.f));
-        ImGui::SetTooltip("Change M1 Arc's menu shortcut (independent of CET)");
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(2);
-    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip("Change M1 Arc's menu shortcut (independent of CET)",p);
 
     const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
     const float closeX = std::max(8.f,width-closeWidth-14.f);
@@ -263,166 +283,227 @@ std::string FitLabel(std::string label, float available) {
     return label + "...";
 }
 
-void DrawSidebar(const Palette& p, const std::vector<ModView>& mods, float width, float height) {
-    ImGui::BeginChild("##arc-nav",ImVec2(width,height),ImGuiChildFlags_None,0);
-    auto* draw = ImGui::GetWindowDrawList();
-    const float right = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 1.f;
+void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
+                 float width, float height) {
+    ImGui::BeginChild("##arc-nav",ImVec2(width,height),ImGuiChildFlags_None,
+                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    ImDrawList* draw=ImGui::GetWindowDrawList();
+    const float right=ImGui::GetWindowPos().x+ImGui::GetWindowWidth()-1.f;
     draw->AddLine(ImVec2(right,ImGui::GetWindowPos().y),
                   ImVec2(right,ImGui::GetWindowPos().y+height),Color(p.ink),2.f);
+    ImGui::SetCursorPos(ImVec2(0.f,12.f));
     if (mods.empty()) {
-        ImGui::SetCursorPos(ImVec2(16,16));
+        ImGui::SetCursorPosX(16.f);
         ImGui::TextDisabled("NO REGISTERED MODS");
     } else {
         for (const auto& mod : mods) {
-            const bool selected = SelectedMod() == mod.id;
+            const bool selected=SelectedMod()==mod.id;
             ImGui::PushID(mod.id.c_str());
-            ImGui::PushStyleColor(ImGuiCol_Text,selected ? p.paper : p.ink);
+            const bool dark=p.paper.x<.2f;
+            const ImVec4 hoverBg=selected
+                ? (dark ? p.amber : ImVec4(.22f,.25f,.22f,1.f))
+                : p.fill;
+            const ImVec4 pressedBg=selected
+                ? (dark ? ImVec4(.85f,.59f,.12f,1.f) : ImVec4(.30f,.34f,.28f,1.f))
+                : p.fill;
             ImGui::PushStyleColor(ImGuiCol_Header,selected ? p.ink : p.paper);
-            // Keep selected rows readable AND visibly interactive on both themes.
-            const bool darkTheme = p.paper.x < .2f;
-            const ImVec4 selectedHover = darkTheme ? p.amber : ImVec4(.22f,.25f,.22f,1.f);
-            const ImVec4 selectedPress = darkTheme ? ImVec4(.86f,.60f,.12f,1.f)
-                                                  : ImVec4(.30f,.34f,.28f,1.f);
-            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,
-                selected ? selectedHover : p.fill);
-            ImGui::PushStyleColor(ImGuiCol_HeaderActive,
-                selected ? selectedPress : p.fill);
-            const ImVec2 row = ImGui::GetCursorScreenPos();
-            const float rowWidth = std::max(1.f, ImGui::GetContentRegionAvail().x-2.f);
-            constexpr float rowHeight = 54.f;
-            const std::string prefix = fonts::HasIcons() ? ARC_ICON_CUBE "  " : "";
-            const float prefixWidth = ImGui::CalcTextSize(prefix.c_str()).x;
-            const std::string label=prefix +
-                FitLabel(mod.title,std::max(15.f,rowWidth-prefixWidth-40.f));
-            if (ImGui::Selectable(label.c_str(),selected,0,ImVec2(rowWidth,rowHeight)))
-                SelectedMod() = mod.id;
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s",mod.title.c_str());
-            ImGui::PopStyleColor(4);
-            const ImVec2 rowEnd(row.x+rowWidth,row.y+54.f);
-            draw->AddLine(ImVec2(row.x,rowEnd.y-1.f),
-                          ImVec2(rowEnd.x,rowEnd.y-1.f),Color(p.ink),2.f);
-            const ImVec4 outline = selected ? p.paper : p.ink;
-            const ImVec2 a(rowEnd.x-25.f,row.y+22.f);
-            const ImVec2 b(a.x+9.f,a.y+9.f);
-            draw->AddRect(a,b,Color(outline),0.f,0,2.f);
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,hoverBg);
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive,pressedBg);
+
+            const ImVec2 row=ImGui::GetCursorScreenPos();
+            const float rowWidth=std::max(1.f,ImGui::GetContentRegionAvail().x-2.f);
+            constexpr float rowHeight=58.f;
+            if (ImGui::Selectable("##mod-row",selected,0,ImVec2(rowWidth,rowHeight)))
+                SelectedMod()=mod.id;
+            const bool hovered=ImGui::IsItemHovered();
+            const bool held=ImGui::IsItemActive();
+
+            // Selectable registers a full-width hitbox; draw the label inside
+            // it with a 16px inset. Regular Selectable text had ZERO padding.
+            ImVec4 foreground=p.ink;
+            if (selected) {
+                foreground=(dark && (hovered||held)) ? p.paper :
+                           (!dark && (hovered||held)) ? p.paper : p.paper;
+            }
+            // For selected dark rows the base is pale; on hover it is amber.
+            // Both need dark lettering (p.paper in the dark palette).
+            const std::string prefix=fonts::HasIcons() ? ARC_ICON_CUBE "  " : "";
+            const float usable=std::max(30.f,rowWidth-16.f-30.f);
+            const std::string label=FitLabel(prefix+mod.title,usable);
+            const float baseline=row.y+(rowHeight-ImGui::GetFontSize())*.5f;
+            draw->AddText(ImVec2(row.x+16.f,baseline),Color(foreground),label.c_str());
+
+            const ImVec2 bottom(row.x+rowWidth,row.y+rowHeight);
+            draw->AddLine(ImVec2(row.x,bottom.y-1.f),
+                          ImVec2(bottom.x,bottom.y-1.f),Color(p.ink),1.f);
+            const ImVec2 a(bottom.x-24.f,row.y+(rowHeight-10.f)*.5f);
+            draw->AddRect(a,ImVec2(a.x+10.f,a.y+10.f),
+                          Color(selected ? p.paper : p.ink),0.f,0,2.f);
             if (Enabled(mod))
                 draw->AddRectFilled(ImVec2(a.x+2.f,a.y+2.f),
-                                    ImVec2(b.x-2.f,b.y-2.f),Color(p.amber));
+                                    ImVec2(a.x+8.f,a.y+8.f),Color(p.amber));
+            if (hovered)
+                ShowTooltip(mod.title,p);
+            ImGui::PopStyleColor(3);
             ImGui::PopID();
         }
     }
     ImGui::EndChild();
 }
-void DrawSwitch(const ModView& mod, const SettingView& setting, const Palette& p, float width) {
-    const bool value = setting.value.get<bool>();
-    const float half = width * .5f;
-    const bool dark = p.paper.x < .2f;
-    const ImVec4 altHover = dark ? ImVec4(.22f,.25f,.22f,1.f) : p.amber;
-    const ImVec4 altPress = dark ? ImVec4(.29f,.32f,.28f,1.f) : ImVec4(.84f,.60f,.12f,1.f);
-    ImGui::PushStyleColor(ImGuiCol_Button,!value ? p.ink : p.fill);
-    // OFF is an interactive selected button too: give it a contrast-safe
-    // hover/press treatment instead of reusing its base color.
-    const ImVec4 offHover = dark ? ImVec4(.98f,.94f,.77f,1.f)
-                                 : ImVec4(.22f,.25f,.22f,1.f);
-    const ImVec4 offPress = dark ? ImVec4(.87f,.80f,.58f,1.f)
-                                 : ImVec4(.30f,.34f,.28f,1.f);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,!value ? offHover : altHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,!value ? offPress : altPress);
-    ImGui::PushStyleColor(ImGuiCol_Text,!value ? p.paper : p.ink);
-    if (ImGui::Button("OFF##switch",ImVec2(half,30.f)))
-        if (value) (void)Settings().Set(mod.id,setting.id,false);
-    ImGui::PopStyleColor(4);
-    ImGui::SameLine(0,0);
-    ImGui::PushStyleColor(ImGuiCol_Button,value ? p.amber : p.fill);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,value ? ImVec4(.98f,.75f,.24f,1.f) : altHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,value ? ImVec4(.86f,.60f,.08f,1.f) : altPress);
-    ImGui::PushStyleColor(ImGuiCol_Text,value ? ImVec4(.10f,.11f,.09f,1.f) : p.ink);
-    if (ImGui::Button("ON##switch",ImVec2(width-half,30.f)))
-        if (!value) (void)Settings().Set(mod.id,setting.id,true);
-    ImGui::PopStyleColor(4);
+
+void DrawSwitch(const ModView& mod,const SettingView& setting,
+                const Palette& p,float width) {
+    const bool enabled=setting.value.get<bool>();
+    const bool dark=p.paper.x<.2f;
+    const float half=width*.5f;
+    const auto side=[&](const char* label,bool target,float buttonWidth) {
+        const bool selected=enabled==target;
+        const ImVec4 background=selected ? (target ? p.amber : p.ink) : p.fill;
+        // Hover on an unselected switch is neutral, NOT amber / enabled.
+        const ImVec4 hover=selected
+            ? (target ? ImVec4(.95f,.68f,.16f,1.f)
+                      : dark ? ImVec4(.93f,.89f,.73f,1.f)
+                             : ImVec4(.22f,.25f,.22f,1.f))
+            : (dark ? ImVec4(.24f,.27f,.23f,1.f)
+                    : ImVec4(.83f,.80f,.68f,1.f));
+        const ImVec4 active=selected
+            ? (target ? ImVec4(.84f,.59f,.08f,1.f)
+                      : dark ? ImVec4(.85f,.80f,.64f,1.f)
+                             : ImVec4(.29f,.32f,.27f,1.f))
+            : (dark ? ImVec4(.28f,.32f,.27f,1.f)
+                    : ImVec4(.78f,.74f,.61f,1.f));
+        const ImVec4 foreground=selected
+            ? (target ? ImVec4(.10f,.11f,.09f,1.f) : p.paper)
+            : p.ink;
+        ImGui::PushStyleColor(ImGuiCol_Button,background);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,hover);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,active);
+        ImGui::PushStyleColor(ImGuiCol_Text,foreground);
+        if (ImGui::Button(label,ImVec2(buttonWidth,32.f)) && enabled!=target)
+            (void)Settings().Set(mod.id,setting.id,target);
+        ImGui::PopStyleColor(4);
+    };
+    side("OFF##switch",false,half);
+    ImGui::SameLine(0.f,0.f);
+    side("ON##switch",true,width-half);
 }
-void DrawChoice(const ModView& mod,const SettingView& setting,float width) {
+
+void DrawSliderGrabOutline(const Palette& p,double value,
+                           double minimum,double maximum,bool integer) {
+    const ImVec2 a=ImGui::GetItemRectMin();
+    const ImVec2 b=ImGui::GetItemRectMax();
+    const float frameWidth=b.x-a.x;
+    if (frameWidth<=8.f || b.y-a.y<=8.f) return;
+    const float padding=2.f;
+    const float size=frameWidth-2.f*padding;
+    float grab=ImGui::GetStyle().GrabMinSize;
+    if (integer && maximum>minimum)
+        grab=std::max(grab,size/static_cast<float>(maximum-minimum+1.0));
+    grab=std::min(grab,size);
+    const float usable=std::max(0.f,size-grab);
+    const double fraction=maximum>minimum ?
+        std::clamp((value-minimum)/(maximum-minimum),0.0,1.0):0.0;
+    const float x=a.x+padding+static_cast<float>(fraction)*usable;
+    // ImGui's native thumb is still used for behavior. The outline only
+    // makes its boundaries visible against neutral tracks on hover.
+    ImGui::GetWindowDrawList()->AddRect(
+        ImVec2(x,a.y+padding),
+        ImVec2(x+grab,b.y-padding),Color(p.ink),0.f,0,1.5f);
+}
+
+void DrawChoice(const ModView& mod,const SettingView& setting,const Palette& p,float width) {
     const auto value = setting.value.get<std::string>();
     const auto it = std::find(setting.choices.begin(),setting.choices.end(),value);
     const int count = static_cast<int>(setting.choices.size());
     if (count <= 0) return;
     const int index = it == setting.choices.end() ? 0 :
         static_cast<int>(std::distance(setting.choices.begin(),it));
-    if (ImGui::Button("<##previous",ImVec2(32.f,30.f)))
+    if (ImGui::Button("<##previous",ImVec2(32.f,32.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+count-1)%count]);
     ImGui::SameLine(0,0);
     // The center is a functional next-choice button, not a fake display.
-    if (ImGui::Button((value+"##current").c_str(),ImVec2(std::max(16.f,width-64.f),30.f)))
+    const std::string clipped=FitLabel(value,std::max(15.f,width-92.f));
+    if (ImGui::Button((clipped+"##current").c_str(),
+                      ImVec2(std::max(16.f,width-64.f),32.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(value,p);
     ImGui::SameLine(0,0);
     if (ImGui::Button(">##next",ImVec2(32.f,30.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
 }
 
-void DrawSetting(const ModView& mod, const SettingView& setting,
-                 const Palette& p, float width, bool disabled) {
+void DrawSetting(const ModView& mod,const SettingView& setting,
+                 const Palette& p,float width,bool disabled) {
     ImGui::PushID(setting.id.c_str());
-    const bool stacked = width < 430.f;
-    const float controls = stacked ? std::min(250.f,width) :
+    const bool stacked=width<430.f;
+    const float controls=stacked ? std::min(250.f,width) :
         std::min(250.f,std::max(155.f,width*.38f));
-    const float labelWidth = stacked ? width :
-        std::max(25.f,width-controls-22.f);
-    const float textHeight = ImGui::CalcTextSize(
-        setting.label.c_str(), nullptr, false, labelWidth).y;
-    const float height = stacked ?
-        std::max(72.f,textHeight+54.f) : std::max(54.f,textHeight+18.f);
-    const ImVec2 row = ImGui::GetCursorScreenPos();
-    if (disabled) ImGui::BeginDisabled();
+    const float labelWidth=stacked ? width :
+        std::max(25.f,width-controls-24.f);
+    const float textHeight=ImGui::CalcTextSize(
+        setting.label.c_str(),nullptr,false,labelWidth).y;
+    const float rowHeight=stacked ?
+        std::max(84.f,textHeight+62.f) :
+        std::max(62.f,textHeight+22.f);
+    const ImVec2 row=ImGui::GetCursorScreenPos();
 
-    ImGui::SetCursorScreenPos(ImVec2(row.x,row.y+8.f));
-    ImGui::PushTextWrapPos(row.x+labelWidth);
-    ImGui::TextWrapped("%s",setting.label.c_str());
+    if (disabled) ImGui::BeginDisabled();
+    ImGui::SetCursorScreenPos(ImVec2(row.x,row.y+12.f));
+    // PushTextWrapPos uses WINDOW-LOCAL X, not screen X (previously wrong).
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+labelWidth);
+    ImGui::TextUnformatted(setting.label.c_str());
     ImGui::PopTextWrapPos();
     if (!setting.description.empty() &&
         ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ImGui::SetTooltip("%s",setting.description.c_str());
+        ShowTooltip(setting.description,p);
 
-    const float controlX = stacked ? row.x : row.x+width-controls;
-    const float controlY = stacked ? row.y+textHeight+17.f :
-        row.y+std::max(8.f,(height-34.f)*.5f);
-    ImGui::SetCursorScreenPos(ImVec2(controlX,controlY));
+    const float x=stacked ? row.x : row.x+width-controls;
+    const float y=stacked ? row.y+textHeight+22.f :
+        row.y+std::max(12.f,(rowHeight-32.f)*.5f);
+    ImGui::SetCursorScreenPos(ImVec2(x,y));
     ImGui::SetNextItemWidth(controls);
     switch (setting.kind) {
     case SettingKind::Boolean:
         DrawSwitch(mod,setting,p,controls);
         break;
     case SettingKind::Integer: {
-        int value = setting.value.get<int>();
-        if (ImGui::SliderInt("##value",&value,
-            static_cast<int>(setting.minimum),
-            static_cast<int>(setting.maximum),"%d",
-            ImGuiSliderFlags_AlwaysClamp))
+        int value=setting.value.get<int>();
+        const int lower=static_cast<int>(setting.minimum);
+        const int upper=static_cast<int>(setting.maximum);
+        if (ImGui::SliderInt("##value",&value,lower,upper,"%d",
+                             ImGuiSliderFlags_AlwaysClamp))
             (void)Settings().Set(mod.id,setting.id,value);
+        DrawSliderGrabOutline(p,value,lower,upper,true);
         break;
     }
     case SettingKind::Float: {
-        float value = setting.value.get<float>();
-        if (ImGui::SliderFloat("##value",&value,
-            static_cast<float>(setting.minimum),
-            static_cast<float>(setting.maximum),"%.2f",
-            ImGuiSliderFlags_AlwaysClamp))
+        float value=setting.value.get<float>();
+        const float lower=static_cast<float>(setting.minimum);
+        const float upper=static_cast<float>(setting.maximum);
+        if (ImGui::SliderFloat("##value",&value,lower,upper,"%.2f",
+                               ImGuiSliderFlags_AlwaysClamp))
             (void)Settings().Set(mod.id,setting.id,static_cast<double>(value));
+        DrawSliderGrabOutline(p,value,lower,upper,false);
         break;
     }
     case SettingKind::Choice:
-        DrawChoice(mod,setting,controls);
+        DrawChoice(mod,setting,p,controls);
         break;
     }
     if (disabled) ImGui::EndDisabled();
-    ImGui::SetCursorScreenPos(ImVec2(row.x,row.y+height));
+
+    // Explicitly register row height with ImGui: SetCursorScreenPos alone
+    // did not contribute reliable scrollable content height.
+    ImGui::SetCursorScreenPos(row);
+    ImGui::Dummy(ImVec2(std::max(1.f,width),rowHeight));
     ImGui::PopID();
 }
 
 void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                 float width, float height) {
     ImGui::BeginChild("##arc-detail",ImVec2(width,height),ImGuiChildFlags_None,
-                      ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
+                      ImGuiWindowFlags_NoScrollbar);
     auto& current = SelectedMod();
     const auto it = std::find_if(mods.begin(),mods.end(),
         [&](const auto& mod){return mod.id==current;});
@@ -433,14 +514,15 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     ImGui::SetCursorPos(ImVec2(pad,16.f));
     ImGui::BeginChild("##settings-scroll",
                       ImVec2(interior,std::max(20.f,height-footerHeight-32.f)),
-                      ImGuiChildFlags_None,0);
+                      ImGuiChildFlags_None,ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    ImGui::SetCursorPos(ImVec2(8.f,10.f));
     if (selected) {
         const bool active = Enabled(*selected);
         // Settings are native live controls, derived from each REDscript mod's
         // own registered schema. Never substitute the HTML's demo mod data.
         for (const auto& setting : selected->settings)
             DrawSetting(*selected,setting,p,
-                std::max(0.f,ImGui::GetContentRegionAvail().x),
+                std::max(1.f,ImGui::GetContentRegionAvail().x-8.f),
                 !active && !IsMasterSwitch(setting));
     } else {
         ImGui::TextDisabled("No registered mods yet.");
@@ -448,6 +530,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
         ImGui::TextWrapped(
             "REDscript mods appear here after they register their settings through M1 Arc.");
     }
+    if (selected) ImGui::Dummy(ImVec2(1.f,16.f));
     ImGui::EndChild();
 
     // Rule spans the entire detail area, touching the sidebar divider and
