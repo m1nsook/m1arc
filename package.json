@@ -1,15 +1,15 @@
 {
-  "dependencies": {
-    "vue": "^3.5.46"
-  },
-  "devDependencies": {
-    "vitepress": "^2.0.0-alpha.21"
-  },
-  "scripts": {
-    "docs:dev": "vitepress dev",
-    "docs:build": "vitepress build",
-    "docs:preview": "vitepress preview",
-    "api:check": "bun scripts/check-api.mjs",
-    "check": "bun run api:check && bun run docs:build"
-  }
+    "dependencies": {
+        "vue": "^3.5.46"
+    },
+    "devDependencies": {
+        "vitepress": "^2.0.0-alpha.21"
+    },
+    "scripts": {
+        "docs:dev": "vitepress dev",
+        "docs:build": "vitepress build",
+        "docs:preview": "vitepress preview",
+        "api:check": "bun scripts/check-api.mjs",
+        "check": "bun run api:check && bun run docs:build"
+    }
 }

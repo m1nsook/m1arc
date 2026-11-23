@@ -1,35 +1,31 @@
 import { defineConfig } from 'vitepress'
 
+// https://vitepress.dev/reference/site-config
 export default defineConfig({
   srcDir: 'docs',
   base: '/m1script/',
-  title: 'm1script',
-  description: 'Cyberpunk 2077 scripting API reference for the standalone m1core RED4ext framework',
+  title: "M1 ARC",
   cleanUrls: true,
+  description: "Red4Ext Manager",
   themeConfig: {
+    // https://vitepress.dev/reference/default-theme-config
     nav: [
-      { text: 'Guide', link: '/quickstart' },
-      { text: 'API', link: '/api-reference' },
-      { text: 'GitHub', link: 'https://github.com/m1nsook/m1script' }
+      { text: 'Home', link: '/' },
+      { text: 'Examples', link: '/markdown-examples' }
     ],
+
     sidebar: [
-      { text: 'Getting started', items: [
-        { text: 'Introduction', link: '/' },
-        { text: 'Quick start', link: '/quickstart' },
-        { text: 'Formats', link: '/script-formats' },
-        { text: 'Architecture', link: '/architecture' },
-        { text: 'Roadmap', link: '/roadmap' }
-      ] },
-      { text: 'Developer APIs', items: [
-        { text: 'Complete reference', link: '/api-reference' },
-        { text: 'Lifecycle', link: '/lifecycle' },
-        { text: 'Settings', link: '/settings' },
-        { text: 'Keybinds', link: '/keybinds' },
-        { text: 'REDscript API', link: '/native-api' },
-        { text: 'Examples', link: '/api-examples' },
-        { text: 'Editor support', link: '/editor-support' }
-      ] }
+      {
+        text: 'Examples',
+        items: [
+          { text: 'Markdown Examples', link: '/markdown-examples' },
+          { text: 'Runtime API Examples', link: '/api-examples' }
+        ]
+      }
     ],
-    socialLinks: [{ icon: 'github', link: 'https://github.com/m1nsook/m1script' }]
+
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/vuejs/vitepress' }
+    ]
   }
 })

@@ -1,45 +1,49 @@
-# Scripting examples
+---
+outline: deep
+---
 
-Unlike the original website starter, these examples are real Lua callbacks for m1core, not VitePress APIs.
+# Runtime API Examples
 
-## Hello world
+This page demonstrates usage of some of the runtime APIs provided by VitePress.
 
-~~~lua
-registerForEvent("onInit", function()
-    print("[hello] m1script ready")
-end)
-registerForEvent("onShutdown", function()
-    print("[hello] goodbye")
-end)
-~~~
+The main `useData()` API can be used to access site, theme, and page data for the current page. It works in both `.md` and `.vue` files:
 
-[Hello example source](https://github.com/m1nsook/m1script/blob/main/examples/hello/init.m1s)
+```md
+<script setup>
+import { useData } from 'vitepress'
 
-## Persistent settings
+const { theme, page, frontmatter } = useData()
+</script>
 
-~~~lua
-local MOD_ID = "example.m1script_settings"
-local SCHEMA = [[
-[
-  {"id":"enabled","kind":"boolean","default":true},
-  {"id":"interval","kind":"float","default":0.5,"min":0.1,"max":5,"step":0.1}
-]
-]]
+## Results
 
-registerForEvent("onInit", function()
-    assert(m1core.registerJson(MOD_ID, "m1script Example", SCHEMA))
-end)
+### Theme Data
+<pre>{{ theme }}</pre>
 
-registerForEvent("onUpdate", function(dt)
-    if m1core.getJson(MOD_ID, "enabled") == "true" then
-        -- Use game-safe logic here, not a busy loop.
-    end
-end)
-~~~
+### Page Data
+<pre>{{ page }}</pre>
 
-[Settings example source](https://github.com/m1nsook/m1script/blob/main/examples/settings/init.m1s)
+### Page Frontmatter
+<pre>{{ frontmatter }}</pre>
+```
 
-## Real Weight Limit integration
+<script setup>
+import { useData } from 'vitepress'
 
-For a mod that applies a temporary stat modifier and removes it in `onShutdown`, see the [m1core Weight Limit sample](https://github.com/m1nsook/CP2077/blob/dev/m1core-cet-foundation/m1core/examples/weight-limit/init.m1s). Its Lua source and compiled bytecode variants are tested by native Windows CI.
+const { site, theme, page, frontmatter } = useData()
+</script>
 
+## Results
+
+### Theme Data
+<pre>{{ theme }}</pre>
+
+### Page Data
+<pre>{{ page }}</pre>
+
+### Page Frontmatter
+<pre>{{ frontmatter }}</pre>
+
+## More
+
+Check out the documentation for the [full list of runtime APIs](https://vitepress.dev/reference/runtime-api#usedata).
