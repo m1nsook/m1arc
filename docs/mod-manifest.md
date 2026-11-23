@@ -1,7 +1,6 @@
 # Mod manifest and settings schema
 
-M1 Arc loads data-only manifests automatically at startup.
-It does **not** run Lua, custom `.m1s` files, or a new scripting language.
+M1 Arc loads mod metadata and settings definitions from JSON at startup.
 
 ## File structure
 
@@ -96,9 +95,9 @@ Manifests are scanned at startup, so restart the game after adding a mod.
 
 ## Buttons, checkboxes and sections
 
-The existing \`group\` setting now displays a section heading such as
+The existing `group` setting now displays a section heading such as
 **Weapons**. To present a Boolean setting as a checkbox instead of the
-default ON/OFF switch, use \`"presentation": "checkbox"\`.
+default ON/OFF switch, use `"presentation": "checkbox"`.
 
 A numeric control can also have a one-shot action button beside it:
 
@@ -140,8 +139,8 @@ A numeric control can also have a one-shot action button beside it:
 ]
 ~~~
 
-The \`action\` kind is a standalone button and **must not** have a
-\`default\` value. A numeric \`button\` contains a distinct action ID and
+The `action` kind is a standalone button and **must not** have a
+`default` value. A numeric `button` contains a distinct action ID and
 display label. All IDs must be unique. Group headings are rendered only
 when a mod uses groups other than the default General section.
 
@@ -157,11 +156,10 @@ if M1Arc_ConsumeAction("example.my-mod", "spawn_ammo") {
 }
 ~~~
 
-Call this in your mod's normal update/gameplay logic. M1 Arc **does not**
-execute arbitrary commands specified in JSON and never bundles spawn
-scripts. Actions are limited to 16 pending clicks per action, not
+Call this in your mod's REDscript gameplay logic. The mod handles the action;
+JSON only defines the control. Actions are limited to 16 pending clicks per action, not
 persisted in profiles or settings, and do not alter the settings revision.
-Translate captions using \`buttonLabel\` in the per-mod
+Translate captions using `buttonLabel` in the per-mod
 [language JSON](/localization).
 
 ## Mod hotkey controls

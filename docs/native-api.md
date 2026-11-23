@@ -2,10 +2,9 @@
 
 M1 Arc registers these functions through the RED4ext plugin.
 `r6/scripts/m1arc/M1Arc.reds` contains native declarations that must
-match the installed `red4ext/plugins/m1arc/m1arc.dll`. The declarations
-are **not** a new scripting language or a separate runtime.
+match the installed `red4ext/plugins/m1arc/m1arc.dll`. Keep the declarations and DLL from the same build.
 
-The canonical API source is [M1Arc.reds on the native branch](https://github.com/m1nsook/m1arc/blob/native/r6/scripts/m1arc/M1Arc.reds).
+The declarations are in [M1Arc.reds](https://github.com/m1nsook/m1arc/blob/main/r6/scripts/m1arc/M1Arc.reds).
 
 | Function | Return | Purpose |
 | --- | --- | --- |
@@ -33,7 +32,7 @@ Button actions are events, not saved values. Define a `kind: "action"`
 row or an inline numeric `button` in the mod schema and call
 `M1Arc_ConsumeAction` from your REDscript gameplay logic.
 The same function consumes native `kind: "hotkey"` key-down events.
-The framework does not execute arbitrary console commands from JSON.
+The owning mod handles the requested action in REDscript.
 
 ## Using values
 
@@ -47,8 +46,8 @@ Typed getters return a zero/empty default when the ID is missing or
 incorrectly typed. Use `M1Arc_GetJson` if your mod needs strict
 missing-setting checks.
 
-M1 Arc stores settings persistently and updates its native in-memory
-registry immediately when users change controls. No CET Lua API is required.
+M1 Arc stores settings persistently and updates its in-memory registry
+when users change controls.
 
 For ordinary mod registration without script code, prefer the data-only
 [manifest format](/mod-manifest). The optional scope/subtitle fields

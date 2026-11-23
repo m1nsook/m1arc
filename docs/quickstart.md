@@ -1,48 +1,26 @@
 # Install M1 Arc
 
-M1 Arc is a standalone native **RED4ext** plugin for **Cyberpunk 2077 2.50**.
-You need RED4ext and REDscript installed. Cyber Engine Tweaks can stay
-installed, but M1 Arc does not depend on it.
+M1 Arc is a native **RED4ext** plugin for **Cyberpunk 2077 2.50**.
+Install RED4ext and REDscript before installing M1 Arc.
 
 ## Download and install
 
-1. For the public M1 Arc mod page, visit [M1 Arc on Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311).
-   Versions will appear there when the maintainer publishes them.
-   Versioned archives and checksums are also prepared on
-   [GitHub Releases](https://github.com/m1nsook/m1arc/releases).
-   **Draft GitHub releases are visible to maintainers only**, not a public download.
-2. Download the versioned `m1arc-v...-game-root.zip` and its SHA-256 text file
-   when the chosen release has been made available.
-3. Close Cyberpunk 2077 before changing files.
-4. Extract the **contents** of the ZIP into the **Cyberpunk 2077 game directory**,
-   where `red4ext/` and `r6/` already exist. Do not create a nested `package/` folder.
-5. Launch Cyberpunk and set a separate M1 Arc panel shortcut when prompted.
+1. Find an available version on [GitHub Releases](https://github.com/m1nsook/m1arc/releases) or [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311). Draft releases are not public.
+2. Download its `game-root.zip` and SHA-256 checksum.
+3. Close Cyberpunk 2077.
+4. Extract the ZIP **contents** into the game directory containing `red4ext/` and `r6/` (not a new `package/` folder).
+5. Launch the game and choose your M1 Arc menu key.
 
-The ZIP must have these paths:
-
-~~~text
-Cyberpunk 2077/
-  red4ext/plugins/m1arc/m1arc.dll
-  red4ext/plugins/m1arc/LICENSE
-  red4ext/plugins/m1arc/fonts/
-    Karla-SemiBold.ttf
-    ChakraPetch-SemiBold.ttf
-    Phosphor-Regular.ttf
-    ... font notices
-  r6/scripts/m1arc/M1Arc.reds
-~~~
-
-The release ZIP deliberately does **not** contain the temporary
-`dev-preview.enabled` marker, any gameplay mod, proprietary Blender Pro
-fonts or a separate AutoBreach DLL.
+The ZIP installs `red4ext/plugins/m1arc/m1arc.dll`, its fonts and
+language files, and `r6/scripts/m1arc/M1Arc.reds`. Regular releases do not
+include the development-only UI Test fixture or gameplay mods.
 
 Existing `red4ext/plugins/m1arc/settings.json` stores personal settings
 and is not included in the release archive. Do not delete it while updating.
 
 ## Open the panel
 
-M1 Arc uses the key you chose at first launch and stores it independently
-from CET. Use the panel's binding control if you wish to change the key.
+The selected key opens and closes the panel. You can rebind it inside M1 Arc.
 The panel includes light/dark themes, mod-specific controls and profile saving.
 
 ## Install mods that support M1 Arc
