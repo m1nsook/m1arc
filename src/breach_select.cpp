@@ -1,5 +1,6 @@
 #include "breach_select.hpp"
 #include "input.hpp"
+#include "graphics.hpp"
 
 #include <RED4ext/Scripting/Natives/Generated/Vector2.hpp>
 #include <RED4ext/Scripting/IScriptable.hpp>
@@ -42,6 +43,13 @@ enum class SelectorStatus {
     Ready
 };
 std::atomic<SelectorStatus> g_status{SelectorStatus::Uninitialized};
+// A single message per changed rejection state, not one per UI frame.
+std::atomic<int> g_lastActionState{-1};
+
+void ActionState(int state,const char* message) noexcept {
+    const int previous=g_lastActionState.exchange(state,std::memory_order_acq_rel);
+    if (previous!=state) m1arc::RenderBridge::Get().LogInfo(message);
+}
 
 NativeSelector Reject(SelectorStatus reason) noexcept {
     g_status.store(reason,std::memory_order_release);
@@ -134,26 +142,42 @@ void SelectCell(RED4ext::IScriptable*,
     if (output) *output=false;
     auto controller=weakController.Lock();
     auto* context=controller.GetPtr();
-    if (!output || !context || !std::isfinite(position.X) ||
-        !std::isfinite(position.Y) ||
+    if (!output || !context) {
+        ActionState(1,"m1arc Breach: cell rejected (missing controller handle)");
+        return;
+    }
+    if (!std::isfinite(position.X) || !std::isfinite(position.Y) ||
         position.X<0.f || position.Y<0.f ||
         position.X>7.f || position.Y>7.f ||
         std::floor(position.X)!=position.X ||
-        std::floor(position.Y)!=position.Y)
+        std::floor(position.Y)!=position.Y) {
+        ActionState(2,"m1arc Breach: cell rejected (invalid row or column)");
         return;
+    }
     const auto& input=InputRouter::Get();
     const HWND game=input.Window();
-    if (!game || !IsWindow(game) || GetForegroundWindow()!=game ||
-        input.IsOpen() || input.IsRecording())
+    if (!game || !IsWindow(game) || GetForegroundWindow()!=game) {
+        ActionState(3,"m1arc Breach: cell rejected (game window not foreground or not attached)");
         return;
+    }
+    if (input.IsOpen() || input.IsRecording()) {
+        ActionState(4,"m1arc Breach: cell rejected (M1 Arc overlay or keybind capture active)");
+        return;
+    }
     auto* rtti=RED4ext::CRTTISystem::Get();
     auto* hackingClass=rtti ? rtti->GetClass(
         "gameuiHackingMinigameLogicController") : nullptr;
     const auto* contextType=context->GetType();
-    if (!hackingClass || !contextType || !contextType->IsA(hackingClass))
+    if (!hackingClass || !contextType || !contextType->IsA(hackingClass)) {
+        ActionState(5,"m1arc Breach: cell rejected (wrong hacking logic controller RTTI)");
         return;
+    }
     const auto selector=g_selector.load(std::memory_order_acquire);
-    if (!selector) return;
+    if (!selector) {
+        ActionState(6,"m1arc Breach: cell rejected (selector unavailable for current game build)");
+        return;
+    }
+    ActionState(0,"m1arc Breach: native game cell selection dispatched");
     selector(context,&position);
     *output=true; // means dispatched; REDscript still awaits acknowledgement
 }
