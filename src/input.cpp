@@ -100,16 +100,23 @@ void InputRouter::Detach() noexcept
     oldProc_ = nullptr;
 }
 
-bool InputRouter::CanCapture() const noexcept
+bool InputRouter::WantsCursor() const noexcept
 {
     const auto hwnd = window_.load();
     return hwnd && GetForegroundWindow() == hwnd &&
            rendererReady_.load() && open_.load();
 }
 
+bool InputRouter::CanCapture() const noexcept
+{
+    // Never swallow gameplay input until the native REDengine cursor is
+    // actually acquired, even if the menu has already drawn its first frame.
+    return WantsCursor() && cursorOwned_.load();
+}
+
 void InputRouter::SyncCursorOnWindowThread() noexcept
 {
-    const bool requested = CanCapture();
+    const bool requested = WantsCursor();
     if (cursorOwned_.load() == requested) return;
     auto* engine = RED4ext::CGameEngine::Get();
     const auto address = ResolveGameSymbol(kForceCursorHash);
@@ -307,7 +314,7 @@ LRESULT InputRouter::Process(HWND hwnd, UINT msg, WPARAM w, LPARAM l) noexcept
     if (msg == WM_INPUT)
         HandleRawInput(reinterpret_cast<HRAWINPUT>(l));
     // Retry delayed cursor acquisition/release on the actual HWND thread.
-    if (cursorOwned_.load() != CanCapture())
+    if (cursorOwned_.load() != WantsCursor())
         SyncCursorOnWindowThread();
 
     // The original m1core registry used RAWINPUT for physical key edges;

@@ -40,6 +40,7 @@ private:
     void HandleRawInput(HRAWINPUT raw) noexcept;
     void HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept;
     void SyncCursorOnWindowThread() noexcept;
+    bool WantsCursor() const noexcept;
     bool CanCapture() const noexcept;
     std::atomic<HWND> window_{nullptr};
     WNDPROC oldProc_ = nullptr;
