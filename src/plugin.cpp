@@ -2,6 +2,7 @@
 // CET may coexist; we neither depend on it nor modify its state.
 #include "registry.hpp"
 #include "mod_manifest.hpp"
+#include "localization.hpp"
 #include "dev_fixture.hpp"
 #include "graphics.hpp"
 #include "input.hpp"
@@ -302,6 +303,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     const auto folder=ModuleDirectory();
     if (folder.empty()) return false;
     m1arc::Store().Configure(folder / L"settings.json");
+    m1arc::Translations().Configure(folder, m1arc::Store());
     m1arc::breach::Initialize();
     // Log exact reason even if the addon's own board capture never fires.
     if (sdk && sdk->logger && sdk->logger->Info)
