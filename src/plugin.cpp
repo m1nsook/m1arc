@@ -2,6 +2,7 @@
 // CET may coexist; we neither depend on it nor modify its state.
 #include "registry.hpp"
 #include "mod_manifest.hpp"
+#include "localization.hpp"
 #include "dev_fixture.hpp"
 #include "graphics.hpp"
 #include "input.hpp"
@@ -30,7 +31,7 @@ using RED4ext::IScriptable;
 void Version(IScriptable*,CStackFrame* frame,CString* output,std::int64_t)
 {
     frame->code++;
-    if (output) *output=CString("0.1.0");
+    if (output) *output=CString("1.0.0");
 }
 void Register(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
 {
@@ -73,6 +74,16 @@ void SetValue(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
     if (output) *output=ok;
 }
 
+// Called by the owning REDscript mod from its ordinary update logic.
+// Actions do not execute code from JSON and are not persistent.
+void ConsumeAction(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
+{
+    CString mod, action;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &action);
+    frame->code++;
+    if (output) *output = m1arc::Settings().ConsumeAction(mod.c_str(), action.c_str());
+}
 void GetBool(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
 {
     CString mod, key;
@@ -241,6 +252,7 @@ void PostRegisterTypes()
     add("M1Arc_Version",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Version),"String",nullptr,0);
     add("M1Arc_RegisterJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Register),"Bool",registerArgs,3);
     add("M1Arc_GetJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetValue),"String",two,2);
+    add("M1Arc_ConsumeAction",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&ConsumeAction),"Bool",two,2);
     add("M1Arc_GetBool",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetBool),"Bool",two,2);
     add("M1Arc_GetInt",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetInt),"Int32",two,2);
     add("M1Arc_GetFloat",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetFloat),"Float",two,2);
@@ -302,6 +314,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     const auto folder=ModuleDirectory();
     if (folder.empty()) return false;
     m1arc::Store().Configure(folder / L"settings.json");
+    m1arc::Translations().Configure(folder, m1arc::Store());
     m1arc::breach::Initialize();
     // Log exact reason even if the addon's own board capture never fires.
     if (sdk && sdk->logger && sdk->logger->Info)
@@ -347,7 +360,7 @@ RED4EXT_C_EXPORT void RED4EXT_CALL Query(RED4ext::v1::PluginInfo* info)
 {
     info->name=L"m1arc";
     info->author=L"MISO";
-    info->version=RED4EXT_V1_SEMVER(0,1,0);
+    info->version=RED4EXT_V1_SEMVER(1,0,0);
     info->runtime=RED4EXT_V1_RUNTIME_VERSION_LATEST;
     info->sdk=RED4EXT_V1_SDK_VERSION_CURRENT;
 }

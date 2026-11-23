@@ -2,6 +2,7 @@
 
 #include "state.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <optional>
@@ -11,7 +12,7 @@
 #include <vector>
 
 namespace m1arc {
-enum class SettingKind { Boolean, Integer, Float, Choice };
+enum class SettingKind { Boolean, Integer, Float, Choice, Action, Hotkey };
 
 struct SettingView {
     std::string id;
@@ -23,6 +24,11 @@ struct SettingView {
     double maximum{100.0};
     double step{1.0};
     std::vector<std::string> choices;
+    // Display-only controls: the legacy segmented switch stays the default.
+    bool checkbox{false};
+    // An optional in-row action next to a numeric slider.
+    std::string buttonId;
+    std::string buttonLabel;
     nlohmann::json value;
     nlohmann::json defaultValue;
 };
@@ -52,6 +58,12 @@ public:
     bool Set(std::string_view mod, std::string_view key, const nlohmann::json& value);
     bool Reset(std::string_view mod, std::string_view key);
     bool ResetMod(std::string_view mod);
+    // In-memory one-shot button queue. REDscript consumes clicks to perform
+    // game actions; no commands/scripts are executed by the framework.
+    bool QueueAction(std::string_view mod, std::string_view action);
+    [[nodiscard]] bool ConsumeAction(std::string_view mod, std::string_view action);
+    // Called exclusively on a physical key-down edge while gameplay has focus.
+    void QueueHotkeyKey(int virtualKey);
     bool SaveProfile(std::string name);
     bool LoadProfile(std::string_view name);
     bool DeleteProfile(std::string_view name);
@@ -68,6 +80,7 @@ private:
     StateStore& store_;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, ModView> mods_;
+    std::unordered_map<std::string, std::unordered_map<std::string, std::uint32_t>> pendingActions_;
     std::string error_;
 };
 

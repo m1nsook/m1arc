@@ -4,6 +4,13 @@ name: Build M1 Arc Release
 # A draft and an optional separate UI Test ZIP are the default. Publishing
 # a public release always excludes development fixtures.
 on:
+  # One-time, reviewed public v1.0.0 publication trigger. A release-notes
+  # PR must be merged to main; subsequent edits to unrelated files do not
+  # re-trigger publishing. The normal manual workflow is unchanged.
+  push:
+    branches: [main]
+    paths:
+      - ".github/releases/v1.0.0.md"
   workflow_dispatch:
     inputs:
       version:
@@ -31,12 +38,12 @@ concurrency:
 jobs:
   windows-release:
     if: github.repository == 'm1nsook/m1arc' && github.ref == 'refs/heads/main'
-    name: Build M1 Arc ${{ inputs.version }}
+    name: Build M1 Arc ${{ github.event_name == 'push' && '1.0.0' || inputs.version }}
     runs-on: windows-2022
     env:
-      RELEASE_VERSION: ${{ inputs.version }}
-      PUBLISH_RELEASE: ${{ inputs.publish }}
-      INCLUDE_UI_TEST: ${{ inputs.ui_test }}
+      RELEASE_VERSION: ${{ github.event_name == 'push' && '1.0.0' || inputs.version }}
+      PUBLISH_RELEASE: ${{ github.event_name == 'push' && 'true' || inputs.publish }}
+      INCLUDE_UI_TEST: ${{ github.event_name == 'push' && 'false' || inputs.ui_test }}
     steps:
       - uses: actions/checkout@v4
       - name: Stamp requested release version into this build
@@ -129,8 +136,18 @@ jobs:
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/OFL.txt" -OutFile "$fonts/ChakraPetch-OFL.txt"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/src/regular/Phosphor.ttf" -OutFile "$fonts/Phosphor-Regular.ttf"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/LICENSE" -OutFile "$fonts/Phosphor-MIT.txt"
-          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf")) {
+          # Static OFL Hangul font: subset from pinned Google Fonts source.
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf" -OutFile "$fonts/NotoSansKR-Variable.ttf"
+          python scripts/subset_korean.py "$fonts/NotoSansKR-Variable.ttf" "$fonts/NotoSansKR-Hangul.ttf"
+          if ($LASTEXITCODE -ne 0) { throw "Korean font generation failed" }
+          Remove-Item "$fonts/NotoSansKR-Variable.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/notosanskr/OFL.txt" -OutFile "$fonts/NotoSansKR-OFL.txt"
+          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf", "NotoSansKR-Hangul.ttf")) {
             if ((Get-Item "$fonts/$font").Length -lt 10000) { throw "Invalid or missing font asset: $font" }
+          }
+          Copy-Item "locales" "$dst/locales" -Recurse -Force
+          foreach ($lang in @("en_US", "pl_PL", "ko_KR")) {
+            if (!(Test-Path "$dst/locales/$lang.json")) { throw "Missing bundled locale: $lang" }
           }
           $apiPath = "package/r6/scripts/m1arc"
           New-Item -ItemType Directory -Path $apiPath -Force | Out-Null
@@ -167,7 +184,10 @@ jobs:
             "package/red4ext/plugins/m1arc/fonts/Karla-SemiBold.ttf",
             "package/red4ext/plugins/m1arc/fonts/ChakraPetch-SemiBold.ttf",
             "package/red4ext/plugins/m1arc/fonts/Karla-OFL.txt",
-            "package/red4ext/plugins/m1arc/fonts/Phosphor-MIT.txt"
+            "package/red4ext/plugins/m1arc/fonts/Phosphor-MIT.txt",
+            "package/red4ext/plugins/m1arc/fonts/NotoSansKR-Hangul.ttf",
+            "package/red4ext/plugins/m1arc/fonts/NotoSansKR-OFL.txt",
+            "package/red4ext/plugins/m1arc/locales/ko_KR.json"
           )
           foreach ($file in $required) {
             if (!(Test-Path $file)) { throw "Required release file missing: $file" }
@@ -261,6 +281,11 @@ jobs:
           · [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311)
           '@
           $notes.Replace("{tag}", $tag) | Set-Content -Path release-notes.md -Encoding utf8
+          # For the first public version use reviewed release notes from the
+          # main-branch publication PR, not generic preview notes.
+          if ($tag -eq "v1.0.0" -and (Test-Path ".github/releases/v1.0.0.md")) {
+            Copy-Item ".github/releases/v1.0.0.md" "release-notes.md" -Force
+          }
           $files = @(
             "${{ steps.package.outputs.release_zip }}",
             "${{ steps.package.outputs.release_sha }}"

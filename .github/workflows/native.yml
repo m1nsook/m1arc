@@ -1,6 +1,17 @@
 name: M1 Arc native build
 
 on:
+  push:
+    branches: [native]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "CMakeLists.txt"
+      - "r6/**"
+      - "README.md"
+      - "scripts/**"
+      - ".github/workflows/native.yml"
+      - ".github/workflows/release.yml"
   pull_request:
     paths:
       - "src/**"
@@ -9,6 +20,7 @@ on:
       - "r6/**"
       - "README.md"
       - "scripts/**"
+      - "locales/**"
       - ".github/workflows/native.yml"
       - ".github/workflows/release.yml"
 
@@ -78,8 +90,18 @@ jobs:
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/OFL.txt" -OutFile "$fonts/ChakraPetch-OFL.txt"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/src/regular/Phosphor.ttf" -OutFile "$fonts/Phosphor-Regular.ttf"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/LICENSE" -OutFile "$fonts/Phosphor-MIT.txt"
-          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf")) {
+          # Static OFL Hangul font: subset from pinned Google Fonts source.
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf" -OutFile "$fonts/NotoSansKR-Variable.ttf"
+          python scripts/subset_korean.py "$fonts/NotoSansKR-Variable.ttf" "$fonts/NotoSansKR-Hangul.ttf"
+          if ($LASTEXITCODE -ne 0) { throw "Korean font generation failed" }
+          Remove-Item "$fonts/NotoSansKR-Variable.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/notosanskr/OFL.txt" -OutFile "$fonts/NotoSansKR-OFL.txt"
+          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf", "NotoSansKR-Hangul.ttf")) {
             if ((Get-Item "$fonts/$font").Length -lt 10000) { throw "Invalid or missing font asset: $font" }
+          }
+          Copy-Item "locales" "$dst/locales" -Recurse -Force
+          foreach ($lang in @("en_US", "pl_PL", "ko_KR")) {
+            if (!(Test-Path "$dst/locales/$lang.json")) { throw "Missing bundled locale: $lang" }
           }
           $apiPath = "package/r6/scripts/m1arc"
           New-Item -ItemType Directory -Path $apiPath -Force | Out-Null

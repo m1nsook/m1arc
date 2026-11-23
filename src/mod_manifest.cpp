@@ -16,7 +16,7 @@ namespace {
 using json = nlohmann::json;
 constexpr std::size_t kMaxMods = 128;
 constexpr std::uintmax_t kMaxJsonBytes = 256 * 1024;
-constexpr std::array<int, 3> kM1ArcVersion{0, 1, 0};
+constexpr std::array<int, 3> kM1ArcVersion{1, 0, 0};
 
 bool ValidId(const std::string& name) {
     return !name.empty() && name.size() <= 96 &&
