@@ -209,3 +209,44 @@ Boolean controls require their ordinary defaults. Button IDs must be
 unique and cannot collide with setting IDs. Localized button captions
 use the per-setting \`buttonLabel\` in each mod's language JSON.
 Old schemas work unchanged, and setting values remain the original IDs.
+
+## Native mod hotkey controls
+
+Mod authors may add \`kind: "hotkey"\` to a normal settings.json row.
+This uses the same input router as the standalone M1 Arc menu and never
+requires Lua, CET's \`registerHotkey\`, or a separate input hook.
+
+\`\`\`json
+{
+  "id": "spawn_hotkey",
+  "kind": "hotkey",
+  "label": "Spawn ammunition hotkey",
+  "description": "Press this key in-game to request ammunition.",
+  "group": "Weapons",
+  "default": 0
+}
+\`\`\`
+
+\`default: 0\` means unassigned. Press the keybinding control in the
+M1 Arc menu to capture a physical key, or **Clear** to unbind. Escape
+cancels capture. The framework menu shortcut, Windows keys and modifier
+keys cannot be used as mod shortcuts. For gameplay hotkeys, use plain
+single keys rather than Ctrl/Alt/Win chords.
+
+The key code is saved with other mod settings, and can be reset or saved
+in profiles. Key presses are queued **only when the game window has focus
+and the M1 Arc menu is closed**, once per key-down edge. A disabled mod
+(\`enabled: false\` or \`active: false\`) does not receive hotkey presses.
+Actions are not executed from JSON. Your REDscript mod polls the same
+native one-shot action function used for buttons:
+
+\`\`\`reds
+if M1Arc_ConsumeAction("example.my-mod", "spawn_hotkey") {
+  // Perform the gameplay action in this mod's REDscript code.
+}
+\`\`\`
+
+\`M1Arc_GetInt("example.my-mod", "spawn_hotkey")\` returns the stored
+Win32 virtual-key code, or 0 if unbound. The key press itself is
+**not** saved as a setting and does not change the revision number.
+The existing game input continues to receive the key normally.
