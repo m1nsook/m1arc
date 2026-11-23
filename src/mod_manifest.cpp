@@ -139,10 +139,40 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
                 continue;
             }
         }
+        // Optional display metadata. Scopes are a fixed nine-value enum;
+        // reject malformed values rather than displaying an arbitrary icon.
+        std::string scope = "Miscellaneous";
+        std::string shortDesc;
+        if (manifest.contains("scope")) {
+            if (!manifest["scope"].is_string()) {
+                Reject(report,id,"scope must be a string");
+                continue;
+            }
+            scope = manifest["scope"].get<std::string>();
+            if (!ValidModScope(scope)) {
+                Reject(report,id,"unknown scope (must match a documented category)");
+                continue;
+            }
+        }
+        if (manifest.contains("shortDesc")) {
+            if (!manifest["shortDesc"].is_string()) {
+                Reject(report,id,"shortDesc must be a string");
+                continue;
+            }
+            shortDesc = manifest["shortDesc"].get<std::string>();
+            if (shortDesc.size() > 180 ||
+                std::any_of(shortDesc.begin(),shortDesc.end(),[](unsigned char c) {
+                    return c < 0x20u;
+                })) {
+                Reject(report,id,"shortDesc exceeds 180 bytes or contains control characters");
+                continue;
+            }
+        }
         json settings;
         // Fixed filename: no untrusted executable names or paths in manifests.
         if (!ReadJsonFile(folder / L"settings.json",settings) ||
-            !registry.Register(id,manifest["name"].get<std::string>(),settings)) {
+            !registry.Register(id,manifest["name"].get<std::string>(),settings,
+                               std::move(scope),std::move(shortDesc))) {
             Reject(report,id,"invalid settings.json or registration failed");
             continue;
         }

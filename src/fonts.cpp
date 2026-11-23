@@ -42,7 +42,7 @@ ImFont* Add(ImFontAtlas* atlas,const std::filesystem::path& dir,
 } // namespace
 
 void Clear() noexcept {
-    body=titleMedium=titleBold=titleHeavy=nullptr;
+    body=caption=titleMedium=titleBold=titleHeavy=nullptr;
     iconsAvailable=false;
 }
 void Load() noexcept {
@@ -72,7 +72,10 @@ void Load() noexcept {
         static const ImWchar iconRanges[] = {
             0xE038,0xE038, 0xE184,0xE184, 0xE1DA,0xE1DA,
             0xE2CE,0xE2CE, 0xE2D8,0xE2D8, 0xE434,0xE434,
-            0xE4E0,0xE4E0, 0xE4F6,0xE4F6, 0xE4F8,0xE4F8, 0
+            0xE26E,0xE26E, 0xE316,0xE316, 0xE432,0xE432,
+            0xE47E,0xE47E, 0xE4D6,0xE4D6, 0xE4E0,0xE4E0,
+            0xE4F6,0xE4F6, 0xE4F8,0xE4F8, 0xE5BA,0xE5BA,
+            0xE5D4,0xE5D4, 0xE670,0xE670, 0xECA0,0xECA0, 0
         };
         const auto iconFile=folder / L"Phosphor-Regular.ttf";
         std::error_code ec;
@@ -87,6 +90,12 @@ void Load() noexcept {
             iconsAvailable=!filename.empty() &&
                 atlas->AddFontFromFileTTF(filename.c_str(),18.f,&merged,iconRanges)!=nullptr;
         }
+
+        // Secondary sidebar text is a real 14px font, not scaled-down 18px
+        // rendering. It comes after icon merging so icons stay on body.
+        caption=Add(atlas,folder,L"Karla-Medium.ttf",14.f,textRanges);
+        if (!caption) caption=Add(atlas,folder,L"Karla-SemiBold.ttf",14.f,textRanges);
+        if (!caption) caption=body;
 
         // Preserve the owner's purchased Blender Pro fonts as FIRST choice.
         // Their provided ZIP does not include a redistributable license grant;

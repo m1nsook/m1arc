@@ -422,6 +422,20 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     }
 }
 
+// Phosphor Regular icon before each mod title, selected only by the
+// mod author's scope field. A legacy manifest falls back to Toolbox.
+const char* ModScopeIcon(std::string_view scope) {
+    if (scope=="Gameplay") return ARC_SCOPE_GAME_CONTROLLER;
+    if (scope=="Crafting") return ARC_SCOPE_WRENCH;
+    if (scope=="Cheats") return ARC_SCOPE_TERMINAL;
+    if (scope=="Weapons") return ARC_SCOPE_SWORD;
+    if (scope=="Locations") return ARC_SCOPE_MAP_PIN;
+    if (scope=="Appearance") return ARC_SCOPE_T_SHIRT;
+    if (scope=="Characters") return ARC_SCOPE_USERS;
+    if (scope=="UI/UX") return ARC_SCOPE_SLIDERS_SCOPE;
+    return ARC_SCOPE_TOOLBOX;
+}
+
 void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
                  float width, float height) {
     ImGui::BeginChild("##arc-nav",ImVec2(width,height),ImGuiChildFlags_None,0);
@@ -452,7 +466,8 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
 
             const ImVec2 row=ImGui::GetCursorScreenPos();
             const float rowWidth=std::max(1.f,ImGui::GetContentRegionAvail().x-2.f);
-            constexpr float rowHeight=58.f;
+            const bool hasDescription=!mod.shortDesc.empty();
+            const float rowHeight=hasDescription ? 70.f : 58.f;
             if (ImGui::Selectable("##mod-row",selected,0,ImVec2(rowWidth,rowHeight)))
                 SelectedMod()=mod.id;
             const bool hovered=ImGui::IsItemHovered();
@@ -467,11 +482,25 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
             }
             // For selected dark rows the base is pale; on hover it is amber.
             // Both need dark lettering (p.paper in the dark palette).
-            const std::string prefix=fonts::HasIcons() ? ARC_ICON_CUBE "  " : "";
-            const float usable=std::max(30.f,rowWidth-16.f-30.f);
-            const std::string label=FitLabel(prefix+mod.title,usable);
-            const float baseline=row.y+(rowHeight-ImGui::GetFontSize())*.5f;
-            draw->AddText(ImVec2(row.x+16.f,baseline),Color(foreground),label.c_str());
+            const float nameX=row.x+(fonts::HasIcons() ? 45.f : 16.f);
+            const float usable=std::max(20.f,rowWidth-(nameX-row.x)-30.f);
+            const std::string label=FitLabel(mod.title,usable);
+            const float titleY=hasDescription ? row.y+12.f
+                : row.y+(rowHeight-ImGui::GetFontSize())*.5f;
+            if (fonts::HasIcons()) {
+                const char* icon=ModScopeIcon(mod.scope);
+                draw->AddText(ImVec2(row.x+16.f,titleY),Color(foreground),icon);
+            }
+            draw->AddText(ImVec2(nameX,titleY),Color(foreground),label.c_str());
+            if (hasDescription) {
+                ImFont* small=fonts::caption ? fonts::caption : ImGui::GetFont();
+                constexpr float smallSize=14.f;
+                const std::string detail=FitLabel(mod.shortDesc,usable);
+                ImVec4 descriptionColor=foreground;
+                descriptionColor.w*=.82f;
+                draw->AddText(small,smallSize,ImVec2(nameX,row.y+38.f),
+                              Color(descriptionColor),detail.c_str());
+            }
 
             const ImVec2 bottom(row.x+rowWidth,row.y+rowHeight);
             draw->AddLine(ImVec2(row.x,bottom.y-1.f),
@@ -483,7 +512,8 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
                 draw->AddRectFilled(ImVec2(a.x+2.f,a.y+2.f),
                                     ImVec2(a.x+8.f,a.y+8.f),Color(p.amber));
             if (hovered)
-                ShowTooltip(mod.title,p);
+                ShowTooltip(mod.shortDesc.empty() ? mod.title
+                    : mod.title+"\n"+mod.shortDesc,p);
             ImGui::PopStyleColor(3);
             ImGui::PopID();
         }

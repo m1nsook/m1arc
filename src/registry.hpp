@@ -30,15 +30,23 @@ struct SettingView {
 struct ModView {
     std::string id;
     std::string title;
+    // Optional data-only mod.json metadata, never stored as a setting.
+    std::string scope{"Miscellaneous"};
+    std::string shortDesc;
     std::vector<SettingView> settings;
 };
+
+// Exact author-selectable manifest scopes. Missing scope defaults to Miscellaneous.
+[[nodiscard]] bool ValidModScope(std::string_view scope) noexcept;
 
 // Native registry, independent of any UI scripting runtime.
 // The ImGui renderer will consume a snapshot of these data-only rows.
 class Registry {
 public:
     explicit Registry(StateStore& store) : store_(store) {}
-    bool Register(std::string id, std::string title, const nlohmann::json& definitions);
+    bool Register(std::string id, std::string title, const nlohmann::json& definitions,
+                  std::string scope = "Miscellaneous",
+                  std::string shortDesc = {});
     [[nodiscard]] std::vector<ModView> Snapshot() const;
     [[nodiscard]] std::optional<nlohmann::json> Get(std::string_view mod, std::string_view key) const;
     bool Set(std::string_view mod, std::string_view key, const nlohmann::json& value);

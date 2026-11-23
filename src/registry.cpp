@@ -1,6 +1,7 @@
 #include "registry.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -23,6 +24,15 @@ json ReadSaved(const StateStore& store)
     try { return json::parse(store.Snapshot()); }
     catch (...) { return json::object(); }
 }
+}
+
+bool ValidModScope(std::string_view scope) noexcept
+{
+    constexpr std::array<std::string_view, 9> scopes{{
+        "Gameplay", "Crafting", "Cheats", "Weapons", "Locations",
+        "Appearance", "Characters", "Miscellaneous", "UI/UX"
+    }};
+    return std::find(scopes.begin(),scopes.end(),scope)!=scopes.end();
 }
 
 Registry& Settings()
@@ -78,13 +88,20 @@ std::optional<nlohmann::json> Registry::Normalize(
     return std::nullopt;
 }
 
-bool Registry::Register(std::string id, std::string title, const nlohmann::json& definitions)
+bool Registry::Register(std::string id, std::string title, const nlohmann::json& definitions,
+                        std::string scope, std::string shortDesc)
 {
+    // Metadata is visual only. Preserve the old 3-parameter REDscript API.
     if (!ValidId(id) || title.empty() || title.size() > 150 ||
+        !ValidModScope(scope) || shortDesc.size() > 180 ||
+        std::any_of(shortDesc.begin(),shortDesc.end(),[](unsigned char c) {
+            return c < 0x20u;
+        }) ||
         !definitions.is_array() || definitions.empty() || definitions.size() > 250)
         return false;
 
-    ModView prepared{.id = id, .title = std::move(title)};
+    ModView prepared{.id = id, .title = std::move(title),
+                     .scope = std::move(scope), .shortDesc = std::move(shortDesc)};
     const json saved = ReadSaved(store_);
     for (const auto& item : definitions) {
         if (!item.is_object()) return false;
