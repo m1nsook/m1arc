@@ -300,8 +300,9 @@ std::string FitLabel(std::string label, float available) {
     return label + "...";
 }
 
-// Draw-list only: the floating card never creates another ImGui window,
-// focus target, mouse hitbox, or gameplay input capture.
+// These Cynosure-inspired notifications use the ENTIRE surface as the
+// status color. All text and Phosphor icons are dark for contrast. Drawing
+// directly into the foreground list adds no focus/input-capturing window.
 void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
                 const ImVec2& panelSize) {
     auto& queue = ToastQueue();
@@ -324,15 +325,44 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
         float t = std::clamp(toast.elapsed / kIntro, 0.f, 1.f);
         t = 1.f - (1.f - t) * (1.f - t) * (1.f - t);
         alpha = t;
-        movement = (1.f - t) * 20.f; // rise into the resting position
+        movement = (1.f - t) * 20.f;
     } else if (toast.elapsed > fadeStart) {
         const float t = std::clamp((toast.elapsed - fadeStart) / kOutro, 0.f, 1.f);
         alpha = 1.f - t;
         movement = -12.f * t;
     }
 
-    // Prefer 48 px below the control panel, as in the reference screenshot.
-    // Clamp to the viewport on shorter displays instead of going offscreen.
+    // Full toast BACKGROUND colors, not accent strips. Success is the
+    // complementary muted green; the other three are owner-specified.
+    ImU32 background = IM_COL32(191, 198, 230, 255); // Info    #bfc6e6
+    const char* label = "INFORMATION";
+    const char* icon = ARC_ICON_INFO;
+    const char* fallbackIcon = "i";
+    switch (toast.kind) {
+    case ToastKind::Info:
+        break;
+    case ToastKind::Warning:
+        background = IM_COL32(243, 220, 167, 255); // Warning #f3dca7
+        label = "WARNING";
+        icon = ARC_ICON_WARNING;
+        fallbackIcon = "!";
+        break;
+    case ToastKind::Success:
+        background = IM_COL32(188, 218, 177, 255); // Success #bcdab1
+        label = "SUCCESS";
+        icon = ARC_ICON_SUCCESS;
+        fallbackIcon = "+";
+        break;
+    case ToastKind::Error:
+        background = IM_COL32(232, 104, 104, 255); // Error   #e86868
+        label = "ERROR";
+        icon = ARC_ICON_ERROR;
+        fallbackIcon = "x";
+        break;
+    }
+
+    // Prefer a floating card below the panel (user reference). If the
+    // viewport is short, keep it visible rather than rendering offscreen.
     const float width = std::min(840.f, std::max(1.f, viewport->Size.x - 36.f));
     const float x = viewport->Pos.x + (viewport->Size.x - width) * .5f;
     const float idealY = panelPos.y + panelSize.y + 48.f;
@@ -340,70 +370,56 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     const float y = std::max(viewport->Pos.y + 10.f,
                               std::min(idealY, lastY)) + movement;
 
-    const char* label = "NOTICE";
-    ImU32 accent = IM_COL32(242, 178, 41, 255);
-    switch (toast.kind) {
-    case ToastKind::Success:
-        label = "SUCCESS";
-        accent = IM_COL32(0, 222, 130, 255);
-        break;
-    case ToastKind::Error:
-        label = "ERROR";
-        accent = IM_COL32(255, 104, 112, 255);
-        break;
-    case ToastKind::Info:
-        break;
-    }
-
-    // Multiply source transparency instead of replacing it. No extra
-    // ImGui style state survives after drawing the notification.
     const auto faded = [alpha](ImU32 color) -> ImU32 {
         const auto original = (color >> 24) & 255u;
         const auto a = static_cast<ImU32>(original * alpha + .5f);
         return (color & 0x00FFFFFFu) | (a << 24);
     };
-    auto* draw = ImGui::GetForegroundDrawList(viewport);
+    const ImU32 dark = faded(IM_COL32(19, 25, 24, 255));
+    ImDrawList* draw = ImGui::GetForegroundDrawList(viewport);
     const ImVec2 topLeft(x, y), bottomRight(x + width, y + kHeight);
-    draw->AddRectFilled(topLeft, bottomRight,
-                        faded(IM_COL32(27, 34, 31, 250)), 6.f);
-    draw->AddRect(topLeft, bottomRight,
-                  faded(IM_COL32(69, 83, 73, 210)), 6.f);
-    // Reference: a slim colored bar, independent of the M1 Arc theme.
-    draw->AddRectFilled(ImVec2(x, y + 5.f), ImVec2(x + 11.f, y + kHeight - 5.f),
-                        faded(accent), 3.f);
+    draw->AddRectFilled(topLeft, bottomRight, faded(background), 4.f);
+    draw->AddRect(topLeft, bottomRight, dark, 4.f, 0, 1.4f);
+    draw->AddRectFilled(ImVec2(x, y + 5.f),
+                        ImVec2(x + 8.f, y + kHeight - 5.f), dark);
 
-    constexpr float iconSize = 40.f;
-    const float iconX = x + 28.f;
-    const float iconY = y + (kHeight - iconSize) * .5f;
-    draw->AddRectFilled(ImVec2(iconX, iconY),
-                        ImVec2(iconX + iconSize, iconY + iconSize),
-                        faded(accent), 5.f);
-    const ImU32 mark = faded(IM_COL32(255, 255, 255, 255));
-    if (toast.kind == ToastKind::Success) {
-        draw->AddLine(ImVec2(iconX + 9.f, iconY + 20.f),
-                      ImVec2(iconX + 17.f, iconY + 28.f), mark, 3.7f);
-        draw->AddLine(ImVec2(iconX + 17.f, iconY + 28.f),
-                      ImVec2(iconX + 31.f, iconY + 13.f), mark, 3.7f);
-    } else if (toast.kind == ToastKind::Error) {
-        draw->AddLine(ImVec2(iconX + 12.f, iconY + 12.f),
-                      ImVec2(iconX + 28.f, iconY + 28.f), mark, 3.5f);
-        draw->AddLine(ImVec2(iconX + 28.f, iconY + 12.f),
-                      ImVec2(iconX + 12.f, iconY + 28.f), mark, 3.5f);
-    } else {
-        draw->AddCircleFilled(ImVec2(iconX + 20.f, iconY + 20.f), 5.f, mark);
+    // An outlined status module containing an authentic Phosphor glyph,
+    // both dark on the pastel card. Plain letters are the safe fallback.
+    constexpr float kIconBox = 42.f;
+    const float iconX = x + 25.f;
+    const float iconY = y + (kHeight - kIconBox) * .5f;
+    draw->AddRect(ImVec2(iconX, iconY),
+                  ImVec2(iconX + kIconBox, iconY + kIconBox),
+                  dark, 3.f, 0, 1.4f);
+    ImFont* iconFont = fonts::body ? fonts::body : ImGui::GetFont();
+    const char* iconText = fonts::HasIcons() ? icon : fallbackIcon;
+    const float glyphSize = fonts::HasIcons() ? 29.f : 22.f;
+    const ImVec2 glyphBounds = iconFont->CalcTextSizeA(glyphSize, 1000.f,
+                                                       0.f, iconText);
+    draw->AddText(iconFont, glyphSize,
+                  ImVec2(iconX + (kIconBox - glyphBounds.x) * .5f,
+                         iconY + (kIconBox - glyphBounds.y) * .5f),
+                  dark, iconText);
+
+    const float textX = iconX + kIconBox + 28.f;
+    ImFont* statusFont = fonts::titleBold ? fonts::titleBold : ImGui::GetFont();
+    const float statusSize = 17.f;
+    const ImVec2 statusBounds = statusFont->CalcTextSizeA(statusSize,
+                                                         1000.f, 0.f, label);
+    // Narrow displays prioritize readable message text over the label.
+    const bool showStatus = width >= 460.f;
+    const float statusX = x + width - 28.f - statusBounds.x;
+    const float textEnd = showStatus ? statusX - 22.f : x + width - 20.f;
+    const std::string message = FitLabel(toast.text,
+                                         std::max(20.f, textEnd - textX));
+    const ImVec2 textBounds = ImGui::CalcTextSize(message.c_str());
+    draw->AddText(ImVec2(textX, y + (kHeight - textBounds.y) * .5f),
+                  dark, message.c_str());
+    if (showStatus) {
+        draw->AddText(statusFont, statusSize,
+                      ImVec2(statusX, y + (kHeight - statusBounds.y) * .5f),
+                      dark, label);
     }
-
-    const float textX = iconX + iconSize + 35.f;
-    const ImVec2 statusSize = ImGui::CalcTextSize(label);
-    const float statusX = x + width - 34.f - statusSize.x;
-    const float available = std::max(20.f, statusX - textX - 20.f);
-    const std::string fitted = FitLabel(toast.text, available);
-    const ImVec2 messageSize = ImGui::CalcTextSize(fitted.c_str());
-    const ImU32 textColor = faded(accent);
-    draw->AddText(ImVec2(textX, y + (kHeight - messageSize.y) * .5f),
-                  textColor, fitted.c_str());
-    draw->AddText(ImVec2(statusX, y + (kHeight - statusSize.y) * .5f),
-                  textColor, label);
 }
 
 void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,

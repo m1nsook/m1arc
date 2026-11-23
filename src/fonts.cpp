@@ -67,9 +67,12 @@ void Load() noexcept {
         }
         io.FontDefault=body;
 
+        // Include all UI glyphs, including toast states; the existing font
+        // file is already bundled and no additional font asset is required.
         static const ImWchar iconRanges[] = {
             0xE038,0xE038, 0xE184,0xE184, 0xE1DA,0xE1DA,
-            0xE2D8,0xE2D8, 0xE434,0xE434, 0xE4F6,0xE4F6, 0
+            0xE2CE,0xE2CE, 0xE2D8,0xE2D8, 0xE434,0xE434,
+            0xE4E0,0xE4E0, 0xE4F6,0xE4F6, 0xE4F8,0xE4F8, 0
         };
         const auto iconFile=folder / L"Phosphor-Regular.ttf";
         std::error_code ec;
