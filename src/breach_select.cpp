@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -177,7 +178,14 @@ void SelectCell(RED4ext::IScriptable*,
         ActionState(6,"m1arc Breach: cell rejected (selector unavailable for current game build)");
         return;
     }
-    ActionState(0,"m1arc Breach: native selector invoked; awaiting game selection acknowledgement");
+    ActionState(0,"m1arc Breach: selector ready to dispatch");
+    // Each confirmed dispatch is worth one log line. Unlike ActionState,
+    // this must NOT de-duplicate a later puzzle's identical selection.
+    char detail[160]{};
+    std::snprintf(detail,sizeof(detail),
+                  "[Skip Breach] Native cell dispatch row=%d col=%d; awaiting game acknowledgement",
+                  static_cast<int>(position.X),static_cast<int>(position.Y));
+    m1arc::RenderBridge::Get().LogInfo(detail);
     selector(context,&position);
     *output=true; // means dispatched; REDscript still awaits acknowledgement
 }
@@ -186,6 +194,26 @@ void AvailableNative(RED4ext::IScriptable*,
                      RED4ext::CStackFrame* frame,bool* output,std::int64_t) {
     frame->code++;
     if (output) *output=Available();
+}
+
+// Explicitly opt-in addon diagnostic bridge, NOT a new scripting runtime.
+// The script logs into the same RED4ext M1 Arc log as native dispatch.
+// Keep a hard byte cap so malformed mods cannot flood the logger.
+void TraceNative(RED4ext::IScriptable*,
+                 RED4ext::CStackFrame* frame,bool* output,std::int64_t) {
+    RED4ext::CString message;
+    RED4ext::GetParameter(frame,&message);
+    frame->code++;
+    if (output) *output=false;
+    const char* text=message.c_str();
+    if (!text) return;
+    std::size_t bytes=0;
+    while (bytes<480 && text[bytes]) ++bytes;
+    if (bytes==0) return;
+    std::string line="[Skip Breach] ";
+    line.append(text,bytes);
+    m1arc::RenderBridge::Get().LogInfo(line.c_str());
+    if (output) *output=true;
 }
 } // namespace
 
@@ -253,5 +281,17 @@ void RegisterNative() noexcept {
     select->AddParam("Vector2","position");
     select->SetReturnType("Bool");
     rtti->RegisterFunction(select);
+
+    // Paired addon-only declaration in M1ArcBreachNative.reds.
+    // Never modify the known-working core M1Arc.reds native definitions.
+    auto* trace=RED4ext::CGlobalFunction::Create(
+        "M1Arc_BreachTrace","M1Arc_BreachTrace",
+        reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&TraceNative));
+    trace->flags=RED4ext::CBaseFunction::Flags{
+        .isNative=true,.isStatic=true
+    };
+    trace->AddParam("String","message");
+    trace->SetReturnType("Bool");
+    rtti->RegisterFunction(trace);
 }
 } // namespace m1arc::breach
