@@ -101,6 +101,11 @@ void ApplyTheme(const Palette& p) {
     c[ImGuiCol_WindowBg] = p.paper;
     c[ImGuiCol_ChildBg] = p.paper;
     c[ImGuiCol_PopupBg] = p.paper;
+    // Replace ImGui's default dark-blue title bar in modals.
+    c[ImGuiCol_TitleBg] = p.paper;
+    c[ImGuiCol_TitleBgActive] = p.paper;
+    c[ImGuiCol_TitleBgCollapsed] = p.paper;
+    c[ImGuiCol_ModalWindowDimBg] = ImVec4(0.f,0.f,0.f,.55f);
     c[ImGuiCol_Text] = p.ink;
     c[ImGuiCol_TextDisabled] = p.muted;
     c[ImGuiCol_Border] = p.ink;
@@ -150,78 +155,96 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     auto& input = InputRouter::Get();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
-    const bool narrow = width < 1000.f;
-    const bool tiny = width < 700.f;
-    const float height = tiny ? 132.f : (narrow ? 92.f : 52.f);
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(origin,
-        ImVec2(origin.x + width, origin.y + height), Color(p.bar));
+    const bool compact = width < 570.f;
 
-    // Brand remains on the first row, with enough vertical room for
-    // Blender Pro / Chakra Petch at 22px and the merged Phosphor icon.
-    ImGui::PushStyleColor(ImGuiCol_Text, p.barText);
-    ImGui::SetCursorScreenPos(ImVec2(origin.x + 16.f, origin.y + 12.f));
+    const std::string status = std::to_string(
+        std::count_if(mods.begin(), mods.end(), Enabled)) +
+        "/" + std::to_string(mods.size()) + " ONLINE";
+    const std::string keyText =
+        (fonts::HasIcons() ? ARC_ICON_KEY " " : "KEY: ") + input.KeyLabel() + "##arc-bind";
+    const char* closeLabel = fonts::HasIcons() ? ARC_ICON_CLOSE " CLOSE##arc" : "CLOSE##arc";
+    const float themeWidth = std::max(140.f, ImGui::CalcTextSize("TOGGLE THEME").x + 24.f);
+    const float shortcutWidth = std::clamp(ImGui::CalcTextSize(keyText.c_str()).x + 22.f,
+                                          75.f, 116.f);
+    const float closeWidth = std::max(90.f, ImGui::CalcTextSize(closeLabel).x + 24.f);
+    const float statusWidth = ImGui::CalcTextSize(status.c_str()).x;
+
+    const float headingFontSize = fonts::titleBold ? fonts::titleBold->FontSize :
+        ImGui::GetFontSize();
+    float brandWidth = 16.f + (fonts::HasIcons() ? 27.f : 0.f);
+    if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
+    if (!compact)
+        brandWidth += ImGui::CalcTextSize("CONTROL PANEL").x +
+                      ImGui::CalcTextSize("//").x + 12.f;
+    brandWidth += ImGui::CalcTextSize("M1 ARC").x + 6.f;
+    if (fonts::titleBold) ImGui::PopFont();
+    (void)headingFontSize;
+
+    const float actionsWidth = themeWidth + 10.f + shortcutWidth;
+    const float rightWidth = statusWidth + 16.f + closeWidth;
+    const bool secondRow = brandWidth + actionsWidth + rightWidth + 46.f > width;
+    const bool thirdRow = secondRow && actionsWidth + rightWidth + 48.f > width;
+    const float height = thirdRow ? 140.f : secondRow ? 98.f : 56.f;
+    auto* draw = ImGui::GetWindowDrawList();
+    draw->AddRectFilled(origin, ImVec2(origin.x+width, origin.y+height),
+                        Color(p.bar));
+
+    ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+16.f, origin.y+13.f));
     if (fonts::HasIcons()) {
         ImGui::TextUnformatted(ARC_ICON_SLIDERS);
-        ImGui::SameLine(0.f, 6.f);
+        ImGui::SameLine(0.f,6.f);
     }
+    // Use ONE font/weight for the entire title: CONTROL PANEL // M1 ARC.
     if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
-    ImGui::TextUnformatted("CONTROL PANEL");
-    if (fonts::titleBold) ImGui::PopFont();
-    ImGui::SameLine(0.f, 6.f);
-    ImGui::PushStyleColor(ImGuiCol_Text, p.amber);
-    ImGui::TextUnformatted("//");
-    ImGui::PopStyleColor();
-    ImGui::SameLine(0.f, 6.f);
-    if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+    if (!compact) {
+        ImGui::TextUnformatted("CONTROL PANEL");
+        ImGui::SameLine(0.f,6.f);
+        ImGui::PushStyleColor(ImGuiCol_Text,p.amber);
+        ImGui::TextUnformatted("//");
+        ImGui::PopStyleColor();
+        ImGui::SameLine(0.f,6.f);
+    }
     ImGui::TextUnformatted("M1 ARC");
-    if (fonts::titleHeavy) ImGui::PopFont();
+    if (fonts::titleBold) ImGui::PopFont();
 
-    // Header buttons stay dark with light lettering under BOTH palettes.
-    const ImVec4 darkHover(.21f, .24f, .20f, 1.f);
-    const ImVec4 darkPress(.29f, .32f, .26f, 1.f);
-    const auto drawAction = [&](const char* label, float x, float y,
-                                float w, float h) {
-        ImGui::SetCursorScreenPos(ImVec2(origin.x + x, origin.y + y));
-        ImGui::PushStyleColor(ImGuiCol_Button, p.bar);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, darkHover);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, darkPress);
-        ImGui::PushStyleColor(ImGuiCol_Text, p.barText);
-        ImGui::PushStyleColor(ImGuiCol_Border, p.barText);
-        const bool pressed = ImGui::Button(label, ImVec2(w, h));
+    // All header controls have light text on dark backgrounds in both themes.
+    const auto action = [&](const char* label, float x, float y, float w) {
+        ImGui::SetCursorScreenPos(ImVec2(origin.x+x,origin.y+y));
+        ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.21f,.24f,.20f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.29f,.32f,.26f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+        ImGui::PushStyleColor(ImGuiCol_Border,p.barText);
+        const bool clicked=ImGui::Button(label,ImVec2(w,34.f));
         ImGui::PopStyleColor(5);
-        return pressed;
+        return clicked;
     };
-
-    // Layout switches to two/three rows instead of clipping the header
-    // at narrower resolutions or whenever a larger font is chosen.
-    const float actionsY = narrow ? 52.f : 9.f;
-    const float themeX = narrow ? 16.f : 328.f;
-    if (drawAction("TOGGLE THEME##arc-theme",themeX,actionsY,144.f,34.f))
+    const float buttonsY = secondRow ? 56.f : 10.f;
+    const float themeX = secondRow ? 16.f : brandWidth+12.f;
+    if (action("TOGGLE THEME##arc-theme",themeX,buttonsY,themeWidth))
         ToggleTheme();
-    const std::string keyText =
-        (fonts::HasIcons() ? ARC_ICON_KEY " " : "KEY: ") +
-        input.KeyLabel() + "##arc-bind";
-    if (drawAction(keyText.c_str(),themeX + 156.f,actionsY,156.f,34.f))
+    const float shortcutX = themeX + themeWidth + 10.f;
+    if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+        // Do not inherit header cream foreground onto the cream tooltip.
+        ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg,p.paper);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(12.f,9.f));
         ImGui::SetTooltip("Change M1 Arc's menu shortcut (independent of CET)");
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(2);
+    }
 
-    const auto online = std::count_if(mods.begin(),mods.end(),Enabled);
-    const std::string status=std::to_string(online)+"/"+
-        std::to_string(mods.size())+" ONLINE";
-    const float statusWidth = ImGui::CalcTextSize(status.c_str()).x;
-    const float statusY = tiny ? 103.f : 19.f;
-    const float statusX = tiny ? 16.f :
-        std::max(16.f,width-96.f-statusWidth-15.f);
-    ImGui::SetCursorScreenPos(ImVec2(origin.x+statusX,origin.y+statusY));
+    const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
+    const float closeX = std::max(8.f,width-closeWidth-14.f);
+    const float statusX = std::max(8.f,closeX-statusWidth-16.f);
+    ImGui::SetCursorScreenPos(ImVec2(origin.x+statusX,origin.y+rightY+8.f));
     ImGui::TextUnformatted(status.c_str());
-
-    const float closeY = tiny ? 95.f : 9.f;
-    if (drawAction(fonts::HasIcons() ? ARC_ICON_CLOSE " CLOSE##arc" :
-                   "CLOSE##arc",std::max(8.f,width-88.f),closeY,78.f,34.f))
+    if (action(closeLabel,closeX,rightY,closeWidth))
         input.Close();
-    ImGui::PopStyleColor(); // Header text color
+    ImGui::PopStyleColor();
     ImGui::SetCursorScreenPos(ImVec2(origin.x,origin.y+height));
 }
 
@@ -427,18 +450,21 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     }
     ImGui::EndChild();
 
-    const ImVec2 foot(ImGui::GetWindowPos().x+pad,
+    // Rule spans the entire detail area, touching the sidebar divider and
+    // the right edge. Footer TEXT retains a comfortable 24px inset.
+    const ImVec2 foot(ImGui::GetWindowPos().x+1.f,
                       ImGui::GetWindowPos().y+height-footerHeight);
     auto* draw = ImGui::GetWindowDrawList();
-    draw->AddLine(foot,ImVec2(foot.x+interior,foot.y),Color(p.ink),2.f);
-    ImGui::SetCursorScreenPos(ImVec2(foot.x,foot.y+20.f));
+    draw->AddLine(foot,ImVec2(ImGui::GetWindowPos().x+width-1.f,foot.y),
+                  Color(p.ink),2.f);
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad,foot.y+20.f));
     ImGui::TextDisabled("2026 (c) M1NSOOK");
     if (!Theme().message.empty()) {
         ImGui::SameLine();
         ImGui::TextDisabled("%s",Theme().message.c_str());
     }
     if (selected) {
-        ImGui::SetCursorScreenPos(ImVec2(foot.x+interior-116.f,foot.y+12.f));
+        ImGui::SetCursorScreenPos(ImVec2(foot.x+width-116.f-pad,foot.y+12.f));
         const bool dark = p.paper.x < .2f;
         ImGui::PushStyleColor(ImGuiCol_Button,p.ink);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
@@ -458,8 +484,15 @@ void DrawRebindModal() {
     if (input.IsRecording()) ImGui::OpenPopup("M1 ARC - CHOOSE MENU KEY");
     ImGui::SetNextWindowSize(ImVec2(390,0),ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(18.f,18.f));
+    ImGui::PushStyleColor(ImGuiCol_Text,ImGui::GetStyleColorVec4(ImGuiCol_Text));
     if (ImGui::BeginPopupModal("M1 ARC - CHOOSE MENU KEY",nullptr,
-                              ImGuiWindowFlags_AlwaysAutoResize)) {
+                              ImGuiWindowFlags_AlwaysAutoResize |
+                              ImGuiWindowFlags_NoTitleBar)) {
+        if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
+        ImGui::TextUnformatted("M1 ARC  //  CHOOSE MENU KEY");
+        if (fonts::titleBold) ImGui::PopFont();
+        ImGui::Separator();
+        ImGui::Spacing();
         ImGui::TextUnformatted("Press your preferred keyboard key.");
         ImGui::TextDisabled("Independent of Cyber Engine Tweaks.");
         ImGui::TextDisabled("Windows keys, modifiers and Escape are reserved.");
@@ -468,6 +501,7 @@ void DrawRebindModal() {
         if (!input.IsRecording()) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
+    ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 }
 
