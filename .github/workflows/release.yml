@@ -1,0 +1,184 @@
+name: M1 Arc packaged draft release
+
+# The first merge into main stages one private-to-maintainer draft.
+# Later versions can be staged manually from the Actions workflow.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Unique release tag (e.g. v0.1.0-preview.2)"
+        type: string
+        default: "v0.1.0-preview.1"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: m1arc-draft-release
+  cancel-in-progress: false
+
+jobs:
+  windows-release:
+    if: github.repository == 'm1nsook/m1arc'
+    runs-on: windows-2022
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || 'v0.1.0-preview.1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native RED4ext x64 DLL
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+          if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
+      - name: Build native DLL and tests
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE -ne 0) { throw "Native M1 Arc build failed" }
+      - name: Run native settings and persistence tests
+        shell: pwsh
+        run: |
+          ctest --test-dir build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw "Native tests failed" }
+      - name: Check M1 Arc REDscript declarations with pinned upstream CLI
+        shell: pwsh
+        env:
+          REDSCRIPT_GAME_BUNDLE_URL: ${{ secrets.REDSCRIPT_GAME_BUNDLE_URL }}
+          REDSCRIPT_GAME_BUNDLE_SHA256: ${{ secrets.REDSCRIPT_GAME_BUNDLE_SHA256 }}
+        run: |
+          ./scripts/check_redscript_cli.ps1 -SourceRoots @("r6/scripts/m1arc")
+          if ($LASTEXITCODE -ne 0) { throw "REDscript CLI checks failed" }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Karla font instancer
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check "fonttools==4.60.1"
+          if ($LASTEXITCODE -ne 0) { throw "FontTools installation failed" }
+      - name: Package single game-root ZIP layout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dst = "package/red4ext/plugins/m1arc"
+          New-Item -ItemType Directory -Path $dst -Force | Out-Null
+          Copy-Item "build/Release/m1arc.dll" "$dst/m1arc.dll"
+          Copy-Item LICENSE "$dst/LICENSE"
+          # Release ZIPs must omit the temporary dev-preview.enabled marker.
+          # Pinned OFL/MIT assets. Do not include proprietary user-supplied Blender Pro.
+          $fonts = Join-Path $dst "fonts"
+          New-Item -ItemType Directory -Path $fonts -Force | Out-Null
+          $karla = "06bfe0d62a98375cb09c942fa18e68bd32cff057"
+          $phosphor = "3d40a3eaa73b25d20d263f0e1e55c9fed3e66809"
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/Karla%5Bwght%5D.ttf" -OutFile "$fonts/Karla-Variable.ttf"
+          python scripts/instantiate_karla.py "$fonts/Karla-Variable.ttf" "$fonts"
+          if ($LASTEXITCODE -ne 0) { throw "Karla fixed-weight generation failed" }
+          Remove-Item "$fonts/Karla-Variable.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/karla/OFL.txt" -OutFile "$fonts/Karla-OFL.txt"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/ChakraPetch-SemiBold.ttf" -OutFile "$fonts/ChakraPetch-SemiBold.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/ChakraPetch-Bold.ttf" -OutFile "$fonts/ChakraPetch-Bold.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/$karla/ofl/chakrapetch/OFL.txt" -OutFile "$fonts/ChakraPetch-OFL.txt"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/src/regular/Phosphor.ttf" -OutFile "$fonts/Phosphor-Regular.ttf"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/phosphor-icons/web/$phosphor/LICENSE" -OutFile "$fonts/Phosphor-MIT.txt"
+          foreach ($font in @("Karla-Medium.ttf", "Karla-SemiBold.ttf", "Karla-Bold.ttf", "ChakraPetch-SemiBold.ttf", "ChakraPetch-Bold.ttf", "Phosphor-Regular.ttf")) {
+            if ((Get-Item "$fonts/$font").Length -lt 10000) { throw "Invalid or missing font asset: $font" }
+          }
+          $apiPath = "package/r6/scripts/m1arc"
+          New-Item -ItemType Directory -Path $apiPath -Force | Out-Null
+          Copy-Item "r6/scripts/m1arc/M1Arc.reds" "$apiPath/M1Arc.reds"
+          if (!(Test-Path "$apiPath/M1Arc.reds")) { throw "REDscript native API declarations missing" }
+          if (!(Test-Path "$dst/m1arc.dll")) { throw "DLL missing" }
+      - name: Build versioned installable game-root ZIP and SHA256
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:RELEASE_TAG
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9]+\.[0-9]+)?$') {
+            throw "Invalid release tag: $tag"
+          }
+          if (Test-Path "package/red4ext/plugins/m1arc/dev-preview.enabled") {
+            throw "Release cannot enable the temporary UI Test mod"
+          }
+          if (Test-Path "package/red4ext/plugins/m1arc/mods") {
+            throw "Release cannot bundle gameplay mods"
+          }
+          if (Get-ChildItem -Path package -Filter "*Blender*" -Recurse -File) {
+            throw "Proprietary Blender Pro fonts must not be shipped"
+          }
+          $required = @(
+            "package/red4ext/plugins/m1arc/m1arc.dll",
+            "package/red4ext/plugins/m1arc/LICENSE",
+            "package/r6/scripts/m1arc/M1Arc.reds",
+            "package/red4ext/plugins/m1arc/fonts/Phosphor-Regular.ttf",
+            "package/red4ext/plugins/m1arc/fonts/Karla-SemiBold.ttf",
+            "package/red4ext/plugins/m1arc/fonts/ChakraPetch-SemiBold.ttf",
+            "package/red4ext/plugins/m1arc/fonts/Karla-OFL.txt",
+            "package/red4ext/plugins/m1arc/fonts/Phosphor-MIT.txt"
+          )
+          foreach ($file in $required) {
+            if (!(Test-Path $file)) { throw "Required file missing: $file" }
+          }
+          $zip = "m1arc-$tag-game-root.zip"
+          Compress-Archive -Path "package/*" -DestinationPath $zip -CompressionLevel Optimal
+          if (!(Test-Path $zip) -or (Get-Item $zip).Length -lt 25000) {
+            throw "Release ZIP missing or unexpectedly small"
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          "$hash  $zip" | Out-File "m1arc-$tag-SHA256.txt" -Encoding ascii
+          "release_zip=$zip" >> $env:GITHUB_OUTPUT
+          "release_sha=m1arc-$tag-SHA256.txt" >> $env:GITHUB_OUTPUT
+      - name: Verify ZIP contents and prohibit dev assets
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          $zip = "${{ steps.package.outputs.release_zip }}"
+          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
+          try {
+            $paths = @($archive.Entries | ForEach-Object { $_.FullName.Replace("\","/") })
+            if ("red4ext/plugins/m1arc/m1arc.dll" -notin $paths) { throw "DLL not at game root" }
+            if ("r6/scripts/m1arc/M1Arc.reds" -notin $paths) { throw "REDscript declaration missing" }
+            if ($paths | Where-Object { $_ -like "*dev-preview.enabled" }) { throw "Dev fixture in ZIP" }
+            if ($paths | Where-Object { $_ -like "package/*" }) { throw "Nested package folder" }
+          } finally { $archive.Dispose() }
+      - name: Create maintainer-only GitHub draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:RELEASE_TAG
+          gh release view $tag --json tagName 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { throw "Refusing to overwrite release $tag" }
+          $notes = @'
+          ## M1 Arc {tag} — install preview
+
+          **Draft release for maintainer review. Not a public launch.**
+
+          M1 Arc is a native RED4ext settings/control-panel module for Cyberpunk 2077 2.50.
+
+          **Install:** extract `m1arc-{tag}-game-root.zip` into the Cyberpunk 2077 installation folder (the folder containing `red4ext` and `r6`). Merge those folders; do not install the ZIP as an additional nested directory. RED4ext and REDscript are required. CET can remain installed.
+
+          Package includes `red4ext/plugins/m1arc/m1arc.dll`, `r6/scripts/m1arc/M1Arc.reds`, open-license Karla/Chakra Petch/Phosphor fonts and notices, and the project LICENSE. No dev-preview marker, temporary UI Test, gameplay mods, separate AutoBreach DLL, or proprietary Blender Pro fonts.
+
+          Before updating, exit Cyberpunk. Existing `red4ext/plugins/m1arc/settings.json` is not included in this archive and will not be overwritten. First launch prompts for your own M1 Arc shortcut.
+
+          SHA-256 file included. Windows C++ and source-level checks run in CI; in-game behavior may vary with mods/game updates.
+          '@
+          $notes.Replace('{tag}', $tag) | Set-Content -Path release-notes.md -Encoding utf8
+          gh release create $tag "${{ steps.package.outputs.release_zip }}" "${{ steps.package.outputs.release_sha }}" --draft --prerelease --target $env:GITHUB_SHA --title "M1 Arc $tag (draft preview)" --notes-file release-notes.md
+          if ($LASTEXITCODE -ne 0) { throw "Failed to stage GitHub release" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m1arc-release-game-root
+          path: |
+            ${{ steps.package.outputs.release_zip }}
+            ${{ steps.package.outputs.release_sha }}
+          if-no-files-found: error
+          retention-days: 30
