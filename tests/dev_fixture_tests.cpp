@@ -27,7 +27,7 @@ int main() {
     REQUIRE(mods.front().shortDesc=="Native settings and typography stress test");
     REQUIRE(mods.front().settings.size() >= 35);
     bool hasBool=false,hasInteger=false,hasFloat=false,hasChoice=false,hasLong=false;
-    bool hasCheckbox=false,hasAction=false,hasInlineAction=false,hasWeapons=false;
+    bool hasCheckbox=false,hasAction=false,hasInlineAction=false,hasWeapons=false,hasHotkey=false;
     for(const auto& setting:mods.front().settings) {
         hasBool |= setting.kind==m1arc::SettingKind::Boolean;
         hasInteger |= setting.kind==m1arc::SettingKind::Integer;
