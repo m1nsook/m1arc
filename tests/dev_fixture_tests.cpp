@@ -27,14 +27,23 @@ int main() {
     REQUIRE(mods.front().shortDesc=="Native settings and typography stress test");
     REQUIRE(mods.front().settings.size() >= 35);
     bool hasBool=false,hasInteger=false,hasFloat=false,hasChoice=false,hasLong=false;
+    bool hasCheckbox=false,hasAction=false,hasInlineAction=false,hasWeapons=false;
     for(const auto& setting:mods.front().settings) {
         hasBool |= setting.kind==m1arc::SettingKind::Boolean;
         hasInteger |= setting.kind==m1arc::SettingKind::Integer;
         hasFloat |= setting.kind==m1arc::SettingKind::Float;
         hasChoice |= setting.kind==m1arc::SettingKind::Choice;
         hasLong |= setting.label.size()>100;
+        hasCheckbox |= setting.checkbox;
+        hasAction |= setting.kind==m1arc::SettingKind::Action;
+        hasInlineAction |= setting.buttonId=="spawn_ammo";
+        hasWeapons |= setting.group=="Weapons";
     }
     REQUIRE(hasBool && hasInteger && hasFloat && hasChoice && hasLong);
+    REQUIRE(hasCheckbox && hasAction && hasInlineAction && hasWeapons);
+    REQUIRE(registry.QueueAction("m1arc.ui-test","spawn_ammo"));
+    REQUIRE(registry.ConsumeAction("m1arc.ui-test","spawn_ammo"));
+    REQUIRE(!registry.ConsumeAction("m1arc.ui-test","spawn_ammo"));
     REQUIRE(registry.Set("m1arc.ui-test","short_integer",8));
     REQUIRE(registry.Get("m1arc.ui-test","short_integer").value()==8);
     REQUIRE(registry.Set("m1arc.ui-test","enabled",false));
