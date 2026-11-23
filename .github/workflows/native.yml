@@ -50,6 +50,9 @@ jobs:
           New-Item -ItemType Directory -Path $dst -Force | Out-Null
           Copy-Item "build/Release/m1arc.dll" "$dst/m1arc.dll"
           Copy-Item LICENSE "$dst/LICENSE"
+          # This is a DRAFT-only CI artifact, not a public release.
+          # Delete dev-preview.enabled to hide the temporary UI Test mod.
+          Set-Content -Path "$dst/dev-preview.enabled" -Value "M1 Arc UI Test (development only)" -Encoding ascii
           # Pinned OFL/MIT assets. Do not include proprietary user-supplied Blender Pro.
           $fonts = Join-Path $dst "fonts"
           New-Item -ItemType Directory -Path $fonts -Force | Out-Null

@@ -77,6 +77,10 @@ if(BUILD_TESTING)
     target_link_libraries(m1arc_registry_tests PRIVATE m1arc_registry)
     add_test(NAME registry COMMAND m1arc_registry_tests)
 
+    add_executable(m1arc_dev_fixture_tests tests/dev_fixture_tests.cpp)
+    target_link_libraries(m1arc_dev_fixture_tests PRIVATE m1arc_registry)
+    add_test(NAME dev_fixture COMMAND m1arc_dev_fixture_tests)
+
     add_executable(m1arc_state_tests tests/state_tests.cpp)
     target_link_libraries(m1arc_state_tests PRIVATE m1arc_state)
     add_test(NAME persistence COMMAND m1arc_state_tests)

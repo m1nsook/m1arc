@@ -64,6 +64,24 @@ This is **not a public release**. Windows CI validates compilation and
 settings persistence, but only an actual Cyberpunk 2077 session with CET
 installed can confirm that both overlays and their input coexist correctly.
 
+## Temporary UI Test mod (draft CI only)
+
+The development build includes a marker at
+`red4ext/plugins/m1arc/dev-preview.enabled`. While that marker exists,
+M1 Arc registers the **M1 ARC UI Test** mod through its real native
+settings registry. It is a UI fixture, **not a gameplay mod**. It has
+all currently supported settings controls: ON/OFF buttons, integer and
+float sliders, and choice arrows, plus long labels/choices, a Latin
+Extended sample, hover descriptions, an enable/disable master switch,
+and 24 extra rows for vertical scroll testing.
+
+To remove the temporary mod, **delete `dev-preview.enabled` and
+restart the game**. The rest of M1 Arc is unaffected. Existing preview
+values can remain in settings.json but are not shown without the marker.
+Public releases must omit the development marker. The separate language
+selector and translated text files are planned as native localization,
+not as an invented scripting format.
+
 ## Native API
 
 M1 Arc exports these native REDscript RTTI global functions:
