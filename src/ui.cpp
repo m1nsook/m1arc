@@ -631,12 +631,11 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
             dark ? p.amber : ImVec4(.31f,.35f,.28f,1.f));
         ImGui::PushStyleColor(ImGuiCol_Text,p.paper);
         if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_RESET " DEFAULTS##mod" : "DEFAULTS##mod",
-                          ImVec2(116.f,32.f)))
-            if (Settings().ResetMod(selected->id))
-                ShowToast("Defaults restored for " + selected->title);
-            else
-                ShowToast("Failed to reset " + selected->title);
-            (void)Settings().ResetMod(selected->id);
+                          ImVec2(116.f,32.f))) {
+            const bool restored = Settings().ResetMod(selected->id);
+            ShowToast(restored ? "Defaults restored for " + selected->title
+                               : "Failed to reset " + selected->title);
+        }
         ImGui::PopStyleColor(4);
     }
     ImGui::EndChild();
@@ -716,7 +715,7 @@ void DrawArcUI() {
         ImGui::PopStyleVar();
     }
     ImGui::End();
-        // Full-width toast overlay pinned to the top edge of the panel.
+    // Full-width toast overlay pinned to the top edge of the panel.
     const ImVec2 windowPos(viewport->GetCenter().x - width * 0.5f,
                            viewport->GetCenter().y - height * 0.5f);
     DrawToasts(palette, windowPos, ImVec2(width, height));
