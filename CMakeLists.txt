@@ -58,6 +58,7 @@ if(WIN32)
         src/plugin.cpp
         src/graphics.cpp
         src/input.cpp
+        src/mouse_click.cpp
         src/ui.cpp
         src/fonts.cpp
     )
@@ -73,6 +74,18 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    if(WIN32)
+        # Reuse the working m1core click tests with a replaceable backend.
+        # This target never clicks the OS cursor while running in CI.
+        add_executable(m1arc_mouse_click_tests
+            tests/mouse_click_tests.cpp src/mouse_click.cpp)
+        target_include_directories(m1arc_mouse_click_tests PRIVATE src)
+        target_compile_definitions(m1arc_mouse_click_tests PRIVATE
+            M1ARC_MOUSE_CLICK_STANDALONE_TEST WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_link_libraries(m1arc_mouse_click_tests PRIVATE user32)
+        add_test(NAME mouse_click COMMAND m1arc_mouse_click_tests)
+    endif()
+
     add_executable(m1arc_registry_tests tests/registry_tests.cpp)
     target_link_libraries(m1arc_registry_tests PRIVATE m1arc_registry)
     add_test(NAME registry COMMAND m1arc_registry_tests)

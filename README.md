@@ -158,6 +158,20 @@ failed persistence. Choice settings use `GetString`/`SetString`.
 are included in the CI build package, but actual REDscript compilation and
 in-game live settings still require verification on Cyberpunk 2077.
 
+## Future input-assisted mods
+
+M1 Arc includes a **guarded, internal native mouse-click utility**, ported
+from the working `m1core` backup. It is deliberately **not** invoked by
+M1 Arc settings, not automatically enabled, and not exposed as a REDscript
+API yet. This is preparation for a future **Skip Breach** mod that
+calculates a valid vanilla Breach Protocol puzzle path and submits
+individual selections, without pre-fulfilling daemons or faking success.
+
+See [Internal mouse-click contract](docs/INPUT_CLICK_HELPER.md).
+Windows CI exercises a simulated click backend, focus rejection, invalid
+coordinates, and emergency button-release behavior. Real game UI
+compatibility remains unverified; no automatic input is sent by this build.
+
 ## Development rules
 
 This branch is strictly focused on working RED4ext + ImGui initialization,
