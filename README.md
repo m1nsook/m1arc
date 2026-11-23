@@ -27,7 +27,7 @@ TweakDB editor and CET branding are **not** included. The original
 ## Install
 
 Windows Actions produces **one game-root artifact**, containing
-`red4ext/plugins/m1arc/m1arc.dll` and the repository LICENSE.
+`red4ext/plugins/m1arc/m1arc.dll`, `r6/scripts/m1arc/M1Arc.reds`, and the repository LICENSE.
 
 On first launch the plugin prompts for an independent keyboard shortcut.
 It does not bind or edit CET's existing shortcut.
@@ -43,7 +43,10 @@ M1 Arc exports these native REDscript RTTI global functions:
 - `M1Arc_Version() -> String`
 - `M1Arc_RegisterJson(modId, displayName, schemaJson) -> Bool`
 - `M1Arc_GetJson(modId, settingId) -> String`
+- `M1Arc_GetBool/GetInt/GetFloat/GetString(modId, settingId) -> value` (typed live getters)
+- `M1Arc_Revision() -> Int32` (increments whenever persisted settings change)
 - `M1Arc_SetJson(modId, settingId, payloadJson) -> Bool`
+- `M1Arc_SetBool/SetInt/SetFloat/SetString(modId, settingId, value) -> Bool`
 - `M1Arc_ResetSetting(modId, settingId) -> Bool`
 - `M1Arc_ResetMod(modId) -> Bool`
 - `M1Arc_SaveProfile(name) -> Bool`
@@ -54,6 +57,43 @@ The JSON setting definitions support booleans, integers, floats and choices,
 including groups and descriptions. See `src/registry.hpp`.
 
 There is no remote update service or additional scripting engine.
+
+
+## REDscript mod integration
+
+The packaged `M1Arc.reds` declares the native functions to the REDscript
+compiler. It is **not** a new scripting language or a script VM. M1 Arc
+requires RED4ext for the DLL; REDscript is needed for REDscript consumers.
+
+Register a mod once during its normal initialization (for example in the
+mod's existing game-attach lifecycle), then read values directly whenever
+gameplay logic needs them:
+
+```reds
+// REDscript, inside your mod's existing initialization callback:
+M1Arc_RegisterJson("my.mod", "My Mod",
+  "[{\"id\":\"enabled\",\"kind\":\"boolean\",\"default\":true},{\"id\":\"weight\",\"kind\":\"integer\",\"min\":50,\"max\":1000,\"default\":200}]");
+
+// REDscript, inside an existing gameplay callback:
+let active: Bool = M1Arc_GetBool("my.mod", "enabled");
+let weight: Int32 = M1Arc_GetInt("my.mod", "weight");
+```
+
+When a player changes a setting in the overlay, the getter immediately reads
+the updated in-memory value; the change is also saved to disk. Mods can
+optionally cache `M1Arc_Revision()` to skip reapplying unchanged values.
+The revision starts at zero on launch and increases on each successful
+persistent change.
+
+Native typed getters return `false`, `0`, `0.0`, or an empty string for a
+missing or incorrectly typed setting. For strict error handling use
+`M1Arc_GetJson` (which returns `"null"` for missing IDs) or validate IDs
+during registration. Typed setters return `false` for invalid values or
+failed persistence. Choice settings use `GetString`/`SetString`.
+
+**Integration check:** The REDscript native declarations and C++ signatures
+are included in the CI build package, but actual REDscript compilation and
+in-game live settings still require verification on Cyberpunk 2077.
 
 ## Development rules
 

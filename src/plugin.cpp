@@ -15,6 +15,8 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <cmath>
+#include <limits>
 #include <string>
 
 namespace {
@@ -67,6 +69,100 @@ void SetValue(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
     } catch (...) {}
     if (output) *output=ok;
 }
+
+void GetBool(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
+{
+    CString mod, key;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    frame->code++;
+    if (!output) return;
+    const auto value = m1arc::Settings().Get(mod.c_str(), key.c_str());
+    *output = value && value->is_boolean() ? value->get<bool>() : false;
+}
+void GetInt(IScriptable*, CStackFrame* frame, std::int32_t* output, std::int64_t)
+{
+    CString mod, key;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    frame->code++;
+    if (!output) return;
+    const auto value = m1arc::Settings().Get(mod.c_str(), key.c_str());
+    *output = value && value->is_number_integer()
+        ? value->get<std::int32_t>() : 0;
+}
+void GetFloat(IScriptable*, CStackFrame* frame, float* output, std::int64_t)
+{
+    CString mod, key;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    frame->code++;
+    if (!output) return;
+    const auto value = m1arc::Settings().Get(mod.c_str(), key.c_str());
+    *output = 0.0f;
+    if (!value || !value->is_number_float()) return;
+    const double number = value->get<double>();
+    if (std::isfinite(number) &&
+        std::abs(number) <= std::numeric_limits<float>::max())
+        *output = static_cast<float>(number);
+}
+void GetString(IScriptable*, CStackFrame* frame, CString* output, std::int64_t)
+{
+    CString mod, key;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    frame->code++;
+    if (!output) return;
+    const auto value = m1arc::Settings().Get(mod.c_str(), key.c_str());
+    const std::string text = value && value->is_string()
+        ? value->get<std::string>() : std::string{};
+    *output = CString(text.c_str());
+}
+void Revision(IScriptable*, CStackFrame* frame, std::int32_t* output, std::int64_t)
+{
+    frame->code++;
+    if (output) *output = m1arc::Store().Revision();
+}
+void SetBool(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
+{
+    CString mod, key;
+    bool value = false;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    RED4ext::GetParameter(frame, &value);
+    frame->code++;
+    if (output) *output = m1arc::Settings().Set(mod.c_str(), key.c_str(), value);
+}
+void SetInt(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
+{
+    CString mod, key;
+    std::int32_t value = 0;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    RED4ext::GetParameter(frame, &value);
+    frame->code++;
+    if (output) *output = m1arc::Settings().Set(mod.c_str(), key.c_str(), value);
+}
+void SetFloat(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
+{
+    CString mod, key;
+    float value = 0.0f;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    RED4ext::GetParameter(frame, &value);
+    frame->code++;
+    if (output) *output = m1arc::Settings().Set(mod.c_str(), key.c_str(), value);
+}
+void SetString(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
+{
+    CString mod, key, value;
+    RED4ext::GetParameter(frame, &mod);
+    RED4ext::GetParameter(frame, &key);
+    RED4ext::GetParameter(frame, &value);
+    frame->code++;
+    if (output) *output = m1arc::Settings().Set(mod.c_str(), key.c_str(), std::string(value.c_str()));
+}
+
 void ResetValue(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
 {
     CString mod,key;
@@ -142,7 +238,31 @@ void PostRegisterTypes()
     add("M1Arc_Version",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Version),"String",nullptr,0);
     add("M1Arc_RegisterJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Register),"Bool",registerArgs,3);
     add("M1Arc_GetJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetValue),"String",two,2);
+    add("M1Arc_GetBool",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetBool),"Bool",two,2);
+    add("M1Arc_GetInt",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetInt),"Int32",two,2);
+    add("M1Arc_GetFloat",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetFloat),"Float",two,2);
+    add("M1Arc_GetString",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&GetString),"String",two,2);
+    add("M1Arc_Revision",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Revision),"Int32",nullptr,0);
     add("M1Arc_SetJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SetValue),"Bool",three,3);
+    // Typed setters keep REDscript consumers free from hand-escaped JSON.
+    const auto addTypedSetter=[&](const char* name,
+                                  RED4ext::ScriptingFunction_t<void*> callback,
+                                  const char* valueType) {
+        auto* fn=RED4ext::CGlobalFunction::Create(name,name,callback);
+        fn->flags=RED4ext::CBaseFunction::Flags{
+            .isNative=true,.isStatic=true
+        };
+        fn->SetReturnType("Bool");
+        fn->AddParam("String","modId");
+        fn->AddParam("String","settingId");
+        fn->AddParam(valueType,"value");
+        rtti->RegisterFunction(fn);
+    };
+    addTypedSetter("M1Arc_SetBool",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SetBool),"Bool");
+    addTypedSetter("M1Arc_SetInt",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SetInt),"Int32");
+    addTypedSetter("M1Arc_SetFloat",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SetFloat),"Float");
+    addTypedSetter("M1Arc_SetString",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SetString),"String");
+
     add("M1Arc_ResetSetting",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&ResetValue),"Bool",two,2);
     add("M1Arc_ResetMod",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&ResetMod),"Bool",one,1);
     add("M1Arc_SaveProfile",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&SaveProfile),"Bool",one,1);

@@ -6,6 +6,8 @@ on:
       - "src/**"
       - "tests/**"
       - "CMakeLists.txt"
+      - "r6/**"
+      - "README.md"
       - ".github/workflows/native.yml"
 
 permissions:
@@ -39,6 +41,10 @@ jobs:
           New-Item -ItemType Directory -Path $dst -Force | Out-Null
           Copy-Item "build/Release/m1arc.dll" "$dst/m1arc.dll"
           Copy-Item LICENSE "$dst/LICENSE"
+          $apiPath = "package/r6/scripts/m1arc"
+          New-Item -ItemType Directory -Path $apiPath -Force | Out-Null
+          Copy-Item "r6/scripts/m1arc/M1Arc.reds" "$apiPath/M1Arc.reds"
+          if (!(Test-Path "$apiPath/M1Arc.reds")) { throw "REDscript native API declarations missing" }
           if (!(Test-Path "$dst/m1arc.dll")) { throw "DLL missing" }
       - uses: actions/upload-artifact@v4
         with:
