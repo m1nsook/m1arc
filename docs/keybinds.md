@@ -1,27 +1,21 @@
-# Mod keybinds
+# Panel shortcut and keyboard handling
 
-Register actions at **top level during entrypoint loading**, not from `onInit`.
+M1 Arc uses an **independent, user-selected** shortcut for its
+native settings panel. You choose it the first time you launch
+Cyberpunk with M1 Arc installed, and can rebind it using the panel.
 
-~~~lua
-registerHotkey("toggle_feature", "Toggle feature",
-               "Press to toggle this feature", function()
-    print("[my-mod] feature toggled")
-end)
+The chosen key is stored in
+`red4ext/plugins/m1arc/settings.json` as `overlay.hotkey`.
+It is not hardcoded to F8, F10, F11 or the CET menu shortcut.
 
-registerInput("hold_feature", "Hold feature",
-              "Called on key down/up", function(isDown)
-    print("Held:", isDown)
-end)
-~~~
+The same chosen key opens and closes the panel. Escape is **not**
+required to close it. The framework also includes an emergency
+recovery combination (`Ctrl+Shift+F11`) intended for stuck input.
 
-| API | Behavior |
-| --- | --- |
-| `registerHotkey(id, name, description, callback)` | Runs when a configured key combination completes |
-| `registerInput(id, name, description, callback)` | Invokes callback with `isDown: boolean` |
-| `IsBound(id)` | Returns whether this mod action has a binding |
-| `GetBind(id)` | Returns the displayed key string |
+M1 Arc does not overwrite CET's own hotkey. When the control panel is
+not open, normal keyboard and mouse input should continue to reach the game.
 
-Both registration calls have a three-argument overload `(id, name, callback)`. IDs must use alphanumeric characters, underscore or dot, and be unique within a mod. Keys are scoped by mod directory name, and user assignments persist in `red4ext/plugins/m1core/bindings.json`.
-
-Players configure registered actions in the **Keybinds** section of m1core's Dear ImGui overlay. Scripts must not replace m1core's Win32 input handling.
-
+The current public settings manifest supports Boolean, integer, float
+and choice controls. Do not claim a standalone hotkey-control schema
+or a Lua `registerHotkey` API; neither is part of the current M1 Arc
+native manifest specification.

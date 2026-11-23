@@ -1,20 +1,55 @@
-# Quick start
+# Install M1 Arc
 
-m1script files are LuaJIT scripts running inside the standalone **m1core** RED4ext DLL. Install the successful [m1core Windows CI game-root package](https://github.com/m1nsook/CP2077/actions) into Cyberpunk 2077.
+M1 Arc is a standalone native **RED4ext** plugin for **Cyberpunk 2077 2.50**.
+You need RED4ext and REDscript installed. Cyber Engine Tweaks can stay
+installed, but M1 Arc does not depend on it.
 
-Create `red4ext/plugins/m1core/mods/my-first-mod/init.m1s`:
+## Download and install
 
-~~~lua
-registerForEvent("onInit", function()
-    print("[my-first-mod] initialized")
-end)
+1. For the public M1 Arc mod page, visit [M1 Arc on Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311).
+   Versions will appear there when the maintainer publishes them.
+   Versioned archives and checksums are also prepared on
+   [GitHub Releases](https://github.com/m1nsook/m1arc/releases).
+   **Draft GitHub releases are visible to maintainers only**, not a public download.
+2. Download the versioned `m1arc-v...-game-root.zip` and its SHA-256 text file
+   when the chosen release has been made available.
+3. Close Cyberpunk 2077 before changing files.
+4. Extract the **contents** of the ZIP into the **Cyberpunk 2077 game directory**,
+   where `red4ext/` and `r6/` already exist. Do not create a nested `package/` folder.
+5. Launch Cyberpunk and set a separate M1 Arc panel shortcut when prompted.
 
-registerForEvent("onShutdown", function()
-    print("[my-first-mod] shutting down")
-end)
+The ZIP must have these paths:
+
+~~~text
+Cyberpunk 2077/
+  red4ext/plugins/m1arc/m1arc.dll
+  red4ext/plugins/m1arc/LICENSE
+  red4ext/plugins/m1arc/fonts/
+    Karla-SemiBold.ttf
+    ChakraPetch-SemiBold.ttf
+    Phosphor-Regular.ttf
+    ... font notices
+  r6/scripts/m1arc/M1Arc.reds
 ~~~
 
-Launch Cyberpunk. m1core loads each mod's entrypoint automatically. No separate CET or m1script binary is installed. Use `onShutdown` to clean up game modifiers or listeners **owned by your mod**.
+The release ZIP deliberately does **not** contain the temporary
+`dev-preview.enabled` marker, any gameplay mod, proprietary Blender Pro
+fonts or a separate AutoBreach DLL.
 
-Read [Lifecycle](./lifecycle), [Settings](./settings), [Keybinds](./keybinds), [Formats](./script-formats), and the [complete reference](./api-reference).
+Existing `red4ext/plugins/m1arc/settings.json` stores personal settings
+and is not included in the release archive. Do not delete it while updating.
 
+## Open the panel
+
+M1 Arc uses the key you chose at first launch and stores it independently
+from CET. Use the panel's binding control if you wish to change the key.
+The panel includes light/dark themes, mod-specific controls and profile saving.
+
+## Install mods that support M1 Arc
+
+The framework itself is not a gameplay mod. Mod authors provide their own
+`mod.json` and `settings.json` under
+`red4ext/plugins/m1arc/mods/<mod-id>/`, plus any ordinary REDscript under
+`r6/scripts/`. See the [manifest guide](/mod-manifest).
+
+For errors or compatibility issues, read [troubleshooting](/troubleshooting).

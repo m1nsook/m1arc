@@ -1,15 +1,24 @@
-# Architecture and ownership
+# Architecture
 
-| Responsibility | Repository |
+M1 Arc is a Windows **C++ RED4ext DLL** for Cyberpunk 2077, with a
+Dear ImGui interface rendered using the game's DX12 frame integration.
+
+| Part | Responsibility |
 | --- | --- |
-| Public scripting APIs, reference, examples, editor definitions | [m1script](https://github.com/m1nsook/m1script) |
-| RED4ext DLL, embedded LuaJIT VM, sandbox, native RTTI binding and game hooks | [m1core](https://github.com/m1nsook/CP2077/tree/dev/m1core-cet-foundation/m1core) |
-| Game overlay, input, persistence and game-root ZIP | m1core |
-| Future API specifications | m1script first; native bindings implemented in m1core |
+| `m1arc.dll` | Native registry, state storage, UI, input ownership and game-safe RED4ext bridge |
+| `M1Arc.reds` | Declarations for native REDscript functions |
+| `mod.json` | Author-selected mod identity, scope and sidebar description |
+| `settings.json` in each mod | Declarative control definitions |
+| `red4ext/plugins/m1arc/settings.json` | Player-selected values, profiles, theme and panel shortcut |
 
-m1script is the scripting **authoring and API repository**, not a new runtime dependency. Existing `.m1s`, `.m1c` and `.lua` mods continue to run through m1core.
+The framework is independent of Cyber Engine Tweaks. It does not embed
+Lua, run a new script VM, or support the retired `.m1s` and `.m1c`
+file types.
 
-## Licensing
+M1 Arc has an optional game-native input bridge for the separately
+installed Skip Breach mod. The bridge is dormant until that mod enables
+it; M1 Arc alone does not run a Breach Protocol solver.
 
-m1script has **GPL-3.0** licensing; the m1core standalone DLL has an **MIT** project license. Public API specifications and tooling can live here while runtime C++ remains in m1core. Moving native implementations into a shared component would require a deliberate licensing decision first. Features not yet implemented in m1core must be marked as proposed rather than advertised as usable.
-
+See [native development](https://github.com/m1nsook/m1arc/tree/native)
+and [GitHub Releases](https://github.com/m1nsook/m1arc/releases).
+The public distribution page is [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311).

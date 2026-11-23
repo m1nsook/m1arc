@@ -1,41 +1,31 @@
-# Settings and profiles
+# Settings, profiles and themes
 
-The global `m1core` table bridges Lua to the standalone native registry.
+Each mod registers native settings. M1 Arc displays them in its in-game
+Dear ImGui control panel. The current schema supports Boolean toggles,
+integer/float sliders and choice controls.
 
-~~~lua
-local MOD_ID = "example.my_mod"
-local SCHEMA = [[
-[
-  {"id":"enabled","kind":"boolean","label":"Enabled","default":true},
-  {"id":"level","kind":"integer","label":"Level","default":3,"min":0,"max":10,"step":1}
-]
-]]
-registerForEvent("onInit", function()
-    assert(m1core.registerJson(MOD_ID, "My Mod", SCHEMA))
-end)
-~~~
+Changes are stored in `red4ext/plugins/m1arc/settings.json` and applied
+to registered native values immediately. The stored file is user data:
+back it up before manual edits or uninstalling the framework.
 
-| Function | Returns |
-| --- | --- |
-| `m1core.registerJson(modId, title, schemaJson)` | boolean |
-| `m1core.getJson(modId, settingId)` | JSON string or `"null"` |
-| `m1core.setJson(modId, settingId, valueJson)` | boolean |
-| `m1core.resetSetting(modId, settingId)` | boolean |
-| `m1core.resetMod(modId)` | boolean |
-| `m1core.saveProfile(name)` | boolean |
-| `m1core.loadProfile(name)` | boolean |
-| `m1core.deleteProfile(name)` | boolean |
-| `m1core.profiles()` | array-like Lua table |
-| `m1core.lastError()` | string, potentially empty |
+## Profiles
 
-Valid setting kinds are `boolean`, `integer`, `float` and `choice`. IDs are 1–96 characters from letters, digits, `_`, `-` and `.`. A schema contains 1–250 unique settings. Numbers are clamped to the declared range; choices must match an option. Wrong JSON types are rejected.
+M1 Arc can save, load or delete named profiles from its control panel.
+A profile stores a snapshot of configurable mod settings. Loading a
+profile restores compatible values without deleting unrelated settings.
 
-Values and global profiles are saved in `red4ext/plugins/m1core/settings.json`, separate from runtime configuration and input bindings. A saved profile can affect **every registered mod**, including settings for unloaded mods; only change a profile in response to deliberate user action.
+REDscript authors can also call
+`M1Arc_SaveProfile`, `M1Arc_LoadProfile` and `M1Arc_DeleteProfile`.
+See [native API](/native-api) for the exact declarations.
 
-~~~lua
-local enabled = m1core.getJson(MOD_ID, "enabled") == "true"
-m1core.setJson(MOD_ID, "enabled", "false")
-~~~
+## Light and dark modes
 
-See [complete API reference](./api-reference) for schema details.
+The theme toggle is part of the M1 Arc panel itself, not part of an
+installed mod's settings. It is remembered across restarts.
+The default theme for a first-time user is light.
 
+## Mod scope and short description
+
+Mod authors choose these display-only values in `mod.json`:
+`scope` selects a Phosphor icon and `shortDesc` adds a small subtitle
+below the mod name. The list is documented in [mod manifests](/mod-manifest).
