@@ -31,18 +31,23 @@ TweakDB editor and CET branding are **not** included. The original
 - `web`: separate VitePress documentation and interactive UI examples.
 - `m1core`: historical backup, left unchanged.
 
-The **[GitHub Releases](https://github.com/m1nsook/m1arc/releases)**
-page contains versioned **game-root ZIPs** and SHA-256 hashes. The
-initial `v0.1.0-preview.1` release is staged as a **draft** for
-maintainer review; drafting a release is not a public launch.
+The official **[M1 Arc Nexus Mods page](https://www.nexusmods.com/cyberpunk2077/mods/39311)**
+is the intended public mod distribution page. The separate
+**[GitHub Releases](https://github.com/m1nsook/m1arc/releases)** page
+will contain versioned **game-root ZIPs** and SHA-256 hashes.
+The initial `v0.1.0-preview.1` release is staged as a **draft**
+for maintainer review; drafting a release is not a public launch.
+Publishing on Nexus Mods is a separate step and is not automated.
 Subsequent previews can be staged with the manual GitHub Actions
 `M1 Arc packaged draft release` workflow.
 
 ### Installation
 
 Install RED4ext and REDscript for Cyberpunk 2077 2.50.
-Download `m1arc-v0.1.0-preview.1-game-root.zip` from the draft release
-(or the Actions artifact while reviewing it). Close the game, then
+For owner review, download `m1arc-v0.1.0-preview.1-game-root.zip`
+from the draft GitHub release (or its Actions artifact). Drafts are
+visible only to maintainers. When publicly released, get the module
+from the official Nexus Mods page or the corresponding GitHub Release. Close the game, then
 extract the **contents** directly into the Cyberpunk installation
 directory (alongside the existing `red4ext/` and `r6/` directories).
 Do **not** extract a nested `package/` directory. The ZIP contains:
