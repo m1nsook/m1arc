@@ -8,6 +8,23 @@ The native M1 Arc plugin exposes **one narrowly-scoped internal action**:
 - \`M1Arc_BreachSelectCell(wref<inkLogicController>, Vector2)\` — supplies a
   native (row, column) selection to the game's hacking logic controller.
 
+**Skip Breach runtime log (development builds):** the paired addon declares
+`M1Arc_BreachTrace(message: String) -> Bool` next to the native selector
+functions. The M1 Arc DLL registers this narrow native and forwards REDscript
+controller/capture/state/acknowledgement messages to the **same RED4ext
+M1 Arc plugin log** at `Cyberpunk 2077/red4ext/logs/m1arc*.log`, prefixed
+`[Skip Breach]`. The old `LogChannel(DEBUG)` was not readable in that log.
+The bridge is diagnostic only: max 480 message bytes per call, no
+scripting engine and no modification of the game/puzzle. Every dispatched
+cell is logged with row/column even when consecutive dispatches have the
+same native state (previously `ActionState` hid them). The REDscript
+consumer still waits for its real game callback; a native "dispatched"
+line is **not proof** that the game acknowledged it.
+
+**Match DLL + addon revisions.** Older M1 Arc DLLs do not register
+`M1Arc_BreachTrace`. Don't install only the newer addon, or the optional
+REDscript native declaration can fail validation at startup.
+
 **Reference source:** the user's supplied AutoBreach 0.4.0 game-root ZIP
 for Cyberpunk 2077 2.5. We learned the *interface*, game version and
 entry signature, but do not redistribute its DLL, Lua or REDscript.
