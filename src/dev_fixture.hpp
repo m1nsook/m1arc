@@ -79,6 +79,7 @@ inline bool RegisterIfEnabled(const std::filesystem::path& pluginFolder,
     if (!std::filesystem::is_regular_file(marker,ec) || ec) return false;
     // Do not touch mod files, alter gameplay or activate additional input.
     return registry.Register("m1arc.ui-test",
-      "M1 ARC UI Test — very long mod name to check sidebar clipping",Schema());
+      "M1 ARC UI Test — very long mod name to check sidebar clipping",Schema(),
+      "UI/UX","Native settings and typography stress test");
 }
 } // namespace m1arc::dev

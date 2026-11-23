@@ -152,6 +152,18 @@ int main()
     REQUIRE(registry.Snapshot().size()==1);
     REQUIRE(!registry.Register("../evil","Evil",schema));
 
+    // Direct registration also enforces scope and description constraints.
+    m1arc::Registry metadataRegistry(store);
+    REQUIRE(!metadataRegistry.Register("scope.bad","Bad",schema,"Unknown"));
+    REQUIRE(!metadataRegistry.Register("scope.long","Bad",schema,"Gameplay",
+                                       std::string(181,'x')));
+    REQUIRE(metadataRegistry.Register("scope.good","Scoped",schema,"UI/UX",
+                                      "Adjusts interface and HUD"));
+    const auto scoped=metadataRegistry.Snapshot();
+    REQUIRE(scoped.size()==1);
+    REQUIRE(scoped[0].scope=="UI/UX");
+    REQUIRE(scoped[0].shortDesc=="Adjusts interface and HUD");
+
     // Corrupt settings state must be read-only: profile/reset operations
     // must return useful errors and never pretend to persist live changes.
     const auto brokenPath = path.parent_path() / "broken.json";

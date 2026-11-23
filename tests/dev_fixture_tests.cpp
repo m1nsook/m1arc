@@ -23,6 +23,8 @@ int main() {
     REQUIRE(m1arc::dev::RegisterIfEnabled(root,registry));
     auto mods=registry.Snapshot();
     REQUIRE(mods.size()==1);
+    REQUIRE(mods.front().scope=="UI/UX");
+    REQUIRE(mods.front().shortDesc=="Native settings and typography stress test");
     REQUIRE(mods.front().settings.size() >= 35);
     bool hasBool=false,hasInteger=false,hasFloat=false,hasChoice=false,hasLong=false;
     for(const auto& setting:mods.front().settings) {
