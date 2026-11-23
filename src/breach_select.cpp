@@ -177,7 +177,7 @@ void SelectCell(RED4ext::IScriptable*,
         ActionState(6,"m1arc Breach: cell rejected (selector unavailable for current game build)");
         return;
     }
-    ActionState(0,"m1arc Breach: native game cell selection dispatched");
+    ActionState(0,"m1arc Breach: native selector invoked; awaiting game selection acknowledgement");
     selector(context,&position);
     *output=true; // means dispatched; REDscript still awaits acknowledgement
 }
@@ -193,7 +193,23 @@ void Initialize() noexcept {
     g_selector.store(ResolveSelector(),std::memory_order_release);
 }
 bool Available() noexcept {
-    return g_selector.load(std::memory_order_acquire)!=nullptr;
+    if (!g_selector.load(std::memory_order_acquire)) return false;
+
+    // Binary fingerprint alone does not mean a newly opened puzzle can
+    // receive input. The game window may still be attaching, or our own
+    // overlay may own the mouse. Keep the first board pending in REDscript
+    // until the same constraints used by SelectCell() are satisfied.
+    const auto& input=InputRouter::Get();
+    const HWND game=input.Window();
+    if (!game || !IsWindow(game) || GetForegroundWindow()!=game) {
+        ActionState(7,"m1arc Breach: waiting for focused game window");
+        return false;
+    }
+    if (input.IsOpen() || input.IsRecording()) {
+        ActionState(8,"m1arc Breach: waiting for M1 Arc overlay to release input");
+        return false;
+    }
+    return true;
 }
 const char* StatusMessage() noexcept {
     switch (g_status.load(std::memory_order_acquire)) {
