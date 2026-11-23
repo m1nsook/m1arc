@@ -17,7 +17,25 @@ std::optional<SettingKind> ParseKind(const std::string& name)
     if (name == "float") return SettingKind::Float;
     if (name == "choice") return SettingKind::Choice;
     if (name == "action") return SettingKind::Action;
+    if (name == "hotkey") return SettingKind::Hotkey;
     return std::nullopt;
+}
+
+bool ValidHotkey(int vk) noexcept
+{
+    // Win32 VK_* values; keep this cross-platform for native CTest.
+    if (vk == 0) return true; // unassigned
+    if (vk < 0x08 || vk >= 0xE7) return false;
+    switch (vk) {
+    case 0x1B: // Escape
+    case 0x10: case 0x11: case 0x12: // generic modifiers
+    case 0xA0: case 0xA1: case 0xA2: case 0xA3:
+    case 0xA4: case 0xA5: // left and right modifiers
+    case 0x5B: case 0x5C: // Windows keys
+    case 0x5F: case 0xE5: // sleep / process
+        return false;
+    default: return true;
+    }
 }
 
 json ReadSaved(const StateStore& store)
@@ -57,6 +75,11 @@ std::optional<nlohmann::json> Registry::Normalize(
     switch (setting.kind) {
     case SettingKind::Action:
         return std::nullopt; // Buttons are ephemeral events, not setting values.
+    case SettingKind::Hotkey:
+        if (!input.is_number_integer() && !input.is_number_unsigned()) return std::nullopt;
+        if (input.get<double>() > 255.0 || input.get<double>() < 0.0) return std::nullopt;
+        if (!ValidHotkey(input.get<int>())) return std::nullopt;
+        return input.get<int>();
     case SettingKind::Boolean:
         if (!input.is_boolean()) return std::nullopt;
         return input;
@@ -160,6 +183,11 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
             prepared.settings.push_back(std::move(row));
             continue;
         }
+        if (row.kind == SettingKind::Hotkey && (
+                item.contains("button") || item.contains("presentation") ||
+                item.contains("choices") || item.contains("min") ||
+                item.contains("max") || item.contains("step")))
+            return false;
         if (row.kind == SettingKind::Integer || row.kind == SettingKind::Float) {
             if (!item.value("min", json(0)).is_number() ||
                 !item.value("max", json(100)).is_number()) return false;
@@ -249,7 +277,7 @@ bool Registry::QueueAction(std::string_view mod, std::string_view action)
     if (it == mods_.end()) return false;
     const bool declared = std::any_of(it->second.settings.begin(),
         it->second.settings.end(), [&](const SettingView& s) {
-            return (s.kind == SettingKind::Action && s.id == action) ||
+            return ((s.kind == SettingKind::Action || s.kind == SettingKind::Hotkey) && s.id == action) ||
                    (!s.buttonId.empty() && s.buttonId == action);
         });
     if (!declared) return false;
@@ -258,6 +286,29 @@ bool Registry::QueueAction(std::string_view mod, std::string_view action)
     // create unlimited delayed game effects.
     if (pending < 16u) ++pending;
     return true;
+}
+
+void Registry::QueueHotkeyKey(int virtualKey)
+{
+    if (!ValidHotkey(virtualKey) || virtualKey == 0) return;
+    std::lock_guard guard(mutex_);
+    for (const auto& [modId, mod] : mods_) {
+        // A disabled mod must not receive gameplay shortcuts.
+        bool enabled = true;
+        for (const auto& row : mod.settings)
+            if ((row.id == "enabled" || row.id == "active") &&
+                row.kind == SettingKind::Boolean && row.value.is_boolean()) {
+                enabled = row.value.get<bool>();
+                break;
+            }
+        if (!enabled) continue;
+        for (const auto& row : mod.settings) {
+            if (row.kind != SettingKind::Hotkey || !row.value.is_number_integer() ||
+                row.value.get<int>() != virtualKey) continue;
+            auto& pending = pendingActions_[modId][row.id];
+            if (pending < 16u) ++pending;
+        }
+    }
 }
 
 bool Registry::ConsumeAction(std::string_view mod, std::string_view action)
