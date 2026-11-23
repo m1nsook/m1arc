@@ -237,6 +237,37 @@ std::optional<nlohmann::json> Registry::Get(
     return found->value;
 }
 
+bool Registry::QueueAction(std::string_view mod, std::string_view action)
+{
+    std::lock_guard guard(mutex_);
+    const auto it = mods_.find(std::string(mod));
+    if (it == mods_.end()) return false;
+    const bool declared = std::any_of(it->second.settings.begin(),
+        it->second.settings.end(), [&](const SettingView& s) {
+            return (s.kind == SettingKind::Action && s.id == action) ||
+                   (!s.buttonId.empty() && s.buttonId == action);
+        });
+    if (!declared) return false;
+    auto& pending = pendingActions_[it->first][std::string(action)];
+    // Bound the queue: repeatedly clicking during a paused game cannot
+    // create unlimited delayed game effects.
+    if (pending < 16u) ++pending;
+    return true;
+}
+
+bool Registry::ConsumeAction(std::string_view mod, std::string_view action)
+{
+    std::lock_guard guard(mutex_);
+    const auto modIt = pendingActions_.find(std::string(mod));
+    if (modIt == pendingActions_.end()) return false;
+    const auto it = modIt->second.find(std::string(action));
+    if (it == modIt->second.end() || it->second == 0u) return false;
+    --it->second;
+    if (it->second == 0u) modIt->second.erase(it);
+    if (modIt->second.empty()) pendingActions_.erase(modIt);
+    return true;
+}
+
 bool Registry::Persist(const std::function<void(json&)>& update)
 {
     if (!store_.Update(update)) {
