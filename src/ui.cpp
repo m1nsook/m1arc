@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <deque>
+#include <utility>
 
 namespace m1arc {
 namespace {
@@ -66,6 +68,17 @@ ThemeState& Theme() {
     }
     return state;
 }
+
+struct Toast {
+    std::string text;
+    float elapsed  = 0.f;
+    float duration = 3.2f;
+};
+std::deque<Toast>& ToastQueue() {
+    static std::deque<Toast> queue;
+    return queue;
+}
+
 void ToggleTheme() {
     auto& theme = Theme();
     const bool next = !theme.dark;
@@ -74,8 +87,10 @@ void ToggleTheme() {
     })) {
         theme.dark = next;
         theme.message.clear();
+        ShowToast(next ? "Theme: dark" : "Theme: light");
     } else {
         theme.message = "Theme could not be saved";
+        ShowToast("Theme could not be saved");
     }
 }
 void ApplyTheme(const Palette& p) {
@@ -280,6 +295,64 @@ std::string FitLabel(std::string label, float available) {
         label.resize(index); // trim exactly one UTF-8 codepoint
     }
     return label + "...";
+}
+
+void DrawToasts(const Palette& p, const ImVec2& origin, const ImVec2& size) {
+    auto& queue = ToastQueue();
+    if (queue.empty()) return;
+
+    auto& io = ImGui::GetIO();
+    auto& toast = queue.front();
+    toast.elapsed += io.DeltaTime;
+
+    constexpr float kHeight  = 46.f;
+    constexpr float kSlideIn = 0.32f;
+    constexpr float kFadeOut = 0.50f;
+    const float fadeStart = std::max(kSlideIn, toast.duration - kFadeOut);
+
+    float alpha = 1.f;
+    float slide = 0.f;                     // negative = above resting position
+    if (toast.elapsed < kSlideIn) {
+        // ease-out cubic slide + fade in
+        float k = std::clamp(toast.elapsed / kSlideIn, 0.f, 1.f);
+        k = 1.f - (1.f - k) * (1.f - k) * (1.f - k);
+        alpha = k;
+        slide = -(1.f - k) * kHeight;
+    } else if (toast.elapsed >= fadeStart) {
+        // fade out with a soft lift
+        float k = std::clamp((toast.elapsed - fadeStart) / kFadeOut, 0.f, 1.f);
+        alpha = 1.f - k;
+        slide = -k * kHeight * 0.35f;
+    }
+
+    if (toast.elapsed >= toast.duration) {
+        queue.pop_front();
+        return;
+    }
+
+    const ImU32 a8 = static_cast<ImU32>(std::clamp(alpha, 0.f, 1.f) * 255.f + 0.5f);
+    const auto tint = [a8](ImU32 col) { return (col & 0x00FFFFFFu) | (a8 << 24); };
+
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    const float x = origin.x;
+    const float y = origin.y + slide;
+    const float w = size.x;
+    const float h = kHeight;
+
+    // Inverted header bar: dark plate, amber accent rule, light text.
+    draw->AddRectFilled(ImVec2(x, y), ImVec2(x + w, y + h), tint(Color(p.ink)));
+    draw->AddLine(ImVec2(x, y + h), ImVec2(x + w, y + h),
+                  tint(Color(p.amber)), 2.f);
+
+    const float pad = 18.f;
+    const std::string prefix = fonts::HasIcons() ? ARC_ICON_SLIDERS "  " : "";
+    const float prefixWidth  = ImGui::CalcTextSize(prefix.c_str()).x;
+    const float maxText      = std::max(20.f, w - 2.f * pad - prefixWidth);
+    const std::string body     = FitLabel(toast.text, maxText);
+    const std::string rendered = prefix + body;
+    const ImVec2 ts = ImGui::CalcTextSize(rendered.c_str());
+    draw->AddText(ImVec2(x + (w - ts.x) * 0.5f, y + (h - ts.y) * 0.5f),
+                  tint(Color(p.paper)), rendered.c_str());
 }
 
 void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
@@ -559,6 +632,10 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
         ImGui::PushStyleColor(ImGuiCol_Text,p.paper);
         if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_RESET " DEFAULTS##mod" : "DEFAULTS##mod",
                           ImVec2(116.f,32.f)))
+            if (Settings().ResetMod(selected->id))
+                ShowToast("Defaults restored for " + selected->title);
+            else
+                ShowToast("Failed to reset " + selected->title);
             (void)Settings().ResetMod(selected->id);
         ImGui::PopStyleColor(4);
     }
@@ -591,6 +668,12 @@ void DrawRebindModal() {
 }
 
 } // namespace
+
+void ShowToast(std::string message, float seconds) {
+    auto& queue = ToastQueue();
+    queue.push_back({std::move(message), 0.f, std::max(0.6f, seconds)});
+    while (queue.size() > 4) queue.pop_front();   // cap backlog
+}
 
 void DrawArcUI() {
     auto& input = InputRouter::Get();
@@ -633,7 +716,10 @@ void DrawArcUI() {
         ImGui::PopStyleVar();
     }
     ImGui::End();
-
+        // Full-width toast overlay pinned to the top edge of the panel.
+    const ImVec2 windowPos(viewport->GetCenter().x - width * 0.5f,
+                           viewport->GetCenter().y - height * 0.5f);
+    DrawToasts(palette, windowPos, ImVec2(width, height));
     // Keep existing first-run setup/rebind behavior, independently of the
     // visual theme. Does not touch the previously working input/router code.
     DrawRebindModal();
