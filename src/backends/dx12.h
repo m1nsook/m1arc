@@ -23,6 +23,7 @@
 #include <dxgiformat.h> // DXGI_FORMAT
 
 struct ID3D12Device;
+struct ID3D12CommandQueue;
 struct ID3D12DescriptorHeap;
 struct ID3D12GraphicsCommandList;
 struct D3D12_CPU_DESCRIPTOR_HANDLE;

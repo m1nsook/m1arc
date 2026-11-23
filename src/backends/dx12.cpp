@@ -47,6 +47,7 @@
 //  2018-02-22: Merged into master with all Win32 code synchronized to other examples.
 
 #include <Windows.h>
+#include <tchar.h>
 #include <cstdint>
 #include <cstring>
 #include <algorithm>
