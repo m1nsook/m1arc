@@ -1,4 +1,7 @@
 #pragma once
+
+#include <string>
+
 namespace m1arc {
 void DrawArcUI();
 // NEW: Queue a transient toast at the top of the control panel.
