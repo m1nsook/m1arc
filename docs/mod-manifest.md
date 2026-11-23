@@ -86,7 +86,7 @@ This is the **schema defining controls**, not the player's saved values:
 ]
 ~~~
 
-Supported setting kinds: `boolean`, `integer`, `float`, `choice` and `action`.
+Supported setting kinds: `boolean`, `integer`, `float`, `choice`, `action` and `hotkey`.
 Each mod may define up to 250 setting controls. Invalid manifests are
 skipped individually and logged; they do not prevent other mods from loading.
 
@@ -163,6 +163,34 @@ scripts. Actions are limited to 16 pending clicks per action, not
 persisted in profiles or settings, and do not alter the settings revision.
 Translate captions using \`buttonLabel\` in the per-mod
 [language JSON](/localization).
+
+## Mod hotkey controls
+
+Use `kind: "hotkey"` for a persistent, user-configurable keyboard
+shortcut, using the same native input router as M1 Arc's menu.
+
+~~~json
+{
+  "id": "spawn_hotkey",
+  "kind": "hotkey",
+  "label": "Spawn ammunition hotkey",
+  "description": "Press this shortcut in-game to request ammunition.",
+  "group": "Weapons",
+  "default": 0
+}
+~~~
+
+A default of `0` is unassigned. Use the in-game key capture button
+to select a single key, or Clear to remove the binding. Escape
+cancels recording. The M1 Arc menu key and system/modifier keys
+cannot be assigned. Bindings are saved with mod settings and profiles.
+
+When the game is focused and the M1 Arc panel is closed, pressing
+a bound key queues an action under the setting ID. Use
+`M1Arc_ConsumeAction("example.my-mod", "spawn_hotkey")` in ordinary
+REDscript gameplay logic to consume it once. Disabled mods do not
+receive hotkey events. The framework does not execute commands from
+JSON; the mod implements its own behavior.
 
 ## Read the setting from REDscript
 
