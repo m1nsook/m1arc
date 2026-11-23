@@ -25,10 +25,10 @@ numbers, periods, hyphens and underscores (maximum 96 characters).
   "format": 1,
   "id": "example.my-mod",
   "name": "Example Mod",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "scope": "Gameplay",
   "shortDesc": "Configure the mod's gameplay behavior",
-  "requires": { "m1arc": "0.1.0" }
+  "requires": { "m1arc": "1.0.0" }
 }
 ~~~
 
