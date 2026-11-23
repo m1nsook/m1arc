@@ -26,6 +26,10 @@
     "toast.info": "INFORMATION",
     "toast.warning": "WARNING",
     "toast.success": "SUCCESS",
-    "toast.error": "ERROR"
+    "toast.error": "ERROR",
+    "ui.hotkey.press": "Press a key...",
+    "ui.hotkey.unbound": "Not assigned",
+    "ui.hotkey.clear": "Clear",
+    "ui.hotkey.help": "Press a keyboard key to bind. Escape cancels; the M1 Arc menu key is reserved."
   }
 }

@@ -12,7 +12,7 @@
 #include <vector>
 
 namespace m1arc {
-enum class SettingKind { Boolean, Integer, Float, Choice, Action };
+enum class SettingKind { Boolean, Integer, Float, Choice, Action, Hotkey };
 
 struct SettingView {
     std::string id;
@@ -62,6 +62,8 @@ public:
     // game actions; no commands/scripts are executed by the framework.
     bool QueueAction(std::string_view mod, std::string_view action);
     [[nodiscard]] bool ConsumeAction(std::string_view mod, std::string_view action);
+    // Called exclusively on a physical key-down edge while gameplay has focus.
+    void QueueHotkeyKey(int virtualKey);
     bool SaveProfile(std::string name);
     bool LoadProfile(std::string_view name);
     bool DeleteProfile(std::string_view name);

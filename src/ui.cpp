@@ -698,6 +698,31 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
                           ImVec2(controls,32.f)))
             (void)Settings().QueueAction(mod.id,setting.id);
         break;
+    case SettingKind::Hotkey: {
+        auto& input = InputRouter::Get();
+        const bool capturing = input.RecordingModKey(mod.id, setting.id);
+        const int key = setting.value.get<int>();
+        const std::string display = capturing
+            ? Tr("ui.hotkey.press", "Press a key...")
+            : key == 0 ? Tr("ui.hotkey.unbound", "Not assigned")
+                       : InputRouter::DescribeKey(key);
+        const float keyWidth = std::max(65.f, controls - 78.f);
+        if (ImGui::Button((FitLabel(display,keyWidth-18.f)+"##mod-key").c_str(),
+                          ImVec2(keyWidth,32.f)) && !capturing)
+            (void)input.BeginModRebind(mod.id, setting.id);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            ShowTooltip(Tr("ui.hotkey.help",
+                "Press a keyboard key to bind. Escape cancels; the M1 Arc menu key is reserved."),p);
+        ImGui::SameLine(0.f,8.f);
+        const std::string auxiliary = capturing
+            ? Tr("ui.cancel", "Cancel") : Tr("ui.hotkey.clear", "Clear");
+        if (ImGui::Button((auxiliary+"##mod-key-clear").c_str(),
+                          ImVec2(std::max(40.f,controls-keyWidth-8.f),32.f))) {
+            if (capturing) input.CancelModRebind();
+            else (void)Settings().Set(mod.id,setting.id,0);
+        }
+        break;
+    }
     }
     if (disabled) ImGui::EndDisabled();
 
