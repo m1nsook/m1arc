@@ -12,7 +12,7 @@ window and native functions that can be called from REDscript.
   persisted to `settings.json`, and updated as soon as a control changes.
 - Author: **민숙 MISO @m1nsook**.
 
-## Scope of this first branch
+## Native framework
 
 The rendering/input integration is an **extraction of the known-working
 `m1core/core` approach**, not the earlier `m1core/native` prototype:
@@ -24,10 +24,37 @@ In particular, the old m1core scripting VM, script-file formats, console,
 TweakDB editor and CET branding are **not** included. The original
 `m1core` backup branch remains unchanged.
 
-## Install
+## GitHub branches and releases
 
-Windows Actions produces **one game-root artifact**, containing
-`red4ext/plugins/m1arc/m1arc.dll`, `r6/scripts/m1arc/M1Arc.reds`, and the repository LICENSE.
+- `main`: stable, reviewed M1 Arc source and release tags.
+- `native`: continuing C++/RED4ext/REDscript/ImGui development.
+- `web`: separate VitePress documentation and interactive UI examples.
+- `m1core`: historical backup, left unchanged.
+
+The **[GitHub Releases](https://github.com/m1nsook/m1arc/releases)**
+page contains versioned **game-root ZIPs** and SHA-256 hashes. The
+initial `v0.1.0-preview.1` release is staged as a **draft** for
+maintainer review; drafting a release is not a public launch.
+Subsequent previews can be staged with the manual GitHub Actions
+`M1 Arc packaged draft release` workflow.
+
+### Installation
+
+Install RED4ext and REDscript for Cyberpunk 2077 2.50.
+Download `m1arc-v0.1.0-preview.1-game-root.zip` from the draft release
+(or the Actions artifact while reviewing it). Close the game, then
+extract the **contents** directly into the Cyberpunk installation
+directory (alongside the existing `red4ext/` and `r6/` directories).
+Do **not** extract a nested `package/` directory. The ZIP contains:
+`red4ext/plugins/m1arc/m1arc.dll`,
+`r6/scripts/m1arc/M1Arc.reds`, open-license fonts and license notices.
+It does **not** include `dev-preview.enabled`, any gameplay mods,
+the closed-source AutoBreach DLL, or proprietary Blender Pro fonts.
+
+An existing `red4ext/plugins/m1arc/settings.json` is not distributed
+and will not be overwritten. M1 Arc's shortcut is configured inside the
+game on first launch, independently of CET. No Docker, CMD helper, or
+M1 Arc script runtime is required.
 
 The native UI uses **Karla SemiBold (600), 18 px** for readable main
 text and **Phosphor Regular icons** at matching size. GitHub Actions
@@ -66,9 +93,10 @@ Cyberpunk 2077, unless the saved key is missing or invalid. Rebinding
 through the header button saves the replacement too. M1 Arc never
 changes CET's own shortcut.
 
-This is **not a public release**. Windows CI validates compilation and
-settings persistence, but only an actual Cyberpunk 2077 session with CET
-installed can confirm that both overlays and their input coexist correctly.
+This is an initial GitHub source/release candidate, not an announced
+public release. Windows CI compiles the native DLL and tests settings;
+in-game compatibility with third-party mods and future game updates
+cannot be guaranteed by CI.
 
 ## Temporary UI Test mod (draft CI only)
 
@@ -84,8 +112,8 @@ and 24 extra rows for vertical scroll testing.
 To remove the temporary mod, **delete `dev-preview.enabled` and
 restart the game**. The rest of M1 Arc is unaffected. Existing preview
 values can remain in settings.json but are not shown without the marker.
-Public releases must omit the development marker. The separate language
-selector and translated text files are planned as native localization,
+Release ZIPs omit the development marker automatically. The separate
+language selector and translated text files are planned as native localization,
 not as an invented scripting format.
 
 ## Installing mods and declaring settings
@@ -184,21 +212,19 @@ M1 Arc's real Windows mouse click bridge uses its existing guarded
 game-internal selection signature. The old selector remains available
 for compatibility but is resolved **lazily**, never scanned on game startup.
 See [Breach Protocol native bridge](docs/BREACH_INPUT.md).
-The first-puzzle behavior has **not** been verified in the game.
+The separate Skip Breach addon is reported working on seven cold
+launches with its corrected REDscript lifecycle. That addon is **not**
+included in the M1 Arc release ZIP; it must be installed separately.
 
-## Future input-assisted mods
+## Native input utilities
 
-M1 Arc includes a **guarded, internal native mouse-click utility**, ported
-from the working `m1core` backup. It is deliberately **not** invoked by
-M1 Arc settings, not automatically enabled, and not exposed as a REDscript
-API yet. This is preparation for a future **Skip Breach** mod that
-calculates a valid vanilla Breach Protocol puzzle path and submits
-individual selections, without pre-fulfilling daemons or faking success.
-
+M1 Arc retains its guarded internal mouse-click utility, but the
+Skip Breach addon uses the game-native selection bridge rather than
+Windows `SendInput`. The latter failed to trigger hacking-grid callbacks
+in the November 23 tests. The native bridge remains dormant until
+the separately installed Skip Breach mod explicitly enables it.
 See [Internal mouse-click contract](docs/INPUT_CLICK_HELPER.md).
-Windows CI exercises a simulated click backend, focus rejection, invalid
-coordinates, and emergency button-release behavior. Real game UI
-compatibility remains unverified; no automatic input is sent by this build.
+Windows CI tests simulated input safety without clicking the OS cursor.
 
 ## Official REDscript CLI validation
 
@@ -234,7 +260,7 @@ with environment variables set.
 
 ## Development rules
 
-This branch is strictly focused on working RED4ext + ImGui initialization,
-correct input release and native REDscript settings. Do not add unrelated
-features or repeat previously verified m1core testing. The `m1core`
-backup branch is read-only.
+Keep `main` limited to reviewed, release-ready code. Develop native
+changes on `native` and documentation/UI previews on `web`, then
+merge deliberately. No `.m1s`, `.m1c`, new scripting language or CET
+dependency. The `m1core` backup branch is read-only.
