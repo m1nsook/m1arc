@@ -704,7 +704,7 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
     ImGui::TextUnformatted(setting.label.c_str());
     ImGui::PopTextWrapPos();
     if (!setting.description.empty() &&
-        ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort | ImGuiHoveredFlags_AllowWhenDisabled))
         ShowTooltip(setting.label,setting.description,p);
 
     const float x=stacked ? row.x : row.x+width-controls;
@@ -832,6 +832,17 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     ImGui::SetCursorPosY(10.f);
     if (selected) {
         const bool active = Enabled(*selected);
+        if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+        ImGui::TextWrapped("%s",selected->title.c_str());
+        if (fonts::titleHeavy) ImGui::PopFont();
+        if (!selected->shortDesc.empty()) {
+            if (fonts::caption) ImGui::PushFont(fonts::caption);
+            ImGui::PushStyleColor(ImGuiCol_Text,p.muted);
+            ImGui::TextWrapped("%s",selected->shortDesc.c_str());
+            ImGui::PopStyleColor();
+            if (fonts::caption) ImGui::PopFont();
+        }
+        ImGui::Dummy(ImVec2(1.f,12.f));
         // Settings are native live controls, derived from each REDscript mod's
         // own registered schema. Never substitute the HTML's demo mod data.
         // Group headers use the mod author's existing "group" field.
