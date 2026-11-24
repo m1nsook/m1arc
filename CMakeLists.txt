@@ -97,6 +97,10 @@ if(BUILD_TESTING)
         add_test(NAME mouse_click COMMAND m1arc_mouse_click_tests)
     endif()
 
+    add_executable(m1arc_mod_logs_tests tests/mod_logs_tests.cpp)
+    target_link_libraries(m1arc_mod_logs_tests PRIVATE m1arc_registry)
+    add_test(NAME mod_logs COMMAND m1arc_mod_logs_tests)
+
     add_executable(m1arc_registry_tests tests/registry_tests.cpp)
     target_link_libraries(m1arc_registry_tests PRIVATE m1arc_registry)
     add_test(NAME registry COMMAND m1arc_registry_tests)

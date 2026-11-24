@@ -10,8 +10,19 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+#include <deque>
 
 namespace m1arc {
+enum class LogLevel { Debug, Info, Warning, Error };
+struct LogEntry {
+    std::string modId;
+    std::string timestamp;
+    LogLevel level;
+    std::string message;
+};
+[[nodiscard]] std::optional<LogLevel> ParseLogLevel(std::string_view level) noexcept;
+[[nodiscard]] const char* LogLevelName(LogLevel level) noexcept;
+
 enum class SettingKind { Boolean, Integer, Float, Choice, Action, Hotkey };
 
 struct SettingView {
@@ -54,6 +65,11 @@ public:
                   std::string scope = "Miscellaneous",
                   std::string shortDesc = {});
     [[nodiscard]] std::vector<ModView> Snapshot() const;
+    // Session-only, bounded, independently scoped diagnostic streams.
+    static constexpr std::size_t kLogsPerMod=256, kLogsTotal=4096, kLogMessageBytes=2048;
+    bool AppendLog(std::string_view mod,LogLevel level,std::string_view message);
+    [[nodiscard]] std::vector<LogEntry> Logs(std::string_view mod) const;
+    bool ClearLogs(std::string_view mod);
     [[nodiscard]] std::optional<nlohmann::json> Get(std::string_view mod, std::string_view key) const;
     bool Set(std::string_view mod, std::string_view key, const nlohmann::json& value);
     bool Reset(std::string_view mod, std::string_view key);
@@ -77,6 +93,8 @@ private:
     [[nodiscard]] bool Persist(const std::function<void(nlohmann::json&)>& update);
     [[nodiscard]] bool Commit(std::string_view mod, std::string_view key,
                               const nlohmann::json& next);
+    void AppendLogLocked(std::string_view mod,LogLevel level,std::string_view message);
+    std::deque<LogEntry> logs_;
     StateStore& store_;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, ModView> mods_;

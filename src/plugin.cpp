@@ -84,6 +84,21 @@ void ConsumeAction(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
     frame->code++;
     if (output) *output = m1arc::Settings().ConsumeAction(mod.c_str(), action.c_str());
 }
+// Explicit mod diagnostics; never scans shared REDscript or RED4ext logs.
+void LogMod(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString mod,level,message;
+    RED4ext::GetParameter(frame,&mod);
+    RED4ext::GetParameter(frame,&level);
+    RED4ext::GetParameter(frame,&message);
+    frame->code++;
+    bool ok=false;
+    try {
+        const auto parsed=m1arc::ParseLogLevel(level.c_str());
+        if (parsed) ok=m1arc::Settings().AppendLog(mod.c_str(),*parsed,message.c_str());
+    } catch (...) {}
+    if (output) *output=ok;
+}
 void GetBool(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
 {
     CString mod, key;
@@ -248,6 +263,8 @@ void PostRegisterTypes()
     const char* two[]={"modId","settingId"};
     const char* three[]={"modId","settingId","payload"};
     const char* registerArgs[]={"modId","displayName","schemaJson"};
+    const char* logArgs[]={"modId","level","message"};
+    add("M1Arc_Log",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&LogMod),"Bool",logArgs,3);
 
     add("M1Arc_Version",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Version),"String",nullptr,0);
     add("M1Arc_RegisterJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Register),"Bool",registerArgs,3);

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <utility>
+#include <ctime>
 
 namespace m1arc {
 namespace {
@@ -43,6 +44,81 @@ json ReadSaved(const StateStore& store)
     try { return json::parse(store.Snapshot()); }
     catch (...) { return json::object(); }
 }
+}
+
+std::optional<LogLevel> ParseLogLevel(std::string_view level) noexcept
+{
+    if (level=="DEBUG" || level=="debug") return LogLevel::Debug;
+    if (level=="INFO" || level=="info") return LogLevel::Info;
+    if (level=="WARNING" || level=="warning" || level=="WARN" || level=="warn") return LogLevel::Warning;
+    if (level=="ERROR" || level=="error") return LogLevel::Error;
+    return std::nullopt;
+}
+
+const char* LogLevelName(LogLevel level) noexcept
+{
+    switch(level) {
+    case LogLevel::Debug: return "DEBUG";
+    case LogLevel::Info: return "INFO";
+    case LogLevel::Warning: return "WARNING";
+    case LogLevel::Error: return "ERROR";
+    }
+    return "UNKNOWN";
+}
+
+void Registry::AppendLogLocked(std::string_view mod,LogLevel level,std::string_view message)
+{
+    if (message.empty() || message.size()>kLogMessageBytes || message.find('\0')!=std::string_view::npos)
+        return;
+    // Never allow terminal/control characters other than newline and tab.
+    std::string clean(message);
+    for (char& c:clean) {
+        const auto byte=static_cast<unsigned char>(c);
+        if (byte<0x20 && c!='\n' && c!='\t') c=' ';
+    }
+    const auto now=std::time(nullptr);
+    std::tm local{};
+#ifdef _WIN32
+    localtime_s(&local,&now);
+#else
+    localtime_r(&now,&local);
+#endif
+    char timestamp[32]{};
+    std::strftime(timestamp,sizeof(timestamp),"%Y-%m-%d %H:%M:%S",&local);
+    const auto count=std::count_if(logs_.begin(),logs_.end(),[&](const auto& row){return row.modId==mod;});
+    if (count>=kLogsPerMod) {
+        const auto oldest=std::find_if(logs_.begin(),logs_.end(),[&](const auto& row){return row.modId==mod;});
+        if (oldest!=logs_.end()) logs_.erase(oldest);
+    }
+    if (logs_.size()>=kLogsTotal) logs_.pop_front();
+    logs_.push_back({std::string(mod),timestamp,level,std::move(clean)});
+}
+
+bool Registry::AppendLog(std::string_view mod,LogLevel level,std::string_view message)
+{
+    if (message.empty() || message.size()>kLogMessageBytes ||
+        message.find('\0')!=std::string_view::npos) return false;
+    std::lock_guard guard(mutex_);
+    if (!mods_.contains(std::string(mod))) return false;
+    AppendLogLocked(mod,level,message);
+    return true;
+}
+
+std::vector<LogEntry> Registry::Logs(std::string_view mod) const
+{
+    std::lock_guard guard(mutex_);
+    std::vector<LogEntry> result;
+    for (auto it=logs_.rbegin();it!=logs_.rend();++it)
+        if (it->modId==mod) result.push_back(*it);
+    return result;
+}
+
+bool Registry::ClearLogs(std::string_view mod)
+{
+    std::lock_guard guard(mutex_);
+    if (!mods_.contains(std::string(mod))) return false;
+    std::erase_if(logs_,[&](const auto& row){return row.modId==mod;});
+    return true;
 }
 
 bool ValidModScope(std::string_view scope) noexcept
@@ -241,7 +317,9 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
 
     std::lock_guard guard(mutex_);
     pendingActions_.erase(id); // Re-registration does not replay stale clicks.
+    const bool first=!mods_.contains(id);
     mods_[id] = std::move(prepared);
+    if (first) AppendLogLocked(id,LogLevel::Info,"M1 Arc: mod registered");
     return true;
 }
 
@@ -280,12 +358,19 @@ bool Registry::QueueAction(std::string_view mod, std::string_view action)
             return ((s.kind == SettingKind::Action || s.kind == SettingKind::Hotkey) && s.id == action) ||
                    (!s.buttonId.empty() && s.buttonId == action);
         });
-    if (!declared) return false;
+    if (!declared) {
+        AppendLogLocked(mod,LogLevel::Warning,"M1 Arc: unknown action");
+        return false;
+    }
     auto& pending = pendingActions_[it->first][std::string(action)];
     // Bound the queue: repeatedly clicking during a paused game cannot
     // create unlimited delayed game effects.
-    if (pending >= 16u) return false;
+    if (pending >= 16u) {
+        AppendLogLocked(mod,LogLevel::Warning,"M1 Arc: action queue full: "+std::string(action));
+        return false;
+    }
     ++pending;
+    AppendLogLocked(mod,LogLevel::Info,"M1 Arc: action requested: "+std::string(action));
     return true;
 }
 
@@ -307,7 +392,10 @@ void Registry::QueueHotkeyKey(int virtualKey)
             if (row.kind != SettingKind::Hotkey || !row.value.is_number_integer() ||
                 row.value.get<int>() != virtualKey) continue;
             auto& pending = pendingActions_[modId][row.id];
-            if (pending < 16u) ++pending;
+            if (pending < 16u) {
+                ++pending;
+                AppendLogLocked(modId,LogLevel::Debug,"M1 Arc: shortcut requested: "+row.id);
+            }
         }
     }
 }
@@ -322,6 +410,7 @@ bool Registry::ConsumeAction(std::string_view mod, std::string_view action)
     --it->second;
     if (it->second == 0u) modIt->second.erase(it);
     if (modIt->second.empty()) pendingActions_.erase(modIt);
+    AppendLogLocked(mod,LogLevel::Debug,"M1 Arc: action consumed: "+std::string(action));
     return true;
 }
 
