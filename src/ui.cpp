@@ -215,7 +215,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         Tr("ui.close", "CLOSE") + "##arc";
     const float themeWidth = std::max(140.f, ImGui::CalcTextSize(Tr("ui.theme", "TOGGLE THEME").c_str()).x + 24.f);
     const float shortcutWidth = std::clamp(ImGui::CalcTextSize(keyText.c_str()).x + 22.f,
-                                          75.f, 116.f);
+                                          75.f, std::max(116.f,width*.36f));
     const float closeWidth = std::max(90.f, ImGui::CalcTextSize(closeLabel.c_str()).x + 24.f);
     const float statusWidth = ImGui::CalcTextSize(status.c_str()).x;
 
@@ -279,7 +279,9 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut"),p);
+        ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut") + "\n" +
+                    input.KeyLabel() + "\n" +
+                    Tr("ui.rebind_recovery", "Recovery: Ctrl + Shift + F11"),p);
 
     const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
     const float closeX = std::max(8.f,width-closeWidth-14.f);
@@ -854,10 +856,30 @@ void DrawRebindModal() {
         if (fonts::titleBold) ImGui::PopFont();
         ImGui::Separator();
         ImGui::Spacing();
-        ImGui::TextUnformatted(Tr("ui.rebind_press", "Press your preferred keyboard key.").c_str());
-        ImGui::TextDisabled("%s", Tr("ui.rebind_reserved", "Windows keys, modifiers and Escape are reserved.").c_str());
-        if (input.HasKey() && ImGui::Button(Tr("ui.cancel", "Cancel").c_str()))
-            input.CancelRebind();
+        ImGui::TextWrapped("%s",Tr("ui.rebind_press","Click Capture, press a key or combination, then Save.").c_str());
+        ImGui::TextWrapped("%s",Tr("ui.rebind_reserved","Ctrl and Shift may be combined with a key. Alt, Windows and Escape are reserved.").c_str());
+        ImGui::TextWrapped("%s",Tr("ui.rebind_recovery","Recovery: Ctrl + Shift + F11").c_str());
+        ImGui::Spacing();
+        const bool capturing=input.IsCapturing();
+        const bool candidate=input.HasCandidate();
+        const std::string label=candidate ? input.CandidateLabel() :
+            capturing ? Tr("ui.hotkey.press","Press a key...") :
+            Tr("ui.hotkey.unbound","Not assigned");
+        ImGui::TextWrapped("%s",label.c_str());
+        if (ImGui::Button(Tr("ui.rebind_capture","Capture").c_str()))
+            input.StartCapture();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!candidate);
+        if (ImGui::Button(Tr("ui.rebind_save","Save").c_str())) {
+            if (!input.ConfirmCandidate())
+                ShowToast(Tr("ui.rebind_failed","Shortcut could not be saved"),3.2f,ToastKind::Error);
+        }
+        ImGui::EndDisabled();
+        if (input.HasKey()) {
+            ImGui::SameLine();
+            if (ImGui::Button(Tr("ui.cancel","Cancel").c_str()))
+                input.CancelRebind();
+        }
         if (!input.IsRecording()) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
@@ -919,8 +941,7 @@ void DrawArcUI() {
     const ImVec2 windowPos(viewport->GetCenter().x - width * 0.5f,
                            viewport->GetCenter().y - height * 0.5f);
     DrawToasts(viewport, windowPos, ImVec2(width, height));
-    // Keep existing first-run setup/rebind behavior, independently of the
-    // visual theme. Does not touch the previously working input/router code.
+    // First-run, rebind and emergency recovery share the same modal.
     DrawRebindModal();
 }
 } // namespace m1arc
