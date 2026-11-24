@@ -869,45 +869,78 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     }
     ImGui::EndChild();
 }
-void DrawRebindModal() {
+void DrawRebindModal(const Palette& p) {
     auto& input = InputRouter::Get();
     if (input.IsRecording()) ImGui::OpenPopup("M1 ARC - CHOOSE MENU KEY");
-    ImGui::SetNextWindowSize(ImVec2(390,0),ImGuiCond_Always);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(18.f,18.f));
+    const float width=std::max(160.f,std::min(460.f,ImGui::GetMainViewport()->Size.x-36.f));
+    ImGui::SetNextWindowSize(ImVec2(width,0),ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(22.f,20.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,9.f));
     ImGui::PushStyleColor(ImGuiCol_Text,ImGui::GetStyleColorVec4(ImGuiCol_Text));
     if (ImGui::BeginPopupModal("M1 ARC - CHOOSE MENU KEY",nullptr,
                               ImGuiWindowFlags_AlwaysAutoResize |
                               ImGuiWindowFlags_NoTitleBar |
                               ImGuiWindowFlags_NoNavInputs)) {
-        if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
-        ImGui::TextUnformatted(Tr("ui.rebind_heading", "M1 ARC  //  CHOOSE MENU KEY").c_str());
-        if (fonts::titleBold) ImGui::PopFont();
+        if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+        ImGui::TextWrapped("%s",Tr("ui.rebind_heading", "M1 ARC  //  CHOOSE MENU KEY").c_str());
+        if (fonts::titleHeavy) ImGui::PopFont();
         ImGui::Separator();
-        ImGui::Spacing();
         ImGui::TextWrapped("%s",Tr("ui.rebind_press","Click Capture, press a key or combination, then Save.").c_str());
+        if (fonts::caption) ImGui::PushFont(fonts::caption);
+        ImGui::PushStyleColor(ImGuiCol_Text,p.muted);
         ImGui::TextWrapped("%s",Tr("ui.rebind_reserved","Ctrl and Shift may be combined with a key. Alt, Windows and Escape are reserved.").c_str());
-        ImGui::TextWrapped("%s",Tr("ui.rebind_recovery","Recovery: Ctrl + Shift + F11").c_str());
+        ImGui::PopStyleColor();
+        if (fonts::caption) ImGui::PopFont();
         ImGui::Spacing();
         const bool capturing=input.IsCapturing();
         const bool candidate=input.HasCandidate();
         const std::string label=candidate ? input.CandidateLabel() :
             capturing ? Tr("ui.hotkey.press","Press a key...") :
-            Tr("ui.hotkey.unbound","Not assigned");
-        ImGui::TextWrapped("%s",label.c_str());
+            input.HasKey() ? input.KeyLabel() : Tr("ui.hotkey.unbound","Not assigned");
+        if (fonts::caption) ImGui::PushFont(fonts::caption);
+        ImGui::TextDisabled("%s",(candidate ? Tr("ui.rebind_candidate","NEW SHORTCUT") :
+            capturing ? Tr("ui.rebind_listening","LISTENING FOR INPUT") :
+            Tr("ui.rebind_current","CURRENT SHORTCUT")).c_str());
+        if (fonts::caption) ImGui::PopFont();
+        ImGui::PushStyleColor(ImGuiCol_ChildBg,p.fill);
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize,1.f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(12.f,10.f));
+        if (ImGui::BeginChild("##shortcut-preview",ImVec2(0.f,48.f),
+                          ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+            if (fonts::label) ImGui::PushFont(fonts::label);
+            ImGui::TextWrapped("%s",label.c_str());
+            if (fonts::label) ImGui::PopFont();
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor();
+        if (fonts::caption) ImGui::PushFont(fonts::caption);
+        ImGui::TextDisabled("%s",Tr("ui.rebind_recovery","Recovery: Ctrl + Shift + F11").c_str());
+        if (fonts::caption) ImGui::PopFont();
+        ImGui::Separator();
         // The keys being recorded must not also activate Capture or Save via ImGui navigation.
         ImGui::PushItemFlag(ImGuiItemFlags_NoNav,true);
-        if (ImGui::Button(Tr("ui.rebind_capture","Capture").c_str()))
+        const float buttonWidth=std::max(40.f,(ImGui::GetContentRegionAvail().x-16.f)/3.f);
+        if (ImGui::Button(Tr("ui.rebind_capture","Capture").c_str(),ImVec2(buttonWidth,34.f)))
             input.StartCapture();
         ImGui::SameLine();
         ImGui::BeginDisabled(!candidate);
-        if (ImGui::Button(Tr("ui.rebind_save","Save").c_str())) {
-            if (!input.ConfirmCandidate())
+        ImGui::PushStyleColor(ImGuiCol_Button,candidate ? p.amber : p.fill);
+        ImGui::PushStyleColor(ImGuiCol_Text,candidate ? ImVec4(.10f,.11f,.09f,1.f) : p.muted);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.98f,.76f,.28f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.84f,.59f,.08f,1.f));
+        if (ImGui::Button(Tr("ui.rebind_save","Save").c_str(),ImVec2(buttonWidth,34.f))) {
+            if (input.ConfirmCandidate())
+                ShowToast(Tr("toast.shortcut_saved","Menu shortcut saved: ") + input.KeyLabel(),3.2f,ToastKind::Success);
+            else
                 ShowToast(Tr("ui.rebind_failed","Shortcut could not be saved"),3.2f,ToastKind::Error);
         }
+        ImGui::PopStyleColor(4);
         ImGui::EndDisabled();
         if (input.HasKey()) {
             ImGui::SameLine();
-            if (ImGui::Button(Tr("ui.cancel","Cancel").c_str()))
+            if (ImGui::Button(Tr("ui.cancel","Cancel").c_str(),ImVec2(buttonWidth,34.f)))
                 input.CancelRebind();
         }
         ImGui::PopItemFlag();
@@ -915,7 +948,7 @@ void DrawRebindModal() {
         ImGui::EndPopup();
     }
     ImGui::PopStyleColor();
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
 }
 
 } // namespace
@@ -973,6 +1006,6 @@ void DrawArcUI() {
                            viewport->GetCenter().y - height * 0.5f);
     DrawToasts(viewport, windowPos, ImVec2(width, height));
     // First-run, rebind and emergency recovery share the same modal.
-    DrawRebindModal();
+    DrawRebindModal(palette);
 }
 } // namespace m1arc
