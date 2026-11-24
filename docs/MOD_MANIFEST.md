@@ -75,3 +75,32 @@ Language files change visible labels, never stored setting IDs or choice values.
 
 For complete schemas, localized settings, available scopes, and native API
 examples, use the **[official M1 Arc documentation](https://m1nsook.github.io/m1arc/)**.
+
+## Per-mod logs (M1 Arc 1.0.1+)
+
+The header clipboard button switches between settings and the selected mod's
+session logs. Registered mods can write their own diagnostic messages:
+
+```swift
+M1Arc_Log("example.mod", "INFO", "Initialization completed");
+M1Arc_Log("example.mod", "WARNING", "Optional feature unavailable");
+```
+
+Use DEBUG, INFO, WARNING or ERROR, a registered mod ID and a non-empty message
+of at most 2048 UTF-8 bytes. The function returns whether the message was accepted.
+Avoid logging every frame. M1 Arc retains up to 256 entries per mod and 4096 in
+total, newest first. Clear operates on the selected mod only; Copy Diagnostics
+also includes shared framework startup information. Logs are
+in-memory for the current game session; clearing them never touches disk logs.
+Existing mods' private diagnostics require opt-in calls to M1Arc_Log.
+
+The Copy Diagnostics report contains the selected mod's manifest version, current
+settings, pending action counts, recent scoped logs, detected executable/DLL
+file versions and framework startup rejection reasons. Review before sharing;
+mod-authored log messages may contain data chosen by the mod author. Use stable
+error codes and include the operation, inputs relevant to the failure, and reason
+where known. Do not log secrets or every polling call. A consumed action is not
+proof that the requested gameplay effect succeeded.
+
+Mods that call this API should declare `"requires": { "m1arc": "1.0.1" }`
+in their manifest. See the [complete logging and support guide](https://m1nsook.github.io/m1arc/diagnostics).

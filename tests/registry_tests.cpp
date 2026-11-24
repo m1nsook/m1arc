@@ -205,7 +205,7 @@ int main()
     REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","spawn_ammo"));
     REQUIRE(actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
     REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
-    for (int i=0;i<30;++i) REQUIRE(actionsRegistry.QueueAction("ammo.mod","spawn_all"));
+    for (int i=0;i<30;++i) REQUIRE(actionsRegistry.QueueAction("ammo.mod","spawn_all") == (i<16));
     for (int i=0;i<16;++i) REQUIRE(actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
     REQUIRE(!actionsRegistry.ConsumeAction("ammo.mod","spawn_all"));
     REQUIRE(actionsRegistry.SaveProfile("ammo_profile"));

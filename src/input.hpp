@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include "menu_shortcut.hpp"
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -19,20 +20,26 @@ public:
     void Detach() noexcept;
     void ArmFirstRun() noexcept;
     void SetRendererReady(bool ready) noexcept;
+    void FlushWheel() noexcept; // called on the ImGui frame thread
     void Toggle() noexcept;
     void BeginRebind() noexcept;
     void CancelRebind() noexcept;
+    void StartCapture() noexcept;
+    bool IsCapturing() const noexcept;
+    bool HasCandidate() const noexcept;
+    std::string CandidateLabel() const;
+    bool ConfirmCandidate() noexcept;
     void Close() noexcept;
     bool IsOpen() const noexcept { return open_.load(); }
     bool IsRecording() const noexcept { return recording_.load(); }
-    bool HasKey() const noexcept { return hotkey_.load() != 0; }
+    bool HasKey() const noexcept { return shortcut_.load() != 0; }
     // Mod binding capture reuses the existing Win32 input router.
     bool BeginModRebind(std::string modId, std::string settingId) noexcept;
     void CancelModRebind() noexcept;
     bool IsModRecording() const noexcept { return modRecording_.load(); }
     bool RecordingModKey(const std::string& modId, const std::string& settingId) const noexcept;
     static std::string DescribeKey(int virtualKey);
-    int Key() const noexcept { return hotkey_.load(); }
+    int Key() const noexcept { return MenuKey(shortcut_.load()); }
     bool ShouldDraw() const noexcept { return open_.load() && rendererReady_.load(); }
     std::string KeyLabel() const;
     HWND Window() const noexcept { return window_.load(); }
@@ -41,10 +48,15 @@ private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
     LRESULT Process(HWND, UINT, WPARAM, LPARAM) noexcept;
     void ReadKeyFromSettings() noexcept;
-    void CommitKey(int key) noexcept;
+    void OpenRebindLocked() noexcept;
+    int ModifiersLocked() const noexcept;
+    bool BlockedModifiersLocked() const noexcept;
+    static std::string DescribeShortcut(int shortcut);
     void KeyEdge(unsigned code, bool down) noexcept;
     void HandleRawInput(HRAWINPUT raw) noexcept;
     void HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept;
+    void ClearWheel() noexcept;
+    std::atomic<int> rawWheelX_{0}, rawWheelY_{0}, legacyWheelX_{0}, legacyWheelY_{0};
     void SyncCursorOnWindowThread() noexcept;
     bool WantsCursor() const noexcept;
     bool CanCapture() const noexcept;
@@ -58,7 +70,10 @@ private:
     std::atomic_bool rendererReady_{false};
     std::atomic_bool baseReady_{false};
     std::atomic_bool cursorOwned_{false};
-    std::atomic<int> hotkey_{0};
+    std::atomic<int> shortcut_{0};
+    MenuCapture menuCapture_;
+    MenuPress menuPress_;
+    bool closeAfterBinding_ = false;
     std::array<bool, 256> held_{};
     bool skipAssignedKeyRelease_ = false;
     int justAssigned_ = 0;

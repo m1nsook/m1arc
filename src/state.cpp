@@ -87,6 +87,11 @@ bool StateStore::PersistLocked(const nlohmann::json& document)
 #endif
     if (!moved) {
         lastError_ = "Failed replacing settings.json (previous data preserved)";
+#ifdef _WIN32
+        lastError_ += "; Win32 error "+std::to_string(GetLastError());
+#else
+        lastError_ += "; "+ec.message();
+#endif
         std::filesystem::remove(temp, ec);
         return false;
     }

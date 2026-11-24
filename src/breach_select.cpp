@@ -64,7 +64,13 @@ std::atomic<int> g_lastActionState{-1};
 
 void ActionState(int state,const char* message) noexcept {
     const int previous=g_lastActionState.exchange(state,std::memory_order_acq_rel);
-    if (previous!=state) m1arc::RenderBridge::Get().LogInfo(message);
+    if (previous!=state) {
+        m1arc::RenderBridge::Get().LogInfo(message);
+        try {
+            (void)m1arc::Settings().AppendLog("m1nsook.skipbreach",
+                state==0 ? m1arc::LogLevel::Info : m1arc::LogLevel::Warning,message);
+        } catch (...) {} // diagnostics must never break the native bridge
+    }
 }
 
 NativeSelector Reject(SelectorStatus reason) noexcept {

@@ -16,7 +16,7 @@ namespace {
 using json = nlohmann::json;
 constexpr std::size_t kMaxMods = 128;
 constexpr std::uintmax_t kMaxJsonBytes = 256 * 1024;
-constexpr std::array<int, 3> kM1ArcVersion{1, 0, 0};
+constexpr std::array<int, 3> kM1ArcVersion{1, 0, 1};
 
 bool ValidId(const std::string& name) {
     return !name.empty() && name.size() <= 96 &&
@@ -172,7 +172,7 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
         // Fixed filename: no untrusted executable names or paths in manifests.
         if (!ReadJsonFile(folder / L"settings.json",settings) ||
             !registry.Register(id,manifest["name"].get<std::string>(),settings,
-                               std::move(scope),std::move(shortDesc))) {
+                               std::move(scope),std::move(shortDesc),manifest["version"].get<std::string>())) {
             Reject(report,id,"invalid settings.json or registration failed");
             continue;
         }

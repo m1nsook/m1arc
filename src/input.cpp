@@ -1,7 +1,10 @@
 #include "input.hpp"
+#include "ui.hpp"
+#include "localization.hpp"
 #include "graphics.hpp"
 #include "registry.hpp"
 #include "state.hpp"
+#include "upgrade.hpp"
 #include "backends/win32.h"
 
 #include <imgui.h>
@@ -24,16 +27,17 @@ bool PassThroughOS(UINT msg, WPARAM w, LPARAM l)
     return msg == WM_SYSKEYDOWN && w == VK_F4 &&
            (static_cast<std::uintptr_t>(l) & (1ull << 29)) != 0;
 }
-bool Bindable(int key)
+bool Bindable(int key) { return IsMenuKey(key); }
+// Normalize RAWINPUT and legacy events to the same physical modifier.
+unsigned NormalizeKey(unsigned key,unsigned scan,bool extended)
 {
-    if (key < VK_BACK || key >= VK_PACKET) return false;
-    switch (key) {
-    case VK_ESCAPE: case VK_SHIFT: case VK_CONTROL: case VK_MENU:
-    case VK_LSHIFT: case VK_RSHIFT: case VK_LCONTROL: case VK_RCONTROL:
-    case VK_LMENU: case VK_RMENU: case VK_LWIN: case VK_RWIN:
-    case VK_SLEEP: case VK_PROCESSKEY: return false;
-    default: return true;
+    if (key==VK_SHIFT) {
+        const auto mapped=MapVirtualKeyW(scan,MAPVK_VSC_TO_VK_EX);
+        if (mapped==VK_LSHIFT || mapped==VK_RSHIFT) return mapped;
     }
+    if (key==VK_CONTROL) return extended ? VK_RCONTROL : VK_LCONTROL;
+    if (key==VK_MENU) return extended ? VK_RMENU : VK_LMENU;
+    return key;
 }
 }
 
@@ -47,10 +51,7 @@ void InputRouter::ReadKeyFromSettings() noexcept
 {
     try {
         const auto doc = nlohmann::json::parse(Store().Snapshot());
-        if (doc.contains("overlay") && doc["overlay"].is_object()) {
-            const auto& key = doc["overlay"].value("hotkey", 0);
-            if (Bindable(key)) hotkey_.store(key);
-        }
+        shortcut_.store(upgrade::SavedShortcut(doc));
     } catch (...) {}
 }
 
@@ -71,6 +72,8 @@ bool InputRouter::Attach(HWND hwnd) noexcept
     {
         std::lock_guard lock(stateMutex_);
         held_.fill(false);
+        menuPress_.Reset();
+        menuCapture_.Reset();
         justAssigned_ = 0;
         skipAssignedKeyRelease_ = false;
     }
@@ -84,6 +87,7 @@ bool InputRouter::Attach(HWND hwnd) noexcept
 
 void InputRouter::Detach() noexcept
 {
+    ClearWheel();
     auto* hwnd = window_.load();
     open_.store(false);
     recording_.store(false);
@@ -144,10 +148,8 @@ void InputRouter::ArmFirstRun() noexcept
     // The StateStore is configured in Main() before this callback is armed.
     ReadKeyFromSettings();
     if (!HasKey()) {
-        recording_.store(true);
-        open_.store(true);
-        if (const auto hwnd = window_.load())
-            PostMessageW(hwnd, kCursorSync, 0, 0);
+        std::lock_guard lock(stateMutex_);
+        OpenRebindLocked();
     }
 }
 
@@ -195,49 +197,136 @@ bool InputRouter::RecordingModKey(const std::string& modId,
            modCaptureSetting_ == settingId;
 }
 
+void InputRouter::OpenRebindLocked() noexcept
+{
+    if (!recording_.load()) closeAfterBinding_=!open_.load();
+    modRecording_.store(false);
+    modCaptureId_.clear();
+    modCaptureSetting_.clear();
+    menuCapture_.Reset();
+    menuPress_.Reset();
+    recording_.store(true);
+    open_.store(true);
+    if (const auto hwnd=window_.load()) PostMessageW(hwnd,kCursorSync,0,0);
+}
+
 void InputRouter::BeginRebind() noexcept
 {
-    if (open_.load()) recording_.store(true);
+    std::lock_guard lock(stateMutex_);
+    if (open_.load()) OpenRebindLocked();
 }
 
 void InputRouter::CancelRebind() noexcept
 {
-    if (HasKey()) recording_.store(false);
+    std::lock_guard lock(stateMutex_);
+    if (!HasKey()) return;
+    menuCapture_.Reset();
+    menuPress_.Reset();
+    recording_.store(false);
+    if (closeAfterBinding_) open_.store(false);
+    closeAfterBinding_=false;
+    if (const auto hwnd=window_.load()) PostMessageW(hwnd,kCursorSync,0,0);
+}
+
+void InputRouter::StartCapture() noexcept
+{
+    std::lock_guard lock(stateMutex_);
+    if (!recording_.load() || !CanCapture()) return;
+    // Ignore keys already held when the user explicitly starts capture.
+    for (unsigned key=VK_BACK; key<held_.size(); ++key)
+        held_[key]=(GetAsyncKeyState(static_cast<int>(key)) & 0x8000)!=0;
+    held_[VK_SHIFT]=held_[VK_CONTROL]=held_[VK_MENU]=false;
+    menuCapture_.Arm();
+}
+
+bool InputRouter::IsCapturing() const noexcept
+{
+    std::lock_guard lock(stateMutex_);
+    return menuCapture_.Armed();
+}
+
+bool InputRouter::HasCandidate() const noexcept
+{
+    std::lock_guard lock(stateMutex_);
+    return menuCapture_.Candidate()!=0;
+}
+
+std::string InputRouter::CandidateLabel() const
+{
+    std::lock_guard lock(stateMutex_);
+    return DescribeShortcut(menuCapture_.Candidate());
 }
 
 void InputRouter::Close() noexcept
 {
-    CancelModRebind();
-    if (recording_.load() && !HasKey()) return; // First-run binding mandatory.
+    std::lock_guard lock(stateMutex_);
+    modRecording_.store(false);
+    modCaptureId_.clear();
+    modCaptureSetting_.clear();
+    if (recording_.load() && !HasKey()) return;
+    menuCapture_.Reset();
+    menuPress_.Reset();
+    closeAfterBinding_=false;
     recording_.store(false);
     open_.store(false);
-    if (const auto hwnd = window_.load())
-        PostMessageW(hwnd, kCursorSync, 0, 0);
+    if (const auto hwnd=window_.load()) PostMessageW(hwnd,kCursorSync,0,0);
 }
 
-void InputRouter::CommitKey(int key) noexcept
+bool InputRouter::ConfirmCandidate() noexcept
 {
-    if (!Bindable(key)) return;
-    const bool firstRun = !HasKey();
+    std::lock_guard lock(stateMutex_);
+    const int candidate=menuCapture_.Candidate();
+    if (!recording_.load() || !candidate || !CanCapture()) return false;
     if (!Store().Update([&](nlohmann::json& data) {
-        data["overlay"]["hotkey"] = key;
-    })) return;
-    hotkey_.store(key);
+        upgrade::SaveShortcut(data,candidate);
+    })) return false;
+    const bool close=!HasKey() || closeAfterBinding_;
+    shortcut_.store(candidate);
+    menuCapture_.Reset();
+    menuPress_.Reset();
     recording_.store(false);
-    justAssigned_ = key;
-    skipAssignedKeyRelease_ = true;
-    // Match the working m1core first-run UX: bind key, close setup, restore game.
-    if (firstRun) open_.store(false);
-    if (const auto hwnd = window_.load())
-        PostMessageW(hwnd, kCursorSync, 0, 0);
+    closeAfterBinding_=false;
+    if (close) open_.store(false);
+    if (const auto hwnd=window_.load()) PostMessageW(hwnd,kCursorSync,0,0);
+    return true;
+}
+
+int InputRouter::ModifiersLocked() const noexcept
+{
+    const bool ctrl=held_[VK_CONTROL] || held_[VK_LCONTROL] || held_[VK_RCONTROL];
+    const bool shift=held_[VK_SHIFT] || held_[VK_LSHIFT] || held_[VK_RSHIFT];
+    return (ctrl ? kMenuCtrl : 0) | (shift ? kMenuShift : 0);
+}
+
+bool InputRouter::BlockedModifiersLocked() const noexcept
+{
+    return held_[VK_MENU] || held_[VK_LMENU] || held_[VK_RMENU] ||
+        held_[VK_LWIN] || held_[VK_RWIN] ||
+        (GetAsyncKeyState(VK_MENU) & 0x8000) ||
+        (GetAsyncKeyState(VK_LWIN) & 0x8000) ||
+        (GetAsyncKeyState(VK_RWIN) & 0x8000);
 }
 
 void InputRouter::KeyEdge(unsigned code, bool down) noexcept
 {
-    if (code >= held_.size()) return;
+    if (code >= held_.size() || window_.load()!=GetForegroundWindow()) return;
     std::lock_guard lock(stateMutex_);
-    if (held_[code] == down) return;
-    held_[code] = down;
+    if (held_[code]==down) return;
+    held_[code]=down;
+    if (!baseReady_.load() || !rendererReady_.load()) return;
+    const int mods=ModifiersLocked();
+    if (BlockedModifiersLocked()) { menuPress_.Reset(); return; }
+    if (down && PackMenuShortcut(static_cast<int>(code),mods)==kRecoveryShortcut) {
+        OpenRebindLocked();
+        return;
+    }
+    if (recording_.load()) {
+        if (down && CanCapture()) {
+            if (code==VK_ESCAPE) menuCapture_.Reset();
+            else menuCapture_.Offer(static_cast<int>(code),mods);
+        }
+        return;
+    }
     if (modRecording_.load()) {
         // Key capture happens only while the M1 Arc menu is visible.
         // Escape cancels this capture only; it never closes the menu.
@@ -246,20 +335,21 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
             modCaptureId_.clear();
             modCaptureSetting_.clear();
         } else if (down && Bindable(static_cast<int>(code)) &&
-                   static_cast<int>(code) != hotkey_.load()) {
+                   !MatchesMenuShortcut(shortcut_.load(),static_cast<int>(code),0)) {
             if (Settings().Set(modCaptureId_,modCaptureSetting_,static_cast<int>(code))) {
+                ShowToast(Translations().Text("toast.mod_shortcut_saved","Mod shortcut saved: ") +
+                          DescribeKey(static_cast<int>(code)),2.8f,ToastKind::Success);
                 modRecording_.store(false);
                 modCaptureId_.clear();
                 modCaptureSetting_.clear();
                 // Do not fire the newly assigned shortcut on release.
                 justAssigned_ = static_cast<int>(code);
                 skipAssignedKeyRelease_ = true;
+            } else {
+                ShowToast(Translations().Text("toast.setting_failed","Could not save: ") +
+                          modCaptureSetting_,3.5f,ToastKind::Error);
             }
         }
-        return;
-    }
-    if (recording_.load() && down) {
-        CommitKey(static_cast<int>(code));
         return;
     }
     if (!down && skipAssignedKeyRelease_ && code == static_cast<unsigned>(justAssigned_)) {
@@ -267,8 +357,12 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
         justAssigned_ = 0;
         return;
     }
-    // A dedicated M1 Arc shortcut, never CET's binding or key namespace.
-    if (!down && static_cast<int>(code) == hotkey_.load()) {
+    // Match on press; release modifiers in either order.
+    if (down && MatchesMenuShortcut(shortcut_.load(),static_cast<int>(code),mods)) {
+        menuPress_.Down(shortcut_.load(),static_cast<int>(code),mods);
+        return;
+    }
+    if (!down && menuPress_.Up(static_cast<int>(code))) {
         Toggle();
         return;
     }
@@ -276,7 +370,6 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
     // gameplay owns focus. Leave all OS/game input passing through as before.
     if (down && baseReady_.load() && HasKey() && !open_.load() &&
         window_.load() == GetForegroundWindow() &&
-        static_cast<int>(code) != hotkey_.load() &&
         !(GetKeyState(VK_MENU) & 0x8000) &&
         !(GetKeyState(VK_CONTROL) & 0x8000) &&
         !(GetKeyState(VK_LWIN) & 0x8000) &&
@@ -285,9 +378,35 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
     }
 }
 
+void InputRouter::ClearWheel() noexcept
+{
+    rawWheelX_.exchange(0);
+    rawWheelY_.exchange(0);
+    legacyWheelX_.exchange(0);
+    legacyWheelY_.exchange(0);
+}
+
+void InputRouter::FlushWheel() noexcept
+{
+    // WndProc only accumulates wheel deltas. Submit on the frame thread so
+    // NewFrame cannot race a wheel event being appended to ImGui's queue.
+    const int rawX=rawWheelX_.exchange(0), rawY=rawWheelY_.exchange(0);
+    const int legacyX=legacyWheelX_.exchange(0), legacyY=legacyWheelY_.exchange(0);
+    if (!CanCapture() || !ImGui::GetCurrentContext()) return;
+    // A physical wheel tick can arrive via both RAWINPUT and legacy Win32.
+    const int x=rawX ? rawX : legacyX, y=rawY ? rawY : legacyY;
+    if (x || y) ImGui::GetIO().AddMouseWheelEvent(
+        -static_cast<float>(x)/WHEEL_DELTA,static_cast<float>(y)/WHEEL_DELTA);
+}
+
 void InputRouter::HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept
 {
-    if (!CanCapture() || !ImGui::GetCurrentContext()) return;
+    if (!CanCapture()) return;
+    if (mouse.usButtonFlags & RI_MOUSE_WHEEL)
+        rawWheelY_.fetch_add(static_cast<SHORT>(mouse.usButtonData));
+    if (mouse.usButtonFlags & RI_MOUSE_HWHEEL)
+        rawWheelX_.fetch_add(static_cast<SHORT>(mouse.usButtonData));
+    if (!ImGui::GetCurrentContext()) return;
     struct MouseAction { USHORT flag; UINT event; };
     constexpr MouseAction actions[] = {
         {RI_MOUSE_LEFT_BUTTON_DOWN, WM_LBUTTONDOWN},
@@ -300,12 +419,6 @@ void InputRouter::HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept
     for (const auto& action : actions)
         if (mouse.usButtonFlags & action.flag)
             ImGui_ImplWin32_WndProcHandler(hwnd, action.event, 0, 0);
-    if (mouse.usButtonFlags & RI_MOUSE_WHEEL)
-        ImGui_ImplWin32_WndProcHandler(hwnd, WM_MOUSEWHEEL,
-            MAKEWPARAM(0,mouse.usButtonData),0);
-    if (mouse.usButtonFlags & RI_MOUSE_HWHEEL)
-        ImGui_ImplWin32_WndProcHandler(hwnd, WM_MOUSEHWHEEL,
-            MAKEWPARAM(0,mouse.usButtonData),0);
 }
 
 void InputRouter::HandleRawInput(HRAWINPUT raw) noexcept
@@ -326,7 +439,7 @@ void InputRouter::HandleRawInput(HRAWINPUT raw) noexcept
         const bool down = key.Message == WM_KEYDOWN || key.Message == WM_SYSKEYDOWN;
         const bool up = key.Message == WM_KEYUP || key.Message == WM_SYSKEYUP;
         if (down || up) {
-            KeyEdge(key.VKey,down);
+            KeyEdge(NormalizeKey(key.VKey,key.MakeCode,(key.Flags & RI_KEY_E0)!=0),down);
             if (CanCapture() && ImGui::GetCurrentContext()) {
                 ImGui_ImplWin32_WndProcHandler(window_.load(),
                     down ? WM_KEYDOWN : WM_KEYUP,key.VKey,
@@ -340,7 +453,15 @@ void InputRouter::HandleRawInput(HRAWINPUT raw) noexcept
 
 std::string InputRouter::KeyLabel() const
 {
-    return DescribeKey(hotkey_.load());
+    return DescribeShortcut(shortcut_.load());
+}
+
+std::string InputRouter::DescribeShortcut(int shortcut)
+{
+    std::string label;
+    if (MenuMods(shortcut) & kMenuCtrl) label+="Ctrl + ";
+    if (MenuMods(shortcut) & kMenuShift) label+="Shift + ";
+    return label+DescribeKey(MenuKey(shortcut));
 }
 
 std::string InputRouter::DescribeKey(int key)
@@ -376,9 +497,14 @@ LRESULT InputRouter::Process(HWND hwnd, UINT msg, WPARAM w, LPARAM l) noexcept
     }
     if (msg == WM_KILLFOCUS || msg == WM_ACTIVATEAPP) {
         if (msg == WM_KILLFOCUS || !w) {
+            ClearWheel();
             {
                 std::lock_guard lock(stateMutex_);
                 held_.fill(false);
+                menuCapture_.Reset();
+                menuPress_.Reset();
+                justAssigned_=0;
+                skipAssignedKeyRelease_=false;
                 modRecording_.store(false);
                 modCaptureId_.clear();
                 modCaptureSetting_.clear();
@@ -405,12 +531,19 @@ LRESULT InputRouter::Process(HWND hwnd, UINT msg, WPARAM w, LPARAM l) noexcept
     // fallback to legacy if the game supplies them, without double toggles.
     if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN ||
         msg == WM_KEYUP || msg == WM_SYSKEYUP)
-        KeyEdge(static_cast<unsigned>(w),
+        KeyEdge(NormalizeKey(static_cast<unsigned>(w),
+                    (static_cast<std::uintptr_t>(l)>>16)&0xff,
+                    (static_cast<std::uintptr_t>(l)&(1ull<<24))!=0),
                 msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
 
     // Do not swallow game input unless ImGui has a completed GPU frame and
     // this menu owns the foreground game window / cursor.
     if (CanCapture()) {
+        if (msg==WM_MOUSEWHEEL || msg==WM_MOUSEHWHEEL) {
+            auto& wheel=msg==WM_MOUSEWHEEL ? legacyWheelY_ : legacyWheelX_;
+            wheel.fetch_add(static_cast<SHORT>(HIWORD(w)));
+            return 0;
+        }
         if (ImGui::GetCurrentContext() && msg != WM_INPUT)
             ImGui_ImplWin32_WndProcHandler(hwnd,msg,w,l);
         if (msg == WM_INPUT ||

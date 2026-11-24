@@ -22,3 +22,7 @@ native func M1Arc_ResetMod(modId: String) -> Bool;
 native func M1Arc_SaveProfile(name: String) -> Bool;
 native func M1Arc_LoadProfile(name: String) -> Bool;
 native func M1Arc_DeleteProfile(name: String) -> Bool;
+
+// Session diagnostics for the registered mod. DEBUG, INFO, WARNING or ERROR.
+// Returns false for an unregistered mod, invalid level or oversized/empty message.
+native func M1Arc_Log(modId: String, level: String, message: String) -> Bool;

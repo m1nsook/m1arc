@@ -61,7 +61,7 @@ ImFont* Add(ImFontAtlas* atlas,const std::filesystem::path& dir,
 } // namespace
 
 void Clear() noexcept {
-    body=caption=titleMedium=titleBold=titleHeavy=nullptr;
+    body=label=caption=titleMedium=titleBold=titleHeavy=nullptr;
     iconsAvailable=false;
 }
 void Load() noexcept {
@@ -77,11 +77,11 @@ void Load() noexcept {
         // uninstanced variable font. Small/thin letters lose strokes in DX12.
         // The build validates actual usWeightClass and absence of fvar.
         // Order matters: Phosphor merges into the first loaded Karla font.
-        body=Add(atlas,folder,L"Karla-SemiBold.ttf",18.f,textRanges);
-        if (!body) body=Add(atlas,folder,L"Karla-Medium.ttf",18.f,textRanges);
+        body=Add(atlas,folder,L"Karla-Medium.ttf",17.f,textRanges);
+        if (!body) body=Add(atlas,folder,L"Karla-SemiBold.ttf",17.f,textRanges);
         if (!body) {
             ImFontConfig fallback{};
-            fallback.SizePixels=18.f;
+            fallback.SizePixels=17.f;
             body=atlas->AddFontDefault(&fallback);
         }
         io.FontDefault=body;
@@ -89,7 +89,7 @@ void Load() noexcept {
         // Include all UI glyphs, including toast states; the existing font
         // file is already bundled and no additional font asset is required.
         static const ImWchar iconRanges[] = {
-            0xE038,0xE038, 0xE184,0xE184, 0xE1DA,0xE1DA,
+            0xE038,0xE038, 0xE184,0xE184, 0xE198,0xE198, 0xE1DA,0xE1DA,
             0xE2CE,0xE2CE, 0xE2D8,0xE2D8, 0xE434,0xE434,
             0xE26E,0xE26E, 0xE316,0xE316, 0xE432,0xE432,
             0xE47E,0xE47E, 0xE4D6,0xE4D6, 0xE4E0,0xE4E0,
@@ -115,6 +115,8 @@ void Load() noexcept {
         caption=Add(atlas,folder,L"Karla-Medium.ttf",14.f,textRanges);
         if (!caption) caption=Add(atlas,folder,L"Karla-SemiBold.ttf",14.f,textRanges);
         if (!caption) caption=body;
+        label=Add(atlas,folder,L"Karla-Bold.ttf",19.f,textRanges);
+        if (!label) label=body;
 
         // Preserve the owner's purchased Blender Pro fonts as FIRST choice.
         // Their provided ZIP does not include a redistributable license grant;
@@ -132,10 +134,15 @@ void Load() noexcept {
         if (!titleHeavy) titleHeavy=Add(atlas,folder,L"Karla-Bold.ttf",22.f,textRanges);
         // Korean is merged into the existing fonts, preserving the chosen
         // UI typography for Latin text and all previously working icons.
-        MergeHangul(atlas,folder,body,18.f);
+        MergeHangul(atlas,folder,body,17.f);
+        if (label != body && label != caption) MergeHangul(atlas,folder,label,19.f);
         if (caption != body) MergeHangul(atlas,folder,caption,14.f);
-        if (titleBold != body && titleBold != caption)
+        if (titleMedium && titleMedium != body && titleMedium != caption && titleMedium != label)
+            MergeHangul(atlas,folder,titleMedium,19.f);
+        if (titleBold && titleBold != body && titleBold != caption && titleBold != label && titleBold != titleMedium)
             MergeHangul(atlas,folder,titleBold,20.f);
+        if (titleHeavy && titleHeavy != body && titleHeavy != caption && titleHeavy != label && titleHeavy != titleMedium && titleHeavy != titleBold)
+            MergeHangul(atlas,folder,titleHeavy,22.f);
     } catch (...) {
         // Damaged optional files must not stop the game.
         if (!body && io.Fonts->Fonts.Size==0)

@@ -244,6 +244,7 @@ void Renderer::PrepareFrame() noexcept
     std::lock_guard lock(mutex_);
     if (!initialized_) return;
     ImGui_ImplWin32_NewFrame(size_);
+    InputRouter::Get().FlushWheel();
     ImGui::NewFrame();
 
     DrawArcUI();

@@ -3,11 +3,14 @@
 #include "registry.hpp"
 #include "mod_manifest.hpp"
 #include "localization.hpp"
+#ifdef M1ARC_ENABLE_DEV_PREVIEW
 #include "dev_fixture.hpp"
+#endif
 #include "graphics.hpp"
 #include "input.hpp"
 #include "breach_select.hpp"
 #include "state.hpp"
+#include "upgrade.hpp"
 
 
 #include <RED4ext/Api/v1/GameState.hpp>
@@ -15,6 +18,7 @@
 
 #include <RED4ext/RED4ext.hpp>
 #include <Windows.h>
+#include <winver.h>
 
 #include <atomic>
 #include <cstdint>
@@ -22,6 +26,7 @@
 #include <cmath>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace {
 using RED4ext::CString;
@@ -31,7 +36,7 @@ using RED4ext::IScriptable;
 void Version(IScriptable*,CStackFrame* frame,CString* output,std::int64_t)
 {
     frame->code++;
-    if (output) *output=CString("1.0.0");
+    if (output) *output=CString("1.0.1");
 }
 void Register(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
 {
@@ -83,6 +88,21 @@ void ConsumeAction(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
     RED4ext::GetParameter(frame, &action);
     frame->code++;
     if (output) *output = m1arc::Settings().ConsumeAction(mod.c_str(), action.c_str());
+}
+// Explicit mod diagnostics; never scans shared REDscript or RED4ext logs.
+void LogMod(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
+{
+    CString mod,level,message;
+    RED4ext::GetParameter(frame,&mod);
+    RED4ext::GetParameter(frame,&level);
+    RED4ext::GetParameter(frame,&message);
+    frame->code++;
+    bool ok=false;
+    try {
+        const auto parsed=m1arc::ParseLogLevel(level.c_str());
+        if (parsed) ok=m1arc::Settings().AppendLog(mod.c_str(),*parsed,message.c_str());
+    } catch (...) {}
+    if (output) *output=ok;
 }
 void GetBool(IScriptable*, CStackFrame* frame, bool* output, std::int64_t)
 {
@@ -248,6 +268,8 @@ void PostRegisterTypes()
     const char* two[]={"modId","settingId"};
     const char* three[]={"modId","settingId","payload"};
     const char* registerArgs[]={"modId","displayName","schemaJson"};
+    const char* logArgs[]={"modId","level","message"};
+    add("M1Arc_Log",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&LogMod),"Bool",logArgs,3);
 
     add("M1Arc_Version",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Version),"String",nullptr,0);
     add("M1Arc_RegisterJson",reinterpret_cast<RED4ext::ScriptingFunction_t<void*>>(&Register),"Bool",registerArgs,3);
@@ -287,6 +309,25 @@ void PostRegisterTypes()
     m1arc::breach::RegisterNative();
 }
 
+std::string ModuleFileVersion(HMODULE module)
+{
+    wchar_t path[MAX_PATH+1]{};
+    const auto length=GetModuleFileNameW(module,path,MAX_PATH);
+    if (!length || length>=MAX_PATH) return "unknown";
+    DWORD unused=0;
+    const DWORD size=GetFileVersionInfoSizeW(path,&unused);
+    if (!size || size>1024*1024) return "unknown";
+    std::vector<unsigned char> data(size);
+    if (!GetFileVersionInfoW(path,0,size,data.data())) return "unknown";
+    VS_FIXEDFILEINFO* info=nullptr;
+    UINT bytes=0;
+    if (!VerQueryValueW(data.data(),L"\\",reinterpret_cast<void**>(&info),&bytes) ||
+        !info || bytes<sizeof(VS_FIXEDFILEINFO)) return "unknown";
+    return std::to_string(HIWORD(info->dwFileVersionMS))+"."+
+        std::to_string(LOWORD(info->dwFileVersionMS))+"."+
+        std::to_string(HIWORD(info->dwFileVersionLS))+"."+
+        std::to_string(LOWORD(info->dwFileVersionLS));
+}
 std::filesystem::path ModuleDirectory()
 {
     HMODULE dll=nullptr;
@@ -314,6 +355,8 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     const auto folder=ModuleDirectory();
     if (folder.empty()) return false;
     m1arc::Store().Configure(folder / L"settings.json");
+    if (!m1arc::upgrade::Prepare(m1arc::Store()))
+        m1arc::Settings().AddStartupDiagnostic("ARC_UPGRADE_PREPARE_FAILED: "+m1arc::Store().LastError());
     m1arc::Translations().Configure(folder, m1arc::Store());
     m1arc::breach::Initialize();
     // Log exact reason even if the addon's own board capture never fires.
@@ -322,15 +365,25 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     // Manifest discovery is native and data-only; REDscript supplies the
     // actual gameplay logic. No CET, Lua, or automatic code execution.
     const auto manifestReport=m1arc::LoadManifests(folder,m1arc::Settings());
+    const auto loader=GetModuleHandleW(L"RED4ext.dll");
+    m1arc::Settings().SetDiagnosticEnvironment(ModuleFileVersion(nullptr),
+        loader ? ModuleFileVersion(loader) : "unknown (DLL module not found)");
+    m1arc::Settings().AddStartupDiagnostic("Manifest discovery: "+
+        std::to_string(manifestReport.registered)+" registered; "+
+        std::to_string(manifestReport.rejected)+" rejected");
+    for (const auto& reason:manifestReport.errors)
+        m1arc::Settings().AddStartupDiagnostic("ARC_MANIFEST_REJECTED: "+reason);
+    m1arc::Settings().AddStartupDiagnostic(m1arc::breach::StatusMessage());
     if (sdk && sdk->logger && sdk->logger->Warn) {
         for (const auto& error:manifestReport.errors) {
             const std::string warning="m1arc mod: "+error;
             sdk->logger->Warn(handle,warning.c_str());
         }
     }
-    // Draft/dev artifact includes a marker; delete the marker to hide the
-    // temporary UI test mod. Normal releases must NOT include the marker.
+#ifdef M1ARC_ENABLE_DEV_PREVIEW
+    // Explicit development builds only. Normal DLLs ignore old markers.
     (void)m1arc::dev::RegisterIfEnabled(folder,m1arc::Settings());
+#endif
     auto* rtti=RED4ext::CRTTISystem::Get();
     if (!rtti) return false;
     rtti->AddRegisterCallback(RegisterTypes);
@@ -341,6 +394,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     if (!sdk || !sdk->gameStates || !sdk->gameStates->Add ||
         !sdk->gameStates->Add(handle, RED4ext::EGameStateType::BaseInitialization,
                              &baseGameCallbacks)) {
+        m1arc::Settings().AddStartupDiagnostic("ARC_BASE_CALLBACK_UNAVAILABLE: first-run setup deferred");
         if (sdk && sdk->logger && sdk->logger->Warn)
             sdk->logger->Warn(handle,
                 "m1arc: base initialization callback unavailable; first-run setup deferred");
@@ -360,7 +414,7 @@ RED4EXT_C_EXPORT void RED4EXT_CALL Query(RED4ext::v1::PluginInfo* info)
 {
     info->name=L"m1arc";
     info->author=L"MISO";
-    info->version=RED4EXT_V1_SEMVER(1,0,0);
+    info->version=RED4EXT_V1_SEMVER(1,0,1);
     info->runtime=RED4EXT_V1_RUNTIME_VERSION_LATEST;
     info->sdk=RED4EXT_V1_SDK_VERSION_CURRENT;
 }

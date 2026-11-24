@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(M1Arc VERSION 1.0.0 LANGUAGES CXX)
+project(M1Arc VERSION 1.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -50,7 +50,7 @@ target_link_libraries(m1arc_imgui PUBLIC
 add_library(m1arc_state STATIC src/state.cpp)
 target_include_directories(m1arc_state PUBLIC src)
 target_link_libraries(m1arc_state PUBLIC nlohmann_json::nlohmann_json)
-target_compile_definitions(m1arc_state PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_definitions(m1arc_state PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX M1ARC_BUILD_VERSION="${PROJECT_VERSION}")
 
 add_library(m1arc_registry STATIC src/registry.cpp src/mod_manifest.cpp)
 target_include_directories(m1arc_registry PUBLIC src)
@@ -59,6 +59,8 @@ target_link_libraries(m1arc_registry PUBLIC m1arc_state)
 add_library(m1arc_localization STATIC src/localization.cpp)
 target_include_directories(m1arc_localization PUBLIC src)
 target_link_libraries(m1arc_localization PUBLIC m1arc_registry)
+
+option(M1ARC_ENABLE_DEV_PREVIEW "Compile development-only UI fixtures" OFF)
 
 if(WIN32)
     add_library(m1arc SHARED
@@ -73,15 +75,24 @@ if(WIN32)
     target_include_directories(m1arc PRIVATE src)
     target_link_libraries(m1arc PRIVATE
         m1arc_localization RED4ext::SDK m1arc_imgui
-        d3d12 dxgi user32 version)
+        d3d12 dxgi user32 version shell32)
     target_compile_definitions(m1arc PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE RED4EXT_HEADER_ONLY)
+    if(M1ARC_ENABLE_DEV_PREVIEW)
+        target_compile_definitions(m1arc PRIVATE M1ARC_ENABLE_DEV_PREVIEW=1)
+    endif()
     set_target_properties(m1arc PROPERTIES
         OUTPUT_NAME "m1arc" PREFIX "")
 endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(m1arc_upgrade_tests tests/upgrade_tests.cpp)
+    target_link_libraries(m1arc_upgrade_tests PRIVATE m1arc_state)
+    add_test(NAME upgrade COMMAND m1arc_upgrade_tests)
+    add_executable(m1arc_menu_shortcut_tests tests/menu_shortcut_tests.cpp)
+    target_include_directories(m1arc_menu_shortcut_tests PRIVATE src)
+    add_test(NAME menu_shortcut COMMAND m1arc_menu_shortcut_tests)
     if(WIN32)
         # Reuse the working m1core click tests with a replaceable backend.
         # This target never clicks the OS cursor while running in CI.
@@ -93,6 +104,10 @@ if(BUILD_TESTING)
         target_link_libraries(m1arc_mouse_click_tests PRIVATE user32)
         add_test(NAME mouse_click COMMAND m1arc_mouse_click_tests)
     endif()
+
+    add_executable(m1arc_mod_logs_tests tests/mod_logs_tests.cpp)
+    target_link_libraries(m1arc_mod_logs_tests PRIVATE m1arc_registry)
+    add_test(NAME mod_logs COMMAND m1arc_mod_logs_tests)
 
     add_executable(m1arc_registry_tests tests/registry_tests.cpp)
     target_link_libraries(m1arc_registry_tests PRIVATE m1arc_registry)
