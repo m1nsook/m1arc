@@ -1060,7 +1060,11 @@ void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,floa
         for (const auto& entry:rows)
             text+=entry.timestamp+" ["+LogLevelName(entry.level)+"] "+entry.message+"\n";
         ImGui::SetClipboardText(text.c_str());
-        ShowToast(Tr("toast.logs_copied","Logs copied to clipboard"),2.8f,ToastKind::Success);
+        const char* copied=ImGui::GetClipboardText();
+        const bool ok=copied && text==copied;
+        ShowToast(ok ? Tr("toast.logs_copied","Logs copied to clipboard") :
+                       Tr("toast.logs_copy_failed","Could not copy logs to clipboard"),
+                  2.8f,ok ? ToastKind::Success : ToastKind::Error);
     }
     if (copyWidth+8.f+clearWidth<=available) ImGui::SameLine();
     if (ImGui::Button(clearLabel.c_str(),ImVec2(std::min(clearWidth,available),32.f))) {
@@ -1074,7 +1078,8 @@ void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,floa
     }
     ImGui::EndDisabled();
     if (confirming && !confirmation.empty()) {
-        if (ImGui::GetContentRegionAvail().x>=cancelWidth+8.f) ImGui::SameLine();
+        const float used=copyWidth+8.f+clearWidth<=available ? copyWidth+8.f+clearWidth : clearWidth;
+        if (used+8.f+cancelWidth<=available) ImGui::SameLine();
         if (ImGui::Button(cancelLabel.c_str(),ImVec2(std::min(cancelWidth,available),32.f)))
             confirmation.clear();
     }

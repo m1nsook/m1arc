@@ -93,7 +93,7 @@ private:
     [[nodiscard]] bool Persist(const std::function<void(nlohmann::json&)>& update);
     [[nodiscard]] bool Commit(std::string_view mod, std::string_view key,
                               const nlohmann::json& next);
-    void AppendLogLocked(std::string_view mod,LogLevel level,std::string_view message);
+    bool AppendLogLocked(std::string_view mod,LogLevel level,std::string_view message) noexcept;
     std::deque<LogEntry> logs_;
     StateStore& store_;
     mutable std::mutex mutex_;

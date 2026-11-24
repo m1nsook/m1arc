@@ -60,6 +60,7 @@
     "ui.logs_entries": "wpisów",
     "toast.logs_copied": "Skopiowano logi do schowka",
     "toast.logs_cleared": "Wyczyszczono logi wybranego moda",
-    "toast.logs_clear_failed": "Nie udało się wyczyścić logów"
+    "toast.logs_clear_failed": "Nie udało się wyczyścić logów",
+    "toast.logs_copy_failed": "Nie udało się skopiować logów do schowka"
   }
 }

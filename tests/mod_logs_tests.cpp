@@ -30,6 +30,20 @@ int main() {
     REQUIRE(rows.size()==Registry::kLogsPerMod);
     REQUIRE(rows.back().message=="10");
     REQUIRE(!registry.ClearLogs("missing"));
+    // Global retention remains bounded even with many independent mods.
+    for (int i=0;i<17;++i) {
+        const std::string id="many."+std::to_string(i);
+        REQUIRE(registry.Register(id,id,schema));
+        for (std::size_t j=0;j<Registry::kLogsPerMod;++j)
+            REQUIRE(registry.AppendLog(id,LogLevel::Info,std::to_string(j)));
+    }
+    std::size_t retained=0;
+    for (const auto& mod:registry.Snapshot()) retained+=registry.Logs(mod.id).size();
+    REQUIRE(retained==Registry::kLogsTotal);
+    REQUIRE(registry.Logs("many.16").size()==Registry::kLogsPerMod);
+    REQUIRE(registry.ClearLogs("many.16"));
+    REQUIRE(registry.AppendLog("many.16",LogLevel::Info,"after clear"));
+    REQUIRE(registry.Logs("many.16").size()==1);
     Registry fresh(state);
     REQUIRE(fresh.Logs("one").empty());
 }

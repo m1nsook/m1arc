@@ -66,10 +66,10 @@ const char* LogLevelName(LogLevel level) noexcept
     return "UNKNOWN";
 }
 
-void Registry::AppendLogLocked(std::string_view mod,LogLevel level,std::string_view message)
-{
+bool Registry::AppendLogLocked(std::string_view mod,LogLevel level,std::string_view message) noexcept
+try {
     if (message.empty() || message.size()>kLogMessageBytes || message.find('\0')!=std::string_view::npos)
-        return;
+        return false;
     // Never allow terminal/control characters other than newline and tab.
     std::string clean(message);
     for (char& c:clean) {
@@ -92,7 +92,8 @@ void Registry::AppendLogLocked(std::string_view mod,LogLevel level,std::string_v
     }
     if (logs_.size()>=kLogsTotal) logs_.pop_front();
     logs_.push_back({std::string(mod),timestamp,level,std::move(clean)});
-}
+    return true;
+} catch (...) { return false; }
 
 bool Registry::AppendLog(std::string_view mod,LogLevel level,std::string_view message)
 {
@@ -100,8 +101,7 @@ bool Registry::AppendLog(std::string_view mod,LogLevel level,std::string_view me
         message.find('\0')!=std::string_view::npos) return false;
     std::lock_guard guard(mutex_);
     if (!mods_.contains(std::string(mod))) return false;
-    AppendLogLocked(mod,level,message);
-    return true;
+    return AppendLogLocked(mod,level,message);
 }
 
 std::vector<LogEntry> Registry::Logs(std::string_view mod) const

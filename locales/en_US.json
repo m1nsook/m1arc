@@ -60,6 +60,7 @@
     "ui.logs_entries": "entries",
     "toast.logs_copied": "Logs copied to clipboard",
     "toast.logs_cleared": "Selected mod logs cleared",
-    "toast.logs_clear_failed": "Could not clear logs"
+    "toast.logs_clear_failed": "Could not clear logs",
+    "toast.logs_copy_failed": "Could not copy logs to clipboard"
   }
 }

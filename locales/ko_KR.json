@@ -60,6 +60,7 @@
     "ui.logs_entries": "개 항목",
     "toast.logs_copied": "로그를 클립보드에 복사했습니다",
     "toast.logs_cleared": "선택한 모드의 로그를 지웠습니다",
-    "toast.logs_clear_failed": "로그를 지울 수 없습니다"
+    "toast.logs_clear_failed": "로그를 지울 수 없습니다",
+    "toast.logs_copy_failed": "로그를 클립보드에 복사할 수 없습니다"
   }
 }
