@@ -137,7 +137,7 @@ std::string Registry::DiagnosticReport(std::string_view mod) const
 {
     std::lock_guard guard(mutex_);
     std::string result="M1 ARC // SUPPORT DIAGNOSTICS\n"
-        "Report format: 1\nM1 Arc: 1.0.1\nGame executable file version: "+gameBuild_+
+        "Report format: 1\nM1 Arc: " M1ARC_BUILD_VERSION "\nGame executable file version: "+gameBuild_+
         "\nRED4ext DLL file version: "+loaderBuild_+
         "\nSettings store: "+(store_.Ready() ? "ready" : "unavailable")+
         "\nSettings revision: "+std::to_string(store_.Revision())+"\n";

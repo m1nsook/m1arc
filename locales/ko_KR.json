@@ -62,6 +62,16 @@
     "toast.logs_cleared": "선택한 모드의 로그를 지웠습니다",
     "toast.logs_clear_failed": "로그를 지울 수 없습니다",
     "toast.logs_copy_failed": "진단 정보를 복사할 수 없습니다",
-    "ui.logs_copy_help": "선택한 모드의 설정, 로그 및 프레임워크 시작 진단 정보를 복사합니다. 공유하기 전에 확인하세요."
+    "ui.logs_copy_help": "선택한 모드의 설정, 로그 및 프레임워크 시작 진단 정보를 복사합니다. 공유하기 전에 확인하세요.",
+    "ui.upgrade_rebind": "M1 Arc가 업데이트되었습니다. 업데이트를 완료하려면 메뉴 단축키를 다시 설정하세요. 모드 설정은 유지됩니다.",
+    "ui.welcome_title": "M1 ARC // 환영합니다",
+    "ui.update_title": "M1 ARC // 업데이트 완료",
+    "ui.welcome_message": "M1 Arc를 선택해 주셔서 감사합니다!",
+    "ui.update_message": "M1 Arc를 업데이트해 주셔서 감사합니다! 기존 모드 설정은 유지되었습니다.",
+    "ui.welcome_discussion": "Nexus Mods에서 의견을 남기고 문제를 신고하거나 토론에 참여하세요.",
+    "ui.welcome_nexus": "Nexus Mods 토론 참여",
+    "ui.welcome_continue": "계속",
+    "toast.welcome_link_failed": "Nexus Mods를 열 수 없습니다",
+    "toast.welcome_save_failed": "업데이트 확인을 저장할 수 없습니다. 다음 실행 시 다시 표시될 수 있습니다."
   }
 }

@@ -50,7 +50,7 @@ target_link_libraries(m1arc_imgui PUBLIC
 add_library(m1arc_state STATIC src/state.cpp)
 target_include_directories(m1arc_state PUBLIC src)
 target_link_libraries(m1arc_state PUBLIC nlohmann_json::nlohmann_json)
-target_compile_definitions(m1arc_state PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_definitions(m1arc_state PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX M1ARC_BUILD_VERSION="${PROJECT_VERSION}")
 
 add_library(m1arc_registry STATIC src/registry.cpp src/mod_manifest.cpp)
 target_include_directories(m1arc_registry PUBLIC src)
@@ -75,7 +75,7 @@ if(WIN32)
     target_include_directories(m1arc PRIVATE src)
     target_link_libraries(m1arc PRIVATE
         m1arc_localization RED4ext::SDK m1arc_imgui
-        d3d12 dxgi user32 version)
+        d3d12 dxgi user32 version shell32)
     target_compile_definitions(m1arc PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE RED4EXT_HEADER_ONLY)
     if(M1ARC_ENABLE_DEV_PREVIEW)
@@ -87,6 +87,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(m1arc_upgrade_tests tests/upgrade_tests.cpp)
+    target_link_libraries(m1arc_upgrade_tests PRIVATE m1arc_state)
+    add_test(NAME upgrade COMMAND m1arc_upgrade_tests)
     add_executable(m1arc_menu_shortcut_tests tests/menu_shortcut_tests.cpp)
     target_include_directories(m1arc_menu_shortcut_tests PRIVATE src)
     add_test(NAME menu_shortcut COMMAND m1arc_menu_shortcut_tests)

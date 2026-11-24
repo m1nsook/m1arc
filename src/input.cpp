@@ -4,6 +4,7 @@
 #include "graphics.hpp"
 #include "registry.hpp"
 #include "state.hpp"
+#include "upgrade.hpp"
 #include "backends/win32.h"
 
 #include <imgui.h>
@@ -50,13 +51,7 @@ void InputRouter::ReadKeyFromSettings() noexcept
 {
     try {
         const auto doc = nlohmann::json::parse(Store().Snapshot());
-        if (doc.contains("overlay") && doc["overlay"].is_object()) {
-            const auto& overlay=doc["overlay"];
-            const int key=overlay.value("hotkey",0);
-            const int mods=overlay.value("hotkey_modifiers",0);
-            if (ValidMenuShortcut(key,mods))
-                shortcut_.store(PackMenuShortcut(key,mods));
-        }
+        shortcut_.store(upgrade::SavedShortcut(doc));
     } catch (...) {}
 }
 
@@ -283,9 +278,7 @@ bool InputRouter::ConfirmCandidate() noexcept
     const int candidate=menuCapture_.Candidate();
     if (!recording_.load() || !candidate || !CanCapture()) return false;
     if (!Store().Update([&](nlohmann::json& data) {
-        if (!data["overlay"].is_object()) data["overlay"]=nlohmann::json::object();
-        data["overlay"]["hotkey"]=MenuKey(candidate);
-        data["overlay"]["hotkey_modifiers"]=MenuMods(candidate);
+        upgrade::SaveShortcut(data,candidate);
     })) return false;
     const bool close=!HasKey() || closeAfterBinding_;
     shortcut_.store(candidate);

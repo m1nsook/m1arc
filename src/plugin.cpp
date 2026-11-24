@@ -10,6 +10,7 @@
 #include "input.hpp"
 #include "breach_select.hpp"
 #include "state.hpp"
+#include "upgrade.hpp"
 
 
 #include <RED4ext/Api/v1/GameState.hpp>
@@ -354,6 +355,8 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     const auto folder=ModuleDirectory();
     if (folder.empty()) return false;
     m1arc::Store().Configure(folder / L"settings.json");
+    if (!m1arc::upgrade::Prepare(m1arc::Store()))
+        m1arc::Settings().AddStartupDiagnostic("ARC_UPGRADE_PREPARE_FAILED: "+m1arc::Store().LastError());
     m1arc::Translations().Configure(folder, m1arc::Store());
     m1arc::breach::Initialize();
     // Log exact reason even if the addon's own board capture never fires.

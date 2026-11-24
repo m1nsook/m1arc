@@ -62,6 +62,16 @@
     "toast.logs_cleared": "Selected mod logs cleared",
     "toast.logs_clear_failed": "Could not clear logs",
     "toast.logs_copy_failed": "Could not copy diagnostics to clipboard",
-    "ui.logs_copy_help": "Copies the selected mod's settings, logs and framework startup diagnostics. Review before sharing."
+    "ui.logs_copy_help": "Copies the selected mod's settings, logs and framework startup diagnostics. Review before sharing.",
+    "ui.upgrade_rebind": "M1 Arc has been updated. Choose your menu shortcut again to complete the update. Your mod settings are preserved.",
+    "ui.welcome_title": "M1 ARC // WELCOME",
+    "ui.update_title": "M1 ARC // UPDATE COMPLETE",
+    "ui.welcome_message": "Thank you for choosing M1 Arc!",
+    "ui.update_message": "Thank you for updating M1 Arc! Your existing mod settings have been preserved.",
+    "ui.welcome_discussion": "Share feedback, report issues or join the discussion on Nexus Mods.",
+    "ui.welcome_nexus": "Join discussion on Nexus Mods",
+    "ui.welcome_continue": "Continue",
+    "toast.welcome_link_failed": "Could not open Nexus Mods",
+    "toast.welcome_save_failed": "Could not save update acknowledgement; it may appear next launch."
   }
 }

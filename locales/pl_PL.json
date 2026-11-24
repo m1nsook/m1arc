@@ -62,6 +62,16 @@
     "toast.logs_cleared": "Wyczyszczono logi wybranego moda",
     "toast.logs_clear_failed": "Nie udało się wyczyścić logów",
     "toast.logs_copy_failed": "Nie udało się skopiować diagnostyki",
-    "ui.logs_copy_help": "Kopiuje ustawienia i logi wybranego moda oraz diagnostykę uruchamiania. Sprawdź przed udostępnieniem."
+    "ui.logs_copy_help": "Kopiuje ustawienia i logi wybranego moda oraz diagnostykę uruchamiania. Sprawdź przed udostępnieniem.",
+    "ui.upgrade_rebind": "M1 Arc został zaktualizowany. Wybierz ponownie skrót menu, aby zakończyć aktualizację. Ustawienia modów pozostają bez zmian.",
+    "ui.welcome_title": "M1 ARC // WITAMY",
+    "ui.update_title": "M1 ARC // AKTUALIZACJA ZAKOŃCZONA",
+    "ui.welcome_message": "Dziękujemy za wybranie M1 Arc!",
+    "ui.update_message": "Dziękujemy za aktualizację M1 Arc! Dotychczasowe ustawienia modów zostały zachowane.",
+    "ui.welcome_discussion": "Podziel się opinią, zgłoś problem lub dołącz do dyskusji na Nexus Mods.",
+    "ui.welcome_nexus": "Dołącz do dyskusji na Nexus Mods",
+    "ui.welcome_continue": "Kontynuuj",
+    "toast.welcome_link_failed": "Nie udało się otworzyć Nexus Mods",
+    "toast.welcome_save_failed": "Nie udało się zapisać potwierdzenia. Okno może pojawić się przy następnym uruchomieniu."
   }
 }

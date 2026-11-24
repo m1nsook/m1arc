@@ -1,5 +1,7 @@
 #include "ui.hpp"
 #include "fonts.hpp"
+#include "upgrade.hpp"
+#include <shellapi.h>
 #ifdef M1ARC_ENABLE_DEV_PREVIEW
 #include "dev_fixture.hpp"
 #endif
@@ -1150,7 +1152,11 @@ void DrawRebindModal(const Palette& p) {
         ImGui::TextWrapped("%s",Tr("ui.rebind_heading", "M1 ARC  //  MENU SHORTCUT").c_str());
         if (fonts::titleHeavy) ImGui::PopFont();
         ImGui::Separator();
-        ImGui::TextWrapped("%s",Tr("ui.rebind_intro","Choose your preferred menu shortcut.").c_str());
+        const auto upgradeDoc=nlohmann::json::parse(Store().Snapshot(),nullptr,false);
+        if (upgrade::NeedsShortcut(upgradeDoc))
+            ImGui::TextWrapped("%s",Tr("ui.upgrade_rebind","M1 Arc has been updated. Choose your menu shortcut again to complete the update. Your mod settings are preserved.").c_str());
+        else
+            ImGui::TextWrapped("%s",Tr("ui.rebind_intro","Choose your preferred menu shortcut.").c_str());
         if (fonts::caption) ImGui::PushFont(fonts::caption);
         ImGui::TextWrapped("%s",Tr("ui.rebind_press","Click Capture, press a key or combination, then Save.").c_str());
         ImGui::PushStyleColor(ImGuiCol_Text,p.muted);
@@ -1229,6 +1235,67 @@ void DrawRebindModal(const Palette& p) {
     ImGui::PopStyleVar(2);
 }
 
+void DrawWelcome(const Palette& p) {
+    auto& input=InputRouter::Get();
+    if (!input.IsOpen() || input.IsRecording() || !input.HasKey()) return;
+    // Read the durable state once per frame only while the welcome is pending.
+    static bool dismissedThisSession=false;
+    if (dismissedThisSession) return;
+    const auto doc=nlohmann::json::parse(Store().Snapshot(),nullptr,false);
+    if (!upgrade::WelcomePending(doc)) return;
+    const std::string from=upgrade::Field(doc,"previous_version");
+    constexpr const char* popup="##m1arc-upgrade-welcome";
+    if (!ImGui::IsPopupOpen(popup)) ImGui::OpenPopup(popup);
+    const auto* viewport=ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->GetCenter(),ImGuiCond_Appearing,ImVec2(.5f,.5f));
+    ImGui::SetNextWindowSize(ImVec2(std::max(160.f,std::min(480.f,viewport->Size.x-36.f)),0.f),ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(24.f,22.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,10.f));
+    if (ImGui::BeginPopupModal(popup,nullptr,ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (fonts::HasIcons()) {
+            ImGui::TextColored(p.ink,"%s",ARC_ICON_SUCCESS);
+            ImGui::SameLine(0.f,8.f);
+        }
+        if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+        ImGui::TextWrapped("%s",Tr(from.empty() ? "ui.welcome_title" : "ui.update_title",
+            from.empty() ? "M1 ARC // WELCOME" : "M1 ARC // UPDATE COMPLETE").c_str());
+        if (fonts::titleHeavy) ImGui::PopFont();
+        if (fonts::caption) ImGui::PushFont(fonts::caption);
+        ImGui::TextDisabled("%s",(from.empty() ? std::string(upgrade::Current) :
+            from+"  ->  "+std::string(upgrade::Current)).c_str());
+        if (fonts::caption) ImGui::PopFont();
+        ImGui::Separator();
+        ImGui::TextWrapped("%s",Tr(from.empty() ? "ui.welcome_message" : "ui.update_message",
+            from.empty() ? "Thank you for choosing M1 Arc!" :
+                "Thank you for updating M1 Arc! Your existing mod settings have been preserved.").c_str());
+        if (fonts::caption) ImGui::PushFont(fonts::caption);
+        ImGui::TextWrapped("%s",Tr("ui.welcome_discussion","Share feedback, report issues or join the discussion on Nexus Mods.").c_str());
+        if (fonts::caption) ImGui::PopFont();
+        ImGui::Spacing();
+        const std::string discussion=(fonts::HasIcons() ? std::string(ARC_ICON_INFO)+"  " : "")+
+            Tr("ui.welcome_nexus","Join discussion on Nexus Mods")+"##welcome-nexus";
+        if (ImGui::Button(discussion.c_str(),ImVec2(-1.f,36.f))) {
+            const auto result=ShellExecuteW(nullptr,L"open",
+                L"https://www.nexusmods.com/cyberpunk2077/mods/39311?tab=posts",nullptr,nullptr,SW_SHOWNORMAL);
+            if (reinterpret_cast<INT_PTR>(result)<=32)
+                ShowToast(Tr("toast.welcome_link_failed","Could not open Nexus Mods"),3.2f,ToastKind::Error);
+        }
+        ImGui::PushStyleColor(ImGuiCol_Button,p.amber);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.98f,.76f,.28f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.84f,.59f,.08f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(.10f,.11f,.09f,1.f));
+        if (ImGui::Button(Tr("ui.welcome_continue","Continue").c_str(),ImVec2(-1.f,36.f))) {
+            if (!upgrade::Acknowledge(Store()))
+                ShowToast(Tr("toast.welcome_save_failed","Could not save update acknowledgement; it may appear next launch."),4.f,ToastKind::Warning);
+            dismissedThisSession=true;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::PopStyleColor(4);
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar(2);
+}
+
 } // namespace
 
 void ShowToast(std::string message, float seconds, ToastKind kind) {
@@ -1296,5 +1363,6 @@ void DrawArcUI() {
     DrawToasts(viewport, windowPos, ImVec2(width, height));
     // First-run, rebind and emergency recovery share the same modal.
     DrawRebindModal(palette);
+    DrawWelcome(palette);
 }
 } // namespace m1arc
