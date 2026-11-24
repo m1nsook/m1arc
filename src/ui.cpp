@@ -180,23 +180,41 @@ std::string& SelectedMod() {
     return selected;
 }
 
-void ShowTooltip(const std::string& message, const Palette& p) {
-    if (message.empty()) return;
-    const auto* viewport = ImGui::GetMainViewport();
-    const float wrap = std::max(150.f,std::min(360.f,viewport->Size.x-80.f));
+void ShowTooltip(const std::string& title,const std::string& message,const Palette& p) {
+    if (title.empty() && message.empty()) return;
+    const float wrap=std::max(100.f,std::min(360.f,ImGui::GetMainViewport()->Size.x-72.f));
     ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
     ImGui::PushStyleColor(ImGuiCol_PopupBg,p.paper);
     ImGui::PushStyleColor(ImGuiCol_Border,p.ink);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(14.f,12.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(16.f,13.f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,1.f);
-    // A tooltip with unbounded SetTooltip() escaped across the viewport.
-    // The wrap position is WINDOW-LOCAL, not the screen-space X coordinate.
-    ImGui::BeginTooltip();
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+wrap);
-    ImGui::TextUnformatted(message.c_str());
-    ImGui::PopTextWrapPos();
-    ImGui::EndTooltip();
-    ImGui::PopStyleVar(2);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,7.f));
+    if (ImGui::BeginTooltip()) {
+        const float right=ImGui::GetCursorPosX()+wrap;
+        ImGui::TextUnformatted(fonts::HasIcons() ? ARC_ICON_INFO : "[i]");
+        ImGui::SameLine(0.f,8.f);
+        ImGui::TextUnformatted("//");
+        ImGui::SameLine(0.f,8.f);
+        if (fonts::label) ImGui::PushFont(fonts::label);
+        ImGui::PushTextWrapPos(right);
+        ImGui::TextUnformatted(title.c_str());
+        ImGui::PopTextWrapPos();
+        if (fonts::label) ImGui::PopFont();
+        if (!message.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Separator,p.muted);
+            ImGui::Separator();
+            ImGui::PopStyleColor();
+            if (fonts::caption) ImGui::PushFont(fonts::caption);
+            ImGui::PushStyleColor(ImGuiCol_Text,p.muted);
+            ImGui::PushTextWrapPos(right);
+            ImGui::TextUnformatted(message.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::PopStyleColor();
+            if (fonts::caption) ImGui::PopFont();
+        }
+        ImGui::EndTooltip();
+    }
+    ImGui::PopStyleVar(3);
     ImGui::PopStyleColor(3);
 }
 
@@ -279,7 +297,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut") + "\n" +
+        ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut"),
                     input.KeyLabel() + "\n" +
                     Tr("ui.rebind_recovery", "Recovery: Ctrl + Shift + F11"),p);
 
@@ -496,18 +514,23 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
             // Both need dark lettering (p.paper in the dark palette).
             const float nameX=row.x+(fonts::HasIcons() ? 45.f : 16.f);
             const float usable=std::max(20.f,rowWidth-(nameX-row.x)-30.f);
+            ImFont* nameFont=fonts::label ? fonts::label : ImGui::GetFont();
+            ImGui::PushFont(nameFont);
             const std::string label=FitLabel(mod.title,usable);
+            ImGui::PopFont();
             const float titleY=hasDescription ? row.y+12.f
-                : row.y+(rowHeight-ImGui::GetFontSize())*.5f;
+                : row.y+(rowHeight-nameFont->FontSize)*.5f;
             if (fonts::HasIcons()) {
                 const char* icon=ModScopeIcon(mod.scope);
                 draw->AddText(ImVec2(row.x+16.f,titleY),Color(foreground),icon);
             }
-            draw->AddText(ImVec2(nameX,titleY),Color(foreground),label.c_str());
+            draw->AddText(nameFont,nameFont->FontSize,ImVec2(nameX,titleY),Color(foreground),label.c_str());
             if (hasDescription) {
                 ImFont* small=fonts::caption ? fonts::caption : ImGui::GetFont();
-                constexpr float smallSize=14.f;
+                const float smallSize=small->FontSize;
+                ImGui::PushFont(small);
                 const std::string detail=FitLabel(mod.shortDesc,usable);
+                ImGui::PopFont();
                 ImVec4 descriptionColor=foreground;
                 descriptionColor.w*=.82f;
                 draw->AddText(small,smallSize,ImVec2(nameX,row.y+38.f),
@@ -523,9 +546,8 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
             if (Enabled(mod))
                 draw->AddRectFilled(ImVec2(a.x+2.f,a.y+2.f),
                                     ImVec2(a.x+8.f,a.y+8.f),Color(p.amber));
-            if (hovered)
-                ShowTooltip(mod.shortDesc.empty() ? mod.title
-                    : mod.title+"\n"+mod.shortDesc,p);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ShowTooltip(mod.title,mod.shortDesc,p);
             ImGui::PopStyleColor(3);
             ImGui::PopID();
         }
@@ -612,7 +634,7 @@ void DrawChoice(const ModView& mod,const SettingView& setting,const Palette& p,f
                       ImVec2(std::max(16.f,width-64.f),32.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(display,p);
+        ShowTooltip(setting.label,display,p);
     ImGui::SameLine(0,0);
     if (ImGui::Button(">##next",ImVec2(32.f,32.f)))
         (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
@@ -630,7 +652,7 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         setting.label.c_str(),nullptr,false,labelWidth).y;
     const float rowHeight=stacked ?
         std::max(84.f,textHeight+62.f) :
-        std::max(62.f,textHeight+22.f);
+        std::max(54.f,textHeight+22.f);
     const ImVec2 row=ImGui::GetCursorScreenPos();
 
     if (disabled) ImGui::BeginDisabled();
@@ -641,7 +663,7 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
     ImGui::PopTextWrapPos();
     if (!setting.description.empty() &&
         ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(setting.description,p);
+        ShowTooltip(setting.label,setting.description,p);
 
     const float x=stacked ? row.x : row.x+width-controls;
     const float y=stacked ? row.y+textHeight+22.f :
@@ -713,7 +735,7 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
                           ImVec2(keyWidth,32.f)) && !capturing)
             (void)input.BeginModRebind(mod.id, setting.id);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-            ShowTooltip(Tr("ui.hotkey.help",
+            ShowTooltip(setting.label,Tr("ui.hotkey.help",
                 "Press a keyboard key to bind. Escape cancels; the M1 Arc menu key is reserved."),p);
         ImGui::SameLine(0.f,8.f);
         const std::string auxiliary = capturing
@@ -768,9 +790,12 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
             if (showGroups && setting.group != previousGroup) {
                 ImGui::Spacing();
                 ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
-                if (fonts::titleMedium) ImGui::PushFont(fonts::titleMedium);
-                ImGui::SeparatorText(setting.group.c_str());
-                if (fonts::titleMedium) ImGui::PopFont();
+                if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
+                ImGui::TextUnformatted(setting.group.c_str());
+                if (fonts::titleBold) ImGui::PopFont();
+                ImGui::PushStyleColor(ImGuiCol_Separator,p.muted);
+                ImGui::Separator();
+                ImGui::PopStyleColor();
                 ImGui::PopStyleColor();
                 ImGui::Spacing();
                 previousGroup = setting.group;
@@ -797,7 +822,9 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     draw->AddLine(foot,ImVec2(ImGui::GetWindowPos().x+width-1.f,foot.y),
                   Color(p.ink),2.f);
     ImGui::SetCursorScreenPos(ImVec2(foot.x+pad,foot.y+20.f));
+    if (fonts::caption) ImGui::PushFont(fonts::caption);
     if (width >= 520.f) ImGui::TextDisabled("2026 (c) M1NSOOK");
+    if (fonts::caption) ImGui::PopFont();
     const auto langs = Translations().Languages();
     const std::string currentLang = Translations().Current();
     const auto currentLangIt = std::find_if(langs.begin(), langs.end(),
@@ -815,7 +842,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
         ImGui::EndCombo();
     }
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(Tr("ui.language", "Language"),p);
+        ShowTooltip(Tr("ui.language", "Language"),nativeName,p);
 
     if (!Theme().message.empty()) {
         ImGui::SameLine();
