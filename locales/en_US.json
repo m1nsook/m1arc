@@ -13,7 +13,7 @@
     "ui.defaults": "DEFAULTS",
     "ui.on": "ON",
     "ui.off": "OFF",
-    "ui.rebind_heading": "M1 ARC  //  CHOOSE MENU KEY",
+    "ui.rebind_heading": "M1 ARC  //  MENU SHORTCUT",
     "ui.rebind_press": "Click Capture, press a key or combination, then Save.",
     "ui.rebind_reserved": "Ctrl and Shift may be combined with a key. Alt, Windows and Escape are reserved.",
     "ui.cancel": "Cancel",
@@ -45,6 +45,8 @@
     "toast.language_saved": "Language updated: ",
     "toast.language_failed": "Could not change language: ",
     "toast.shortcut_saved": "Menu shortcut saved: ",
-    "toast.mod_shortcut_saved": "Mod shortcut saved: "
+    "toast.mod_shortcut_saved": "Mod shortcut saved: ",
+    "ui.registered_mods": "REGISTERED MODS",
+    "ui.rebind_intro": "Choose your preferred menu shortcut."
   }
 }

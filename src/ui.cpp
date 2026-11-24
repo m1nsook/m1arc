@@ -418,7 +418,6 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
         return;
     }
 
-    constexpr float kHeight = 76.f;
     constexpr float kIntro = .28f;
     constexpr float kOutro = .42f;
     const float fadeStart = std::max(kIntro, toast.duration - kOutro);
@@ -470,7 +469,21 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
 
     // Prefer a floating card below the panel (user reference). If the
     // viewport is short, keep it visible rather than rendering offscreen.
-    const float width = std::min(840.f, std::max(1.f, viewport->Size.x - 36.f));
+    const float width = std::min(680.f, std::max(1.f, viewport->Size.x - 36.f));
+    const std::string statusLabel = Tr(labelKey, label);
+    ImFont* statusFont=fonts::label ? fonts::label : ImGui::GetFont();
+    ImFont* messageFont=fonts::body ? fonts::body : ImGui::GetFont();
+    const float statusSize=14.f;
+    constexpr float kIconBox=42.f;
+    constexpr float padding=16.f;
+    constexpr float gap=16.f;
+    const float textOffset=padding+kIconBox+gap;
+    const float messageWidth=std::max(20.f,width-textOffset-padding);
+    const ImVec2 statusBounds=statusFont->CalcTextSizeA(statusSize,10000.f,messageWidth,statusLabel.c_str());
+    const ImVec2 textBounds=messageFont->CalcTextSizeA(messageFont->FontSize,10000.f,messageWidth,toast.text.c_str());
+    const float contentHeight=statusBounds.y+5.f+textBounds.y;
+    const float kHeight=std::min(std::max(1.f,viewport->Size.y-36.f),
+        std::max(76.f,contentHeight+2.f*padding));
     const float x = viewport->Pos.x + (viewport->Size.x - width) * .5f;
     const float idealY = panelPos.y + panelSize.y + 24.f;
     const float lastY = viewport->Pos.y + viewport->Size.y - kHeight - 18.f;
@@ -483,7 +496,6 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
         return (color & 0x00FFFFFFu) | (a << 24);
     };
     const ImU32 dark = faded(IM_COL32(19, 25, 24, 255));
-    const std::string statusLabel = Tr(labelKey, label);
     ImDrawList* draw = ImGui::GetForegroundDrawList(viewport);
     const ImVec2 topLeft(x, y), bottomRight(x + width, y + kHeight);
     draw->AddRectFilled(topLeft, bottomRight, faded(background), 4.f);
@@ -491,8 +503,7 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
 
     // An outlined status module containing an authentic Phosphor glyph,
     // both dark on the pastel card. Plain letters are the safe fallback.
-    constexpr float kIconBox = 42.f;
-    const float iconX = x + 25.f;
+    const float iconX = x + padding;
     const float iconY = y + (kHeight - kIconBox) * .5f;
     draw->AddRect(ImVec2(iconX, iconY),
                   ImVec2(iconX + kIconBox, iconY + kIconBox),
@@ -507,27 +518,15 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
                          iconY + (kIconBox - glyphBounds.y) * .5f),
                   dark, iconText);
 
-    const float textX = iconX + kIconBox + 28.f;
-    ImFont* statusFont = fonts::titleBold ? fonts::titleBold : ImGui::GetFont();
-    const float statusSize = 17.f;
-    const ImVec2 statusBounds = statusFont->CalcTextSizeA(statusSize,
-                                                         1000.f, 0.f, statusLabel.c_str());
-    // Narrow displays prioritize readable message text over the label.
-    const bool showStatus = width >= 460.f;
-    const float statusX = x + width - 28.f - statusBounds.x;
-    const float textEnd = showStatus ? statusX - 22.f : x + width - 20.f;
-    ImFont* messageFont=fonts::body ? fonts::body : ImGui::GetFont();
-    const float messageWidth=std::max(20.f,textEnd-textX);
-    const ImVec2 textBounds=messageFont->CalcTextSizeA(messageFont->FontSize,10000.f,messageWidth,toast.text.c_str());
-    const ImVec4 clip(textX,y+8.f,textEnd,y+kHeight-8.f);
+    // Status is above the message, not competing for horizontal space.
+    const float textX=x+textOffset;
+    const float textY=y+std::max(8.f,(kHeight-contentHeight)*.5f);
+    const ImVec4 clip(textX,y+8.f,x+width-padding,y+kHeight-8.f);
+    draw->AddText(statusFont,statusSize,ImVec2(textX,textY),dark,
+                  statusLabel.c_str(),nullptr,messageWidth,&clip);
     draw->AddText(messageFont,messageFont->FontSize,
-                  ImVec2(textX,y+std::max(8.f,(kHeight-textBounds.y)*.5f)),
-                  dark,toast.text.c_str(),nullptr,messageWidth,&clip);
-    if (showStatus) {
-        draw->AddText(statusFont, statusSize,
-                      ImVec2(statusX, y + (kHeight - statusBounds.y) * .5f),
-                      dark, statusLabel.c_str());
-    }
+                  ImVec2(textX,textY+statusBounds.y+5.f),dark,
+                  toast.text.c_str(),nullptr,messageWidth,&clip);
 }
 
 // Phosphor Regular icon before each mod title, selected only by the
@@ -546,11 +545,29 @@ const char* ModScopeIcon(std::string_view scope) {
 
 void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
                  float width, float height) {
-    ImGui::BeginChild("##arc-nav",ImVec2(width,height),ImGuiChildFlags_None,0);
+    // Fixed header above an independently scrollable list. Keep the
+    // outer child stationary; only the inner list owns the scrollbar.
+    ImGui::BeginChild("##arc-nav",ImVec2(width,height),ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    const ImVec2 origin=ImGui::GetWindowPos();
+    constexpr float headerHeight=36.f;
+    auto* frame=ImGui::GetWindowDrawList();
+    frame->AddRectFilled(origin,ImVec2(origin.x+width,origin.y+headerHeight),Color(p.bar));
+    ImFont* headerFont=fonts::caption ? fonts::caption : ImGui::GetFont();
+    const std::string count=std::to_string(mods.size());
+    const std::string heading=Tr("ui.registered_mods","REGISTERED MODS");
+    ImGui::PushFont(headerFont);
+    const float countWidth=ImGui::CalcTextSize(count.c_str()).x;
+    const std::string clipped=FitLabel(heading,std::max(20.f,width-countWidth-40.f));
+    ImGui::PopFont();
+    const float textY=origin.y+(headerHeight-headerFont->FontSize)*.5f;
+    frame->AddText(headerFont,headerFont->FontSize,ImVec2(origin.x+16.f,textY),Color(p.barText),clipped.c_str());
+    frame->AddText(headerFont,headerFont->FontSize,ImVec2(origin.x+width-16.f-countWidth,textY),Color(p.barText),count.c_str());
+    ImGui::SetCursorPos(ImVec2(0.f,headerHeight));
+    // Native ImGui scrollbar appears only when rows exceed available height.
+    ImGui::BeginChild("##arc-nav-scroll",ImVec2(std::max(1.f,width-2.f),
+                      std::max(1.f,height-headerHeight)),ImGuiChildFlags_None,0);
     ImDrawList* draw=ImGui::GetWindowDrawList();
-    const float right=ImGui::GetWindowPos().x+ImGui::GetWindowWidth()-1.f;
-    draw->AddLine(ImVec2(right,ImGui::GetWindowPos().y),
-                  ImVec2(right,ImGui::GetWindowPos().y+height),Color(p.ink),2.f);
     if (mods.empty()) {
         // The empty state is intentionally padded, but real mod rows
         // must start flush with the top of the sidebar under the header.
@@ -630,6 +647,9 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
             ImGui::PopID();
         }
     }
+    ImGui::EndChild();
+    const float right=origin.x+width-1.f;
+    frame->AddLine(ImVec2(right,origin.y),ImVec2(right,origin.y+height),Color(p.ink),2.f);
     ImGui::EndChild();
 }
 
@@ -893,7 +913,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                 ImGui::Spacing();
                 ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
                 if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
-                ImGui::TextUnformatted(setting.group.c_str());
+                ImGui::TextWrapped("%s",setting.group.c_str());
                 if (fonts::titleBold) ImGui::PopFont();
                 ImGui::PushStyleColor(ImGuiCol_Separator,p.muted);
                 ImGui::Separator();
@@ -983,12 +1003,18 @@ void DrawRebindModal(const Palette& p) {
                               ImGuiWindowFlags_AlwaysAutoResize |
                               ImGuiWindowFlags_NoTitleBar |
                               ImGuiWindowFlags_NoNavInputs)) {
+        if (fonts::HasIcons()) {
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted(ARC_ICON_KEY);
+            ImGui::SameLine(0.f,8.f);
+        }
         if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
-        ImGui::TextWrapped("%s",Tr("ui.rebind_heading", "M1 ARC  //  CHOOSE MENU KEY").c_str());
+        ImGui::TextWrapped("%s",Tr("ui.rebind_heading", "M1 ARC  //  MENU SHORTCUT").c_str());
         if (fonts::titleHeavy) ImGui::PopFont();
         ImGui::Separator();
-        ImGui::TextWrapped("%s",Tr("ui.rebind_press","Click Capture, press a key or combination, then Save.").c_str());
+        ImGui::TextWrapped("%s",Tr("ui.rebind_intro","Choose your preferred menu shortcut.").c_str());
         if (fonts::caption) ImGui::PushFont(fonts::caption);
+        ImGui::TextWrapped("%s",Tr("ui.rebind_press","Click Capture, press a key or combination, then Save.").c_str());
         ImGui::PushStyleColor(ImGuiCol_Text,p.muted);
         ImGui::TextWrapped("%s",Tr("ui.rebind_reserved","Ctrl and Shift may be combined with a key. Alt, Windows and Escape are reserved.").c_str());
         ImGui::PopStyleColor();
@@ -1007,17 +1033,29 @@ void DrawRebindModal(const Palette& p) {
         ImGui::PushStyleColor(ImGuiCol_ChildBg,p.fill);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize,1.f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(12.f,10.f));
-        if (ImGui::BeginChild("##shortcut-preview",ImVec2(0.f,48.f),
+        if (ImGui::BeginChild("##shortcut-preview",ImVec2(0.f,60.f),
                           ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-            if (fonts::label) ImGui::PushFont(fonts::label);
+            if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+            const float available=ImGui::GetContentRegionAvail().x;
+            const float textWidth=ImGui::CalcTextSize(label.c_str()).x;
+            if (textWidth<available)
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX()+(available-textWidth)*.5f);
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY()+6.f);
             ImGui::TextWrapped("%s",label.c_str());
-            if (fonts::label) ImGui::PopFont();
+            if (fonts::titleHeavy) ImGui::PopFont();
         }
         ImGui::EndChild();
         ImGui::PopStyleVar(2);
         ImGui::PopStyleColor();
         if (fonts::caption) ImGui::PushFont(fonts::caption);
+        if (fonts::HasIcons()) {
+            // Icon exists in the body atlas, not the caption atlas.
+            if (fonts::caption) ImGui::PopFont();
+            ImGui::TextColored(p.muted,"%s",ARC_ICON_INFO);
+            ImGui::SameLine(0.f,6.f);
+            if (fonts::caption) ImGui::PushFont(fonts::caption);
+        }
         ImGui::TextDisabled("%s",Tr("ui.rebind_recovery","Recovery: Ctrl + Shift + F11").c_str());
         if (fonts::caption) ImGui::PopFont();
         ImGui::Separator();

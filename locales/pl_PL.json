@@ -13,7 +13,7 @@
     "ui.defaults": "DOMYŚLNE",
     "ui.on": "WŁ.",
     "ui.off": "WYŁ.",
-    "ui.rebind_heading": "M1 ARC  //  WYBIERZ KLAWISZ MENU",
+    "ui.rebind_heading": "M1 ARC  //  SKRÓT MENU",
     "ui.rebind_press": "Kliknij Przechwyć, naciśnij klawisz lub kombinację, a następnie Zapisz.",
     "ui.rebind_reserved": "Ctrl i Shift można łączyć z klawiszem. Alt, Windows i Escape są zarezerwowane.",
     "ui.cancel": "Anuluj",
@@ -45,6 +45,8 @@
     "toast.language_saved": "Zmieniono język: ",
     "toast.language_failed": "Nie udało się zmienić języka: ",
     "toast.shortcut_saved": "Zapisano skrót menu: ",
-    "toast.mod_shortcut_saved": "Zapisano skrót moda: "
+    "toast.mod_shortcut_saved": "Zapisano skrót moda: ",
+    "ui.registered_mods": "ZAREJESTROWANE MODY",
+    "ui.rebind_intro": "Wybierz preferowany skrót do menu."
   }
 }
