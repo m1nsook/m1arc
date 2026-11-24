@@ -14,6 +14,8 @@
 #include <vector>
 #include <deque>
 #include <utility>
+#include <mutex>
+#include <cstdio>
 
 namespace m1arc {
 namespace {
@@ -80,6 +82,7 @@ struct Toast {
     float duration = 3.2f;
     ToastKind kind = ToastKind::Info;
 };
+std::mutex& ToastMutex() { static std::mutex mutex; return mutex; }
 std::deque<Toast>& ToastQueue() {
     static std::deque<Toast> queue;
     return queue;
@@ -218,6 +221,42 @@ void ShowTooltip(const std::string& title,const std::string& message,const Palet
     ImGui::PopStyleColor(3);
 }
 
+std::string SettingValueLabel(const ModView& mod,const SettingView& setting,const nlohmann::json& value) {
+    if (value.is_boolean()) return value.get<bool>() ? Tr("ui.on","ON") : Tr("ui.off","OFF");
+    if (setting.kind==SettingKind::Choice && value.is_string())
+        return Translations().Choice(mod.id,setting.id,value.get<std::string>());
+    if (setting.kind==SettingKind::Hotkey && value.is_number_integer())
+        return value.get<int>() == 0 ? Tr("ui.hotkey.unbound","Not assigned") : InputRouter::DescribeKey(value.get<int>());
+    if (value.is_number_float()) {
+        char buffer[48]{};
+        std::snprintf(buffer,sizeof(buffer),"%.2f",value.get<double>());
+        return buffer;
+    }
+    return value.is_string() ? value.get<std::string>() : value.dump();
+}
+
+void NotifySaved(const ModView& mod,const SettingView& setting,const nlohmann::json& value) {
+    ShowToast(Tr("toast.setting_saved","Saved: ") + setting.label + " — " +
+              SettingValueLabel(mod,setting,value),2.8f,ToastKind::Success);
+}
+bool SetFromUI(const ModView& mod,const SettingView& setting,const nlohmann::json& value,bool notify=true) {
+    if (!Settings().Set(mod.id,setting.id,value)) {
+        ShowToast(Tr("toast.setting_failed","Could not save: ") + setting.label,3.5f,ToastKind::Error);
+        return false;
+    }
+    if (notify && value!=setting.value) {
+        const auto committed=Settings().Get(mod.id,setting.id);
+        if (committed) NotifySaved(mod,setting,*committed);
+    }
+    return true;
+}
+void RequestAction(const ModView& mod,const std::string& id,const std::string& label) {
+    const bool queued=Settings().QueueAction(mod.id,id);
+    ShowToast((queued ? Tr("toast.action_requested","Action requested: ") :
+                        Tr("toast.action_failed","Action could not be queued: ")) + label,
+              2.8f,queued ? ToastKind::Info : ToastKind::Error);
+}
+
 void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     auto& input = InputRouter::Get();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -332,6 +371,7 @@ std::string FitLabel(std::string label, float available) {
 // directly into the foreground list adds no focus/input-capturing window.
 void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
                 const ImVec2& panelSize) {
+    std::lock_guard lock(ToastMutex());
     auto& queue = ToastQueue();
     if (queue.empty() || !viewport) return;
 
@@ -396,7 +436,7 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     // viewport is short, keep it visible rather than rendering offscreen.
     const float width = std::min(840.f, std::max(1.f, viewport->Size.x - 36.f));
     const float x = viewport->Pos.x + (viewport->Size.x - width) * .5f;
-    const float idealY = panelPos.y + panelSize.y + 48.f;
+    const float idealY = panelPos.y + panelSize.y + 24.f;
     const float lastY = viewport->Pos.y + viewport->Size.y - kHeight - 18.f;
     const float y = std::max(viewport->Pos.y + 10.f,
                               std::min(idealY, lastY)) + movement;
@@ -440,11 +480,13 @@ void DrawToasts(ImGuiViewport* viewport, const ImVec2& panelPos,
     const bool showStatus = width >= 460.f;
     const float statusX = x + width - 28.f - statusBounds.x;
     const float textEnd = showStatus ? statusX - 22.f : x + width - 20.f;
-    const std::string message = FitLabel(toast.text,
-                                         std::max(20.f, textEnd - textX));
-    const ImVec2 textBounds = ImGui::CalcTextSize(message.c_str());
-    draw->AddText(ImVec2(textX, y + (kHeight - textBounds.y) * .5f),
-                  dark, message.c_str());
+    ImFont* messageFont=fonts::body ? fonts::body : ImGui::GetFont();
+    const float messageWidth=std::max(20.f,textEnd-textX);
+    const ImVec2 textBounds=messageFont->CalcTextSizeA(messageFont->FontSize,10000.f,messageWidth,toast.text.c_str());
+    const ImVec4 clip(textX,y+8.f,textEnd,y+kHeight-8.f);
+    draw->AddText(messageFont,messageFont->FontSize,
+                  ImVec2(textX,y+std::max(8.f,(kHeight-textBounds.y)*.5f)),
+                  dark,toast.text.c_str(),nullptr,messageWidth,&clip);
     if (showStatus) {
         draw->AddText(statusFont, statusSize,
                       ImVec2(statusX, y + (kHeight - statusBounds.y) * .5f),
@@ -584,7 +626,7 @@ void DrawSwitch(const ModView& mod,const SettingView& setting,
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,active);
         ImGui::PushStyleColor(ImGuiCol_Text,foreground);
         if (ImGui::Button(label,ImVec2(buttonWidth,32.f)) && enabled!=target)
-            (void)Settings().Set(mod.id,setting.id,target);
+            (void)SetFromUI(mod,setting,target);
         ImGui::PopStyleColor(4);
     };
     const std::string off = Tr("ui.off", "OFF") + "##switch";
@@ -625,19 +667,19 @@ void DrawChoice(const ModView& mod,const SettingView& setting,const Palette& p,f
     const int index = it == setting.choices.end() ? 0 :
         static_cast<int>(std::distance(setting.choices.begin(),it));
     if (ImGui::Button("<##previous",ImVec2(32.f,32.f)))
-        (void)Settings().Set(mod.id,setting.id,setting.choices[(index+count-1)%count]);
+        (void)SetFromUI(mod,setting,setting.choices[(index+count-1)%count]);
     ImGui::SameLine(0,0);
     // The center is a functional next-choice button, not a fake display.
     const std::string display = Translations().Choice(mod.id, setting.id, value);
     const std::string clipped=FitLabel(display,std::max(15.f,width-92.f));
     if (ImGui::Button((clipped+"##current").c_str(),
                       ImVec2(std::max(16.f,width-64.f),32.f)))
-        (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
+        (void)SetFromUI(mod,setting,setting.choices[(index+1)%count]);
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
         ShowTooltip(setting.label,display,p);
     ImGui::SameLine(0,0);
     if (ImGui::Button(">##next",ImVec2(32.f,32.f)))
-        (void)Settings().Set(mod.id,setting.id,setting.choices[(index+1)%count]);
+        (void)SetFromUI(mod,setting,setting.choices[(index+1)%count]);
 }
 
 void DrawSetting(const ModView& mod,const SettingView& setting,
@@ -678,14 +720,14 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         const auto caption = FitLabel(setting.buttonLabel,76.f);
         if (ImGui::Button((caption+"##inline-action").c_str(),
                           ImVec2(std::max(32.f,controls-sliderWidth-8.f),32.f)))
-            (void)Settings().QueueAction(mod.id,setting.buttonId);
+            RequestAction(mod,setting.buttonId,setting.buttonLabel);
     };
     switch (setting.kind) {
     case SettingKind::Boolean:
         if (setting.checkbox) {
             bool checked = setting.value.get<bool>();
             if (ImGui::Checkbox("##checkbox", &checked))
-                (void)Settings().Set(mod.id,setting.id,checked);
+                (void)SetFromUI(mod,setting,checked);
         } else {
             DrawSwitch(mod,setting,p,controls);
         }
@@ -695,9 +737,15 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         const int lower=static_cast<int>(setting.minimum);
         const int upper=static_cast<int>(setting.maximum);
         ImGui::SetNextItemWidth(sliderWidth);
-        if (ImGui::SliderInt("##value",&value,lower,upper,"%d",
-                             ImGuiSliderFlags_AlwaysClamp))
-            (void)Settings().Set(mod.id,setting.id,value);
+        static bool saved=true;
+        const bool changed=ImGui::SliderInt("##value",&value,lower,upper,"%d",
+                             ImGuiSliderFlags_AlwaysClamp);
+        if (ImGui::IsItemActivated()) saved=true;
+        if (changed) saved=SetFromUI(mod,setting,value,false);
+        if (ImGui::IsItemDeactivatedAfterEdit() && saved) {
+            const auto committed=Settings().Get(mod.id,setting.id);
+            if (committed) NotifySaved(mod,setting,*committed);
+        }
         DrawSliderGrabOutline(p,value,lower,upper,true);
         drawInlineAction();
         break;
@@ -707,9 +755,15 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         const float lower=static_cast<float>(setting.minimum);
         const float upper=static_cast<float>(setting.maximum);
         ImGui::SetNextItemWidth(sliderWidth);
-        if (ImGui::SliderFloat("##value",&value,lower,upper,"%.2f",
-                               ImGuiSliderFlags_AlwaysClamp))
-            (void)Settings().Set(mod.id,setting.id,static_cast<double>(value));
+        static bool saved=true;
+        const bool changed=ImGui::SliderFloat("##value",&value,lower,upper,"%.2f",
+                               ImGuiSliderFlags_AlwaysClamp);
+        if (ImGui::IsItemActivated()) saved=true;
+        if (changed) saved=SetFromUI(mod,setting,static_cast<double>(value),false);
+        if (ImGui::IsItemDeactivatedAfterEdit() && saved) {
+            const auto committed=Settings().Get(mod.id,setting.id);
+            if (committed) NotifySaved(mod,setting,*committed);
+        }
         DrawSliderGrabOutline(p,value,lower,upper,false);
         drawInlineAction();
         break;
@@ -720,7 +774,7 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
     case SettingKind::Action:
         if (ImGui::Button((FitLabel(setting.buttonLabel,controls-15.f)+"##action").c_str(),
                           ImVec2(controls,32.f)))
-            (void)Settings().QueueAction(mod.id,setting.id);
+            RequestAction(mod,setting.id,setting.buttonLabel);
         break;
     case SettingKind::Hotkey: {
         auto& input = InputRouter::Get();
@@ -733,7 +787,8 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         const float keyWidth = std::max(65.f, controls - 78.f);
         if (ImGui::Button((FitLabel(display,keyWidth-18.f)+"##mod-key").c_str(),
                           ImVec2(keyWidth,32.f)) && !capturing)
-            (void)input.BeginModRebind(mod.id, setting.id);
+            if (!input.BeginModRebind(mod.id, setting.id))
+                ShowToast(Tr("toast.capture_failed","Could not start shortcut capture"),3.2f,ToastKind::Warning);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             ShowTooltip(setting.label,Tr("ui.hotkey.help",
                 "Press a keyboard key to bind. Escape cancels; the M1 Arc menu key is reserved."),p);
@@ -743,7 +798,7 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         if (ImGui::Button((auxiliary+"##mod-key-clear").c_str(),
                           ImVec2(std::max(40.f,controls-keyWidth-8.f),32.f))) {
             if (capturing) input.CancelModRebind();
-            else (void)Settings().Set(mod.id,setting.id,0);
+            else (void)SetFromUI(mod,setting,0);
         }
         break;
     }
@@ -835,8 +890,12 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     if (ImGui::BeginCombo("##m1arc-language",nativeName.c_str())) {
         for (const auto& lang : langs) {
             const bool selected = lang.code == currentLang;
-            if (ImGui::Selectable(lang.name.c_str(),selected))
-                (void)Translations().Select(lang.code);
+            if (ImGui::Selectable(lang.name.c_str(),selected) && !selected) {
+                const bool changed=Translations().Select(lang.code);
+                ShowToast((changed ? Tr("toast.language_saved","Language updated: ") :
+                                     Tr("toast.language_failed","Could not change language: ")) + lang.name,
+                          3.2f,changed ? ToastKind::Success : ToastKind::Error);
+            }
             if (selected) ImGui::SetItemDefaultFocus();
         }
         ImGui::EndCombo();
@@ -844,10 +903,6 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
         ShowTooltip(Tr("ui.language", "Language"),nativeName,p);
 
-    if (!Theme().message.empty()) {
-        ImGui::SameLine();
-        ImGui::TextDisabled("%s",Theme().message.c_str());
-    }
     if (selected) {
         ImGui::SetCursorScreenPos(ImVec2(foot.x+width-116.f-pad,foot.y+12.f));
         const bool dark = p.paper.x < .2f;
@@ -954,14 +1009,24 @@ void DrawRebindModal(const Palette& p) {
 } // namespace
 
 void ShowToast(std::string message, float seconds, ToastKind kind) {
+    if (message.empty()) return;
+    std::lock_guard lock(ToastMutex());
     auto& queue = ToastQueue();
+    if (std::any_of(queue.begin(),queue.end(),[&](const Toast& toast) {
+            return toast.kind==kind && toast.text==message;
+        })) return;
     queue.push_back({std::move(message), 0.f, std::max(0.6f, seconds), kind});
-    while (queue.size() > 4) queue.pop_front();   // cap backlog
+    while (queue.size() > 4) queue.pop_front(); // bounded backlog
 }
 
 void DrawArcUI() {
     auto& input = InputRouter::Get();
-    if (!input.IsOpen()) return;
+    if (!input.IsOpen()) {
+        // First-run/recovery Save closes the panel; feedback must still be visible.
+        auto* viewport=ImGui::GetMainViewport();
+        DrawToasts(viewport,viewport->Pos,viewport->Size);
+        return;
+    }
 
     const auto& theme = Theme();
     const Palette palette = Colors(theme.dark);
