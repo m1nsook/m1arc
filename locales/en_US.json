@@ -14,8 +14,8 @@
     "ui.on": "ON",
     "ui.off": "OFF",
     "ui.rebind_heading": "M1 ARC  //  CHOOSE MENU KEY",
-    "ui.rebind_press": "Press your preferred keyboard key.",
-    "ui.rebind_reserved": "Windows keys, modifiers and Escape are reserved.",
+    "ui.rebind_press": "Click Capture, press a key or combination, then Save.",
+    "ui.rebind_reserved": "Ctrl and Shift may be combined with a key. Alt, Windows and Escape are reserved.",
     "ui.cancel": "Cancel",
     "toast.theme_dark": "Your theme has been updated to Dark mode!",
     "toast.theme_light": "Your theme has been updated to Light mode!",
@@ -29,6 +29,10 @@
     "ui.hotkey.press": "Press a key...",
     "ui.hotkey.unbound": "Not assigned",
     "ui.hotkey.clear": "Clear",
-    "ui.hotkey.help": "Press a keyboard key to bind. Escape cancels; the M1 Arc menu key is reserved."
+    "ui.hotkey.help": "Press a keyboard key to bind. Escape cancels; the M1 Arc menu key is reserved.",
+    "ui.rebind_recovery": "Recovery: Ctrl + Shift + F11",
+    "ui.rebind_capture": "Capture",
+    "ui.rebind_save": "Save",
+    "ui.rebind_failed": "Shortcut could not be saved"
   }
 }

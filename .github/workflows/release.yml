@@ -274,10 +274,9 @@ jobs:
           · [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311)
           '@
           $notes.Replace("{tag}", $tag) | Set-Content -Path release-notes.md -Encoding utf8
-          # For the first public version use reviewed release notes from the
-          # main-branch publication PR, not generic preview notes.
-          if ($tag -eq "v1.0.0" -and (Test-Path ".github/releases/v1.0.0.md")) {
-            Copy-Item ".github/releases/v1.0.0.md" "release-notes.md" -Force
+          # Prefer reviewed version-specific notes when present.
+          if (Test-Path ".github/releases/$tag.md") {
+            Copy-Item ".github/releases/$tag.md" "release-notes.md" -Force
           }
           $files = @(
             "${{ steps.package.outputs.release_zip }}",

@@ -14,8 +14,8 @@
     "ui.on": "켜기",
     "ui.off": "끄기",
     "ui.rebind_heading": "M1 ARC  //  메뉴 키 선택",
-    "ui.rebind_press": "원하는 키보드 키를 누르세요.",
-    "ui.rebind_reserved": "Windows 키, 보조 키, Escape는 사용할 수 없습니다.",
+    "ui.rebind_press": "입력을 클릭한 후 키 또는 키 조합을 누르고 저장하세요.",
+    "ui.rebind_reserved": "Ctrl과 Shift는 다른 키와 조합할 수 있습니다. Alt, Windows, Escape는 사용할 수 없습니다.",
     "ui.cancel": "취소",
     "toast.theme_dark": "어두운 테마로 변경했습니다!",
     "toast.theme_light": "밝은 테마로 변경했습니다!",
@@ -29,6 +29,10 @@
     "ui.hotkey.press": "키를 누르세요...",
     "ui.hotkey.unbound": "미지정",
     "ui.hotkey.clear": "지우기",
-    "ui.hotkey.help": "설정할 키를 누르세요. Escape는 취소하며 M1 Arc 메뉴 키는 사용할 수 없습니다."
+    "ui.hotkey.help": "설정할 키를 누르세요. Escape는 취소하며 M1 Arc 메뉴 키는 사용할 수 없습니다.",
+    "ui.rebind_recovery": "복구: Ctrl + Shift + F11",
+    "ui.rebind_capture": "입력",
+    "ui.rebind_save": "저장",
+    "ui.rebind_failed": "단축키를 저장할 수 없습니다"
   }
 }

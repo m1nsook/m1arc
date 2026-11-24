@@ -31,7 +31,7 @@ using RED4ext::IScriptable;
 void Version(IScriptable*,CStackFrame* frame,CString* output,std::int64_t)
 {
     frame->code++;
-    if (output) *output=CString("1.0.0");
+    if (output) *output=CString("1.0.1");
 }
 void Register(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
 {
@@ -360,7 +360,7 @@ RED4EXT_C_EXPORT void RED4EXT_CALL Query(RED4ext::v1::PluginInfo* info)
 {
     info->name=L"m1arc";
     info->author=L"MISO";
-    info->version=RED4EXT_V1_SEMVER(1,0,0);
+    info->version=RED4EXT_V1_SEMVER(1,0,1);
     info->runtime=RED4EXT_V1_RUNTIME_VERSION_LATEST;
     info->sdk=RED4EXT_V1_SDK_VERSION_CURRENT;
 }

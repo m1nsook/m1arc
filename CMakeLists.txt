@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(M1Arc VERSION 1.0.0 LANGUAGES CXX)
+project(M1Arc VERSION 1.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -82,6 +82,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(m1arc_menu_shortcut_tests tests/menu_shortcut_tests.cpp)
+    target_include_directories(m1arc_menu_shortcut_tests PRIVATE src)
+    add_test(NAME menu_shortcut COMMAND m1arc_menu_shortcut_tests)
     if(WIN32)
         # Reuse the working m1core click tests with a replaceable backend.
         # This target never clicks the OS cursor while running in CI.

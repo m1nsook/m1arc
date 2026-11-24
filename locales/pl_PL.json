@@ -14,8 +14,8 @@
     "ui.on": "WŁ.",
     "ui.off": "WYŁ.",
     "ui.rebind_heading": "M1 ARC  //  WYBIERZ KLAWISZ MENU",
-    "ui.rebind_press": "Naciśnij wybrany klawisz klawiatury.",
-    "ui.rebind_reserved": "Klawisze Windows, modyfikatory i Escape są zarezerwowane.",
+    "ui.rebind_press": "Kliknij Przechwyć, naciśnij klawisz lub kombinację, a następnie Zapisz.",
+    "ui.rebind_reserved": "Ctrl i Shift można łączyć z klawiszem. Alt, Windows i Escape są zarezerwowane.",
     "ui.cancel": "Anuluj",
     "toast.theme_dark": "Zmieniono motyw na ciemny!",
     "toast.theme_light": "Zmieniono motyw na jasny!",
@@ -29,6 +29,10 @@
     "ui.hotkey.press": "Naciśnij klawisz...",
     "ui.hotkey.unbound": "Nie przypisano",
     "ui.hotkey.clear": "Wyczyść",
-    "ui.hotkey.help": "Naciśnij klawisz, aby przypisać skrót. Escape anuluje; klawisz menu M1 Arc jest zarezerwowany."
+    "ui.hotkey.help": "Naciśnij klawisz, aby przypisać skrót. Escape anuluje; klawisz menu M1 Arc jest zarezerwowany.",
+    "ui.rebind_recovery": "Odzyskiwanie: Ctrl + Shift + F11",
+    "ui.rebind_capture": "Przechwyć",
+    "ui.rebind_save": "Zapisz",
+    "ui.rebind_failed": "Nie udało się zapisać skrótu"
   }
 }
