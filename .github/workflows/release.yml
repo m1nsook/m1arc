@@ -1,8 +1,8 @@
 name: Build M1 Arc Release
 
 # Manually invoked from Actions -> Build M1 Arc Release -> Run workflow.
-# Draft releases remain the default. Public publishing requires explicitly
-# setting the publish input to true. No automatic release on branch pushes.
+# Manual runs publish by default; uncheck publish for a draft test build.
+# No automatic release on branch pushes.
 on:
   workflow_dispatch:
     inputs:
@@ -11,10 +11,10 @@ on:
         required: true
         type: string
       publish:
-        description: "Publish to GitHub Releases now? Leave OFF for testing."
+        description: "Publish release (uncheck only for draft testing)"
         required: true
         type: boolean
-        default: false
+        default: true
       ui_test:
         description: "Also build a UI Test ZIP for toasts and sidebar (draft only)"
         required: true
