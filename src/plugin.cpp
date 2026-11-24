@@ -15,6 +15,7 @@
 
 #include <RED4ext/RED4ext.hpp>
 #include <Windows.h>
+#include <winver.h>
 
 #include <atomic>
 #include <cstdint>

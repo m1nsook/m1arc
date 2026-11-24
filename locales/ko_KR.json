@@ -53,14 +53,15 @@
     "ui.logs_back_help": "모드 설정으로 돌아갑니다.",
     "ui.logs_switch_help": "선택한 모드의 진단 로그를 표시합니다.",
     "ui.logs_session": "현재 세션 · 최신순",
-    "ui.logs_copy": "클립보드에 복사",
+    "ui.logs_copy": "진단 정보 복사",
     "ui.logs_clear": "로그 지우기",
     "ui.logs_confirm": "삭제 확인",
     "ui.logs_empty": "현재 세션에 이 모드의 로그가 없습니다.",
     "ui.logs_entries": "개 항목",
-    "toast.logs_copied": "로그를 클립보드에 복사했습니다",
+    "toast.logs_copied": "진단 정보를 클립보드에 복사했습니다",
     "toast.logs_cleared": "선택한 모드의 로그를 지웠습니다",
     "toast.logs_clear_failed": "로그를 지울 수 없습니다",
-    "toast.logs_copy_failed": "로그를 클립보드에 복사할 수 없습니다"
+    "toast.logs_copy_failed": "진단 정보를 복사할 수 없습니다",
+    "ui.logs_copy_help": "선택한 모드의 설정, 로그 및 프레임워크 시작 진단 정보를 복사합니다. 공유하기 전에 확인하세요."
   }
 }

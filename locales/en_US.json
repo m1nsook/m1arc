@@ -53,14 +53,15 @@
     "ui.logs_back_help": "Return to mod settings.",
     "ui.logs_switch_help": "View diagnostic logs for the selected mod.",
     "ui.logs_session": "Current session · Newest first",
-    "ui.logs_copy": "Copy to clipboard",
+    "ui.logs_copy": "Copy diagnostics",
     "ui.logs_clear": "Clear logs",
     "ui.logs_confirm": "Confirm clear",
     "ui.logs_empty": "No logs for this mod in the current session.",
     "ui.logs_entries": "entries",
-    "toast.logs_copied": "Logs copied to clipboard",
+    "toast.logs_copied": "Diagnostics copied to clipboard",
     "toast.logs_cleared": "Selected mod logs cleared",
     "toast.logs_clear_failed": "Could not clear logs",
-    "toast.logs_copy_failed": "Could not copy logs to clipboard"
+    "toast.logs_copy_failed": "Could not copy diagnostics to clipboard",
+    "ui.logs_copy_help": "Copies the selected mod's settings, logs and framework startup diagnostics. Review before sharing."
   }
 }

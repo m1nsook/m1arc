@@ -1045,7 +1045,7 @@ void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,floa
     auto& confirmation=PendingLogClear();
     if (selected==mods.end() || confirmation!=selected->id) confirmation.clear();
     const bool confirming=!confirmation.empty();
-    const std::string copyLabel=Tr("ui.logs_copy","Copy to clipboard");
+    const std::string copyLabel=Tr("ui.logs_copy","Copy diagnostics");
     const std::string clearLabel=confirming ? Tr("ui.logs_confirm","Confirm clear") : Tr("ui.logs_clear","Clear logs");
     const std::string cancelLabel=Tr("ui.cancel","Cancel");
     const float copyWidth=ImGui::CalcTextSize(copyLabel.c_str()).x+24.f;
@@ -1059,10 +1059,13 @@ void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,floa
         ImGui::SetClipboardText(text.c_str());
         const char* copied=ImGui::GetClipboardText();
         const bool ok=copied && text==copied;
-        ShowToast(ok ? Tr("toast.logs_copied","Logs copied to clipboard") :
-                       Tr("toast.logs_copy_failed","Could not copy logs to clipboard"),
+        ShowToast(ok ? Tr("toast.logs_copied","Diagnostics copied to clipboard") :
+                       Tr("toast.logs_copy_failed","Could not copy diagnostics to clipboard"),
                   2.8f,ok ? ToastKind::Success : ToastKind::Error);
     }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(Tr("ui.logs_copy","Copy diagnostics"),
+            Tr("ui.logs_copy_help","Copies the selected mod's settings, logs and framework startup diagnostics. Review before sharing."),p);
     if (copyWidth+8.f+clearWidth<=available) ImGui::SameLine();
     ImGui::BeginDisabled(rows.empty());
     if (ImGui::Button(clearLabel.c_str(),ImVec2(std::min(clearWidth,available),32.f))) {
