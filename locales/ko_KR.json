@@ -33,6 +33,18 @@
     "ui.rebind_recovery": "복구: Ctrl + Shift + F11",
     "ui.rebind_capture": "입력",
     "ui.rebind_save": "저장",
-    "ui.rebind_failed": "단축키를 저장할 수 없습니다"
+    "ui.rebind_failed": "단축키를 저장할 수 없습니다",
+    "ui.rebind_current": "현재 단축키",
+    "ui.rebind_candidate": "새 단축키",
+    "ui.rebind_listening": "키 입력 대기 중",
+    "toast.setting_saved": "저장됨: ",
+    "toast.setting_failed": "저장 실패: ",
+    "toast.action_requested": "작업 요청: ",
+    "toast.action_failed": "작업 요청 실패: ",
+    "toast.capture_failed": "단축키 입력을 시작할 수 없습니다",
+    "toast.language_saved": "언어 변경: ",
+    "toast.language_failed": "언어 변경 실패: ",
+    "toast.shortcut_saved": "메뉴 단축키 저장: ",
+    "toast.mod_shortcut_saved": "모드 단축키 저장: "
   }
 }

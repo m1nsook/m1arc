@@ -284,7 +284,8 @@ bool Registry::QueueAction(std::string_view mod, std::string_view action)
     auto& pending = pendingActions_[it->first][std::string(action)];
     // Bound the queue: repeatedly clicking during a paused game cannot
     // create unlimited delayed game effects.
-    if (pending < 16u) ++pending;
+    if (pending >= 16u) return false;
+    ++pending;
     return true;
 }
 

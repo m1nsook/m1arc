@@ -20,6 +20,7 @@ public:
     void Detach() noexcept;
     void ArmFirstRun() noexcept;
     void SetRendererReady(bool ready) noexcept;
+    void FlushWheel() noexcept; // called on the ImGui frame thread
     void Toggle() noexcept;
     void BeginRebind() noexcept;
     void CancelRebind() noexcept;
@@ -54,6 +55,8 @@ private:
     void KeyEdge(unsigned code, bool down) noexcept;
     void HandleRawInput(HRAWINPUT raw) noexcept;
     void HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept;
+    void ClearWheel() noexcept;
+    std::atomic<int> rawWheelX_{0}, rawWheelY_{0}, legacyWheelX_{0}, legacyWheelY_{0};
     void SyncCursorOnWindowThread() noexcept;
     bool WantsCursor() const noexcept;
     bool CanCapture() const noexcept;

@@ -33,6 +33,18 @@
     "ui.rebind_recovery": "Odzyskiwanie: Ctrl + Shift + F11",
     "ui.rebind_capture": "Przechwyć",
     "ui.rebind_save": "Zapisz",
-    "ui.rebind_failed": "Nie udało się zapisać skrótu"
+    "ui.rebind_failed": "Nie udało się zapisać skrótu",
+    "ui.rebind_current": "AKTUALNY SKRÓT",
+    "ui.rebind_candidate": "NOWY SKRÓT",
+    "ui.rebind_listening": "OCZEKIWANIE NA KLAWISZ",
+    "toast.setting_saved": "Zapisano: ",
+    "toast.setting_failed": "Nie udało się zapisać: ",
+    "toast.action_requested": "Zlecono akcję: ",
+    "toast.action_failed": "Nie udało się zlecić akcji: ",
+    "toast.capture_failed": "Nie udało się rozpocząć przypisywania skrótu",
+    "toast.language_saved": "Zmieniono język: ",
+    "toast.language_failed": "Nie udało się zmienić języka: ",
+    "toast.shortcut_saved": "Zapisano skrót menu: ",
+    "toast.mod_shortcut_saved": "Zapisano skrót moda: "
   }
 }

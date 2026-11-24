@@ -33,6 +33,18 @@
     "ui.rebind_recovery": "Recovery: Ctrl + Shift + F11",
     "ui.rebind_capture": "Capture",
     "ui.rebind_save": "Save",
-    "ui.rebind_failed": "Shortcut could not be saved"
+    "ui.rebind_failed": "Shortcut could not be saved",
+    "ui.rebind_current": "CURRENT SHORTCUT",
+    "ui.rebind_candidate": "NEW SHORTCUT",
+    "ui.rebind_listening": "LISTENING FOR INPUT",
+    "toast.setting_saved": "Saved: ",
+    "toast.setting_failed": "Could not save: ",
+    "toast.action_requested": "Action requested: ",
+    "toast.action_failed": "Action could not be queued: ",
+    "toast.capture_failed": "Could not start shortcut capture",
+    "toast.language_saved": "Language updated: ",
+    "toast.language_failed": "Could not change language: ",
+    "toast.shortcut_saved": "Menu shortcut saved: ",
+    "toast.mod_shortcut_saved": "Mod shortcut saved: "
   }
 }

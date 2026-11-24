@@ -1,4 +1,6 @@
 #include "input.hpp"
+#include "ui.hpp"
+#include "localization.hpp"
 #include "graphics.hpp"
 #include "registry.hpp"
 #include "state.hpp"
@@ -90,6 +92,7 @@ bool InputRouter::Attach(HWND hwnd) noexcept
 
 void InputRouter::Detach() noexcept
 {
+    ClearWheel();
     auto* hwnd = window_.load();
     open_.store(false);
     recording_.store(false);
@@ -341,12 +344,17 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
         } else if (down && Bindable(static_cast<int>(code)) &&
                    !MatchesMenuShortcut(shortcut_.load(),static_cast<int>(code),0)) {
             if (Settings().Set(modCaptureId_,modCaptureSetting_,static_cast<int>(code))) {
+                ShowToast(Translations().Text("toast.mod_shortcut_saved","Mod shortcut saved: ") +
+                          DescribeKey(static_cast<int>(code)),2.8f,ToastKind::Success);
                 modRecording_.store(false);
                 modCaptureId_.clear();
                 modCaptureSetting_.clear();
                 // Do not fire the newly assigned shortcut on release.
                 justAssigned_ = static_cast<int>(code);
                 skipAssignedKeyRelease_ = true;
+            } else {
+                ShowToast(Translations().Text("toast.setting_failed","Could not save: ") +
+                          modCaptureSetting_,3.5f,ToastKind::Error);
             }
         }
         return;
@@ -377,9 +385,35 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
     }
 }
 
+void InputRouter::ClearWheel() noexcept
+{
+    rawWheelX_.exchange(0);
+    rawWheelY_.exchange(0);
+    legacyWheelX_.exchange(0);
+    legacyWheelY_.exchange(0);
+}
+
+void InputRouter::FlushWheel() noexcept
+{
+    // WndProc only accumulates wheel deltas. Submit on the frame thread so
+    // NewFrame cannot race a wheel event being appended to ImGui's queue.
+    const int rawX=rawWheelX_.exchange(0), rawY=rawWheelY_.exchange(0);
+    const int legacyX=legacyWheelX_.exchange(0), legacyY=legacyWheelY_.exchange(0);
+    if (!CanCapture() || !ImGui::GetCurrentContext()) return;
+    // A physical wheel tick can arrive via both RAWINPUT and legacy Win32.
+    const int x=rawX ? rawX : legacyX, y=rawY ? rawY : legacyY;
+    if (x || y) ImGui::GetIO().AddMouseWheelEvent(
+        -static_cast<float>(x)/WHEEL_DELTA,static_cast<float>(y)/WHEEL_DELTA);
+}
+
 void InputRouter::HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept
 {
-    if (!CanCapture() || !ImGui::GetCurrentContext()) return;
+    if (!CanCapture()) return;
+    if (mouse.usButtonFlags & RI_MOUSE_WHEEL)
+        rawWheelY_.fetch_add(static_cast<SHORT>(mouse.usButtonData));
+    if (mouse.usButtonFlags & RI_MOUSE_HWHEEL)
+        rawWheelX_.fetch_add(static_cast<SHORT>(mouse.usButtonData));
+    if (!ImGui::GetCurrentContext()) return;
     struct MouseAction { USHORT flag; UINT event; };
     constexpr MouseAction actions[] = {
         {RI_MOUSE_LEFT_BUTTON_DOWN, WM_LBUTTONDOWN},
@@ -392,12 +426,6 @@ void InputRouter::HandleRawMouse(HWND hwnd, const RAWMOUSE& mouse) noexcept
     for (const auto& action : actions)
         if (mouse.usButtonFlags & action.flag)
             ImGui_ImplWin32_WndProcHandler(hwnd, action.event, 0, 0);
-    if (mouse.usButtonFlags & RI_MOUSE_WHEEL)
-        ImGui_ImplWin32_WndProcHandler(hwnd, WM_MOUSEWHEEL,
-            MAKEWPARAM(0,mouse.usButtonData),0);
-    if (mouse.usButtonFlags & RI_MOUSE_HWHEEL)
-        ImGui_ImplWin32_WndProcHandler(hwnd, WM_MOUSEHWHEEL,
-            MAKEWPARAM(0,mouse.usButtonData),0);
 }
 
 void InputRouter::HandleRawInput(HRAWINPUT raw) noexcept
@@ -476,6 +504,7 @@ LRESULT InputRouter::Process(HWND hwnd, UINT msg, WPARAM w, LPARAM l) noexcept
     }
     if (msg == WM_KILLFOCUS || msg == WM_ACTIVATEAPP) {
         if (msg == WM_KILLFOCUS || !w) {
+            ClearWheel();
             {
                 std::lock_guard lock(stateMutex_);
                 held_.fill(false);
@@ -517,6 +546,11 @@ LRESULT InputRouter::Process(HWND hwnd, UINT msg, WPARAM w, LPARAM l) noexcept
     // Do not swallow game input unless ImGui has a completed GPU frame and
     // this menu owns the foreground game window / cursor.
     if (CanCapture()) {
+        if (msg==WM_MOUSEWHEEL || msg==WM_MOUSEHWHEEL) {
+            auto& wheel=msg==WM_MOUSEWHEEL ? legacyWheelY_ : legacyWheelX_;
+            wheel.fetch_add(static_cast<SHORT>(HIWORD(w)));
+            return 0;
+        }
         if (ImGui::GetCurrentContext() && msg != WM_INPUT)
             ImGui_ImplWin32_WndProcHandler(hwnd,msg,w,l);
         if (msg == WM_INPUT ||
