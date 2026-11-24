@@ -60,6 +60,8 @@ add_library(m1arc_localization STATIC src/localization.cpp)
 target_include_directories(m1arc_localization PUBLIC src)
 target_link_libraries(m1arc_localization PUBLIC m1arc_registry)
 
+option(M1ARC_ENABLE_DEV_PREVIEW "Compile development-only UI fixtures" OFF)
+
 if(WIN32)
     add_library(m1arc SHARED
         src/plugin.cpp
@@ -76,6 +78,9 @@ if(WIN32)
         d3d12 dxgi user32 version)
     target_compile_definitions(m1arc PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE RED4EXT_HEADER_ONLY)
+    if(M1ARC_ENABLE_DEV_PREVIEW)
+        target_compile_definitions(m1arc PRIVATE M1ARC_ENABLE_DEV_PREVIEW=1)
+    endif()
     set_target_properties(m1arc PROPERTIES
         OUTPUT_NAME "m1arc" PREFIX "")
 endif()

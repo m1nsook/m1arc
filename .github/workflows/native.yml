@@ -35,7 +35,7 @@ jobs:
       - name: Configure native RED4ext x64 DLL
         shell: pwsh
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON -DM1ARC_ENABLE_DEV_PREVIEW=OFF
           if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
       - name: Build native DLL and tests
         shell: pwsh
@@ -71,9 +71,8 @@ jobs:
           New-Item -ItemType Directory -Path $dst -Force | Out-Null
           Copy-Item "build/Release/m1arc.dll" "$dst/m1arc.dll"
           Copy-Item LICENSE "$dst/LICENSE"
-          # This is a DRAFT-only CI artifact, not a public release.
-          # Delete dev-preview.enabled to hide the temporary UI Test mod.
-          Set-Content -Path "$dst/dev-preview.enabled" -Value "M1 Arc UI Test (development only)" -Encoding ascii
+          # Clean test build: no demo marker or compiled demo registration.
+          if (Test-Path "$dst/dev-preview.enabled") { Remove-Item "$dst/dev-preview.enabled" -Force }
           # Pinned OFL/MIT assets. Do not include proprietary user-supplied Blender Pro.
           $fonts = Join-Path $dst "fonts"
           New-Item -ItemType Directory -Path $fonts -Force | Out-Null

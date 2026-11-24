@@ -19,7 +19,7 @@ on:
         description: "Also build a UI Test ZIP for toasts and sidebar (draft only)"
         required: true
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: write
@@ -76,7 +76,7 @@ jobs:
       - name: Configure native RED4ext x64 DLL
         shell: pwsh
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON -DM1ARC_ENABLE_DEV_PREVIEW=OFF
           if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
       - name: Build native DLL and tests
         shell: pwsh
@@ -199,6 +199,12 @@ jobs:
           if ($env:PUBLISH_RELEASE -ne "true" -and $env:INCLUDE_UI_TEST -eq "true") {
             $marker = "package/red4ext/plugins/m1arc/dev-preview.enabled"
             try {
+              # Build a separate demo DLL; the clean ZIP above always uses the production DLL.
+              cmake -S . -B build -DM1ARC_ENABLE_DEV_PREVIEW=ON
+              if ($LASTEXITCODE -ne 0) { throw "UI Test configure failed" }
+              cmake --build build --config Release --parallel 4 --target m1arc
+              if ($LASTEXITCODE -ne 0) { throw "UI Test build failed" }
+              Copy-Item "build/Release/m1arc.dll" "package/red4ext/plugins/m1arc/m1arc.dll" -Force
               Set-Content -Path $marker -Value "M1 Arc UI Test fixture (development only)" -Encoding ascii
               $previewZip = "m1arc-$tag-ui-test-game-root.zip"
               Compress-Archive -Path "package/*" -DestinationPath $previewZip -CompressionLevel Optimal

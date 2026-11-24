@@ -1,6 +1,8 @@
 #include "ui.hpp"
 #include "fonts.hpp"
+#ifdef M1ARC_ENABLE_DEV_PREVIEW
 #include "dev_fixture.hpp"
+#endif
 #include "localization.hpp"
 #include "phosphor_icons.hpp"
 #include "input.hpp"
@@ -252,6 +254,7 @@ bool SetFromUI(const ModView& mod,const SettingView& setting,const nlohmann::jso
     }
     return true;
 }
+#ifdef M1ARC_ENABLE_DEV_PREVIEW
 // The development fixture uses actual action registration and consumption.
 // These notifications are deliberately simulated and cannot run without
 // the opt-in marker having registered the fixture.
@@ -286,9 +289,13 @@ bool HandleDemoAction(const ModView& mod,const std::string& id) {
     return false;
 }
 
+#endif
+
 void RequestAction(const ModView& mod,const std::string& id,const std::string& label) {
     const bool queued=Settings().QueueAction(mod.id,id);
+#ifdef M1ARC_ENABLE_DEV_PREVIEW
     if (queued && HandleDemoAction(mod,id)) return;
+#endif
     ShowToast((queued ? Tr("toast.action_requested","Action requested: ") :
                         Tr("toast.action_failed","Action could not be queued: ")) + label,
               2.8f,queued ? ToastKind::Info : ToastKind::Error);

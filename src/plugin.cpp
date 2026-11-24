@@ -3,7 +3,9 @@
 #include "registry.hpp"
 #include "mod_manifest.hpp"
 #include "localization.hpp"
+#ifdef M1ARC_ENABLE_DEV_PREVIEW
 #include "dev_fixture.hpp"
+#endif
 #include "graphics.hpp"
 #include "input.hpp"
 #include "breach_select.hpp"
@@ -375,9 +377,10 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
             sdk->logger->Warn(handle,warning.c_str());
         }
     }
-    // Draft/dev artifact includes a marker; delete the marker to hide the
-    // temporary UI test mod. Normal releases must NOT include the marker.
+#ifdef M1ARC_ENABLE_DEV_PREVIEW
+    // Explicit development builds only. Normal DLLs ignore old markers.
     (void)m1arc::dev::RegisterIfEnabled(folder,m1arc::Settings());
+#endif
     auto* rtti=RED4ext::CRTTISystem::Get();
     if (!rtti) return false;
     rtti->AddRegisterCallback(RegisterTypes);
