@@ -92,3 +92,11 @@ Avoid logging every frame. M1 Arc retains up to 256 entries per mod and 4096 in
 total, newest first. Copy and Clear operate on the selected mod only. Logs are
 in-memory for the current game session; clearing them never touches disk logs.
 Existing mods' private diagnostics require opt-in calls to M1Arc_Log.
+
+The Copy Diagnostics report contains the selected mod's manifest version, current
+settings, pending action counts, recent scoped logs, detected executable/DLL
+file versions and framework startup rejection reasons. Review before sharing;
+mod-authored log messages may contain data chosen by the mod author. Use stable
+error codes and include the operation, inputs relevant to the failure, and reason
+where known. Do not log secrets or every polling call. A consumed action is not
+proof that the requested gameplay effect succeeded.

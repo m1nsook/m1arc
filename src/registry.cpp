@@ -121,6 +121,60 @@ bool Registry::ClearLogs(std::string_view mod)
     return true;
 }
 
+void Registry::SetDiagnosticEnvironment(std::string gameBuild,std::string loaderBuild)
+{
+    std::lock_guard guard(mutex_);
+    gameBuild_=std::move(gameBuild);
+    loaderBuild_=std::move(loaderBuild);
+}
+void Registry::AddStartupDiagnostic(std::string message)
+{
+    std::lock_guard guard(mutex_);
+    if (!message.empty() && message.size()<=kLogMessageBytes && startupDiagnostics_.size()<160)
+        startupDiagnostics_.push_back(std::move(message));
+}
+std::string Registry::DiagnosticReport(std::string_view mod) const
+{
+    std::lock_guard guard(mutex_);
+    std::string result="M1 ARC // SUPPORT DIAGNOSTICS\n"
+        "Report format: 1\nM1 Arc: 1.0.1\nGame executable file version: "+gameBuild_+
+        "\nRED4ext DLL file version: "+loaderBuild_+
+        "\nSettings store: "+(store_.Ready() ? "ready" : "unavailable")+
+        "\nSettings revision: "+std::to_string(store_.Revision())+"\n";
+    if (!store_.Ready()) {
+        const auto reason=store_.LastError();
+        if (!reason.empty()) result+="Settings store error: "+reason+"\n";
+    }
+    result+="Registered mods: "+std::to_string(mods_.size())+"\n";
+    const auto found=mods_.find(std::string(mod));
+    if (found!=mods_.end()) {
+        const auto& selected=found->second;
+        result+="\nSELECTED MOD\nName: "+selected.title+"\nID: "+selected.id+
+            "\nManifest version: "+(selected.version.empty() ? "unknown (no manifest version)" : selected.version)+"\n";
+        result+="\nCURRENT SETTINGS (selected mod only)\n";
+        for (const auto& row:selected.settings)
+            if (row.kind!=SettingKind::Action)
+                result+=row.id+" = "+row.value.dump(-1,' ',false,nlohmann::json::error_handler_t::replace)+"\n";
+        result+="\nPENDING ACTIONS\n";
+        const auto pending=pendingActions_.find(selected.id);
+        if (pending==pendingActions_.end() || pending->second.empty()) result+="None\n";
+        else for (const auto& [action,count]:pending->second)
+            result+=action+": "+std::to_string(count)+" not yet consumed\n";
+    } else result+="\nNo registered mod selected.\n";
+    result+="\nFRAMEWORK STARTUP DIAGNOSTICS\n";
+    if (startupDiagnostics_.empty()) result+="No startup diagnostics recorded.\n";
+    for (const auto& line:startupDiagnostics_) result+=line+"\n";
+    result+="\nSELECTED MOD LOGS (current session; newest first; bounded history)\n";
+    std::size_t count=0;
+    for (auto it=logs_.rbegin();it!=logs_.rend();++it) if (it->modId==mod) {
+        result+=it->timestamp+" ["+LogLevelName(it->level)+"] "+it->message+"\n";
+        ++count;
+    }
+    if (!count) result+="No retained entries.\n";
+    result+="\nNOTE: Action consumed does not prove gameplay success. Internal mod failures require explicit M1Arc_Log calls.\n";
+    return result;
+}
+
 bool ValidModScope(std::string_view scope) noexcept
 {
     constexpr std::array<std::string_view, 9> scopes{{
@@ -191,7 +245,7 @@ std::optional<nlohmann::json> Registry::Normalize(
 }
 
 bool Registry::Register(std::string id, std::string title, const nlohmann::json& definitions,
-                        std::string scope, std::string shortDesc)
+                        std::string scope, std::string shortDesc, std::string version)
 {
     // Metadata is visual only. Preserve the old 3-parameter REDscript API.
     if (!ValidId(id) || title.empty() || title.size() > 150 ||
@@ -318,6 +372,9 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
     std::lock_guard guard(mutex_);
     pendingActions_.erase(id); // Re-registration does not replay stale clicks.
     const bool first=!mods_.contains(id);
+    // A subsequent script registration must not erase manifest identity.
+    if (!first && version.empty()) version=mods_.at(id).version;
+    prepared.version=std::move(version);
     mods_[id] = std::move(prepared);
     if (first) AppendLogLocked(id,LogLevel::Info,"M1 Arc: mod registered");
     return true;
@@ -359,14 +416,14 @@ bool Registry::QueueAction(std::string_view mod, std::string_view action)
                    (!s.buttonId.empty() && s.buttonId == action);
         });
     if (!declared) {
-        AppendLogLocked(mod,LogLevel::Warning,"M1 Arc: unknown action");
+        AppendLogLocked(mod,LogLevel::Warning,"ARC_ACTION_UNKNOWN: action="+std::string(action.substr(0,96))+"; not declared in registered schema");
         return false;
     }
     auto& pending = pendingActions_[it->first][std::string(action)];
     // Bound the queue: repeatedly clicking during a paused game cannot
     // create unlimited delayed game effects.
     if (pending >= 16u) {
-        AppendLogLocked(mod,LogLevel::Warning,"M1 Arc: action queue full: "+std::string(action));
+        AppendLogLocked(mod,LogLevel::Warning,"ARC_ACTION_QUEUE_FULL: action="+std::string(action)+"; 16 requests pending; mod has not consumed them");
         return false;
     }
     ++pending;
@@ -449,18 +506,26 @@ bool Registry::Set(std::string_view mod, std::string_view key, const json& input
         [&](const SettingView& s) { return s.id == key; });
     if (found == it->second.settings.end()) {
         error_ = "Unknown setting";
+        AppendLogLocked(mod,LogLevel::Error,"ARC_SETTING_UNKNOWN: setting="+std::string(key.substr(0,96))+"; not registered");
         return false;
     }
     const auto next = Normalize(*found, input);
     if (!next) {
         error_ = "Invalid setting value";
+        AppendLogLocked(mod,LogLevel::Error,"ARC_SETTING_INVALID: setting="+std::string(key)+
+            "; received type="+input.type_name()+"; expected schema/default type="+found->defaultValue.type_name()+
+            "; rejected by registered schema");
         return false;
     }
     if (*next == found->value) {
         error_.clear();
         return true;
     }
-    if (!Commit(mod, key, *next)) return false;
+    if (!Commit(mod, key, *next)) {
+        AppendLogLocked(mod,LogLevel::Error,"ARC_SETTING_SAVE_FAILED: setting="+std::string(key)+
+            "; reason="+error_+"; previous value preserved");
+        return false;
+    }
     found->value = *next;
     return true;
 }
@@ -490,7 +555,10 @@ bool Registry::ResetMod(std::string_view mod)
         for (const auto& setting : it->second.settings)
             if (setting.kind != SettingKind::Action)
                 values[it->first][setting.id] = setting.defaultValue;
-    })) return false;
+    })) {
+        AppendLogLocked(mod,LogLevel::Error,"ARC_DEFAULTS_SAVE_FAILED: "+error_);
+        return false;
+    }
     for (auto& setting : it->second.settings)
         if (setting.kind != SettingKind::Action)
             setting.value = setting.defaultValue;

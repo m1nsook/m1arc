@@ -243,7 +243,6 @@ void NotifySaved(const ModView& mod,const SettingView& setting,const nlohmann::j
 }
 bool SetFromUI(const ModView& mod,const SettingView& setting,const nlohmann::json& value,bool notify=true) {
     if (!Settings().Set(mod.id,setting.id,value)) {
-        (void)Settings().AppendLog(mod.id,LogLevel::Error,"M1 Arc: failed to save setting: "+setting.id);
         ShowToast(Tr("toast.setting_failed","Could not save: ") + setting.label,3.5f,ToastKind::Error);
         return false;
     }
@@ -1001,8 +1000,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                            Tr("ui.defaults", "DEFAULTS") + "##mod").c_str(),
                           ImVec2(116.f,32.f))) {
             const bool restored = Settings().ResetMod(selected->id);
-            (void)Settings().AppendLog(selected->id,restored ? LogLevel::Info : LogLevel::Error,
-                                       restored ? "M1 Arc: defaults restored" : "M1 Arc: failed to restore defaults");
+            if (restored) (void)Settings().AppendLog(selected->id,LogLevel::Info,"M1 Arc: defaults restored");
             ShowToast(restored ? Tr("toast.defaults_restored_prefix", "Defaults restored for ") + selected->title
                                : Tr("toast.defaults_failed_prefix", "Failed to reset ") + selected->title,
                       3.2f, restored ? ToastKind::Success : ToastKind::Error);
@@ -1054,11 +1052,10 @@ void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,floa
     const float clearWidth=ImGui::CalcTextSize(clearLabel.c_str()).x+24.f;
     const float cancelWidth=ImGui::CalcTextSize(cancelLabel.c_str()).x+24.f;
     const float available=ImGui::GetContentRegionAvail().x;
-    ImGui::BeginDisabled(rows.empty());
+    // Even with no selected/registered mod or cleared history, the report
+    // can diagnose startup/manifest failures and settings configuration.
     if (ImGui::Button(copyLabel.c_str(),ImVec2(std::min(copyWidth,available),32.f))) {
-        std::string text=selected->title+" ["+selected->id+"]\n";
-        for (const auto& entry:rows)
-            text+=entry.timestamp+" ["+LogLevelName(entry.level)+"] "+entry.message+"\n";
+        const std::string text=Settings().DiagnosticReport(selected==mods.end() ? std::string_view{} : std::string_view(selected->id));
         ImGui::SetClipboardText(text.c_str());
         const char* copied=ImGui::GetClipboardText();
         const bool ok=copied && text==copied;
@@ -1067,6 +1064,7 @@ void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,floa
                   2.8f,ok ? ToastKind::Success : ToastKind::Error);
     }
     if (copyWidth+8.f+clearWidth<=available) ImGui::SameLine();
+    ImGui::BeginDisabled(rows.empty());
     if (ImGui::Button(clearLabel.c_str(),ImVec2(std::min(clearWidth,available),32.f))) {
         if (confirming) {
             if (Settings().ClearLogs(selected->id)) {

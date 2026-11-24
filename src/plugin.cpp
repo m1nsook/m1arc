@@ -22,6 +22,7 @@
 #include <cmath>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace {
 using RED4ext::CString;
@@ -304,6 +305,25 @@ void PostRegisterTypes()
     m1arc::breach::RegisterNative();
 }
 
+std::string ModuleFileVersion(HMODULE module)
+{
+    wchar_t path[MAX_PATH+1]{};
+    const auto length=GetModuleFileNameW(module,path,MAX_PATH);
+    if (!length || length>=MAX_PATH) return "unknown";
+    DWORD unused=0;
+    const DWORD size=GetFileVersionInfoSizeW(path,&unused);
+    if (!size || size>1024*1024) return "unknown";
+    std::vector<unsigned char> data(size);
+    if (!GetFileVersionInfoW(path,0,size,data.data())) return "unknown";
+    VS_FIXEDFILEINFO* info=nullptr;
+    UINT bytes=0;
+    if (!VerQueryValueW(data.data(),L"\\",reinterpret_cast<void**>(&info),&bytes) ||
+        !info || bytes<sizeof(VS_FIXEDFILEINFO)) return "unknown";
+    return std::to_string(HIWORD(info->dwFileVersionMS))+"."+
+        std::to_string(LOWORD(info->dwFileVersionMS))+"."+
+        std::to_string(HIWORD(info->dwFileVersionLS))+"."+
+        std::to_string(LOWORD(info->dwFileVersionLS));
+}
 std::filesystem::path ModuleDirectory()
 {
     HMODULE dll=nullptr;
@@ -339,6 +359,15 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     // Manifest discovery is native and data-only; REDscript supplies the
     // actual gameplay logic. No CET, Lua, or automatic code execution.
     const auto manifestReport=m1arc::LoadManifests(folder,m1arc::Settings());
+    const auto loader=GetModuleHandleW(L"RED4ext.dll");
+    m1arc::Settings().SetDiagnosticEnvironment(ModuleFileVersion(nullptr),
+        loader ? ModuleFileVersion(loader) : "unknown (DLL module not found)");
+    m1arc::Settings().AddStartupDiagnostic("Manifest discovery: "+
+        std::to_string(manifestReport.registered)+" registered; "+
+        std::to_string(manifestReport.rejected)+" rejected");
+    for (const auto& reason:manifestReport.errors)
+        m1arc::Settings().AddStartupDiagnostic("ARC_MANIFEST_REJECTED: "+reason);
+    m1arc::Settings().AddStartupDiagnostic(m1arc::breach::StatusMessage());
     if (sdk && sdk->logger && sdk->logger->Warn) {
         for (const auto& error:manifestReport.errors) {
             const std::string warning="m1arc mod: "+error;
@@ -358,6 +387,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     if (!sdk || !sdk->gameStates || !sdk->gameStates->Add ||
         !sdk->gameStates->Add(handle, RED4ext::EGameStateType::BaseInitialization,
                              &baseGameCallbacks)) {
+        m1arc::Settings().AddStartupDiagnostic("ARC_BASE_CALLBACK_UNAVAILABLE: first-run setup deferred");
         if (sdk && sdk->logger && sdk->logger->Warn)
             sdk->logger->Warn(handle,
                 "m1arc: base initialization callback unavailable; first-run setup deferred");
