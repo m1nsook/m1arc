@@ -1,6 +1,7 @@
 #include "../src/dev_fixture.hpp"
 #include "check.hpp"
 #include <filesystem>
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -22,13 +23,22 @@ int main() {
     std::ofstream(root/"dev-preview.enabled") << "M1 Arc development-only preview\n";
     REQUIRE(m1arc::dev::RegisterIfEnabled(root,registry));
     auto mods=registry.Snapshot();
-    REQUIRE(mods.size()==1);
-    REQUIRE(mods.front().scope=="UI/UX");
-    REQUIRE(mods.front().shortDesc=="Native settings and typography stress test");
-    REQUIRE(mods.front().settings.size() >= 35);
+    REQUIRE(mods.size()==m1arc::dev::kDemoCount);
+    const auto fixture=std::find_if(mods.begin(),mods.end(),[](const auto& mod){return mod.id=="m1arc.ui-test";});
+    REQUIRE(fixture!=mods.end());
+    REQUIRE(fixture->scope=="UI/UX");
+    REQUIRE(fixture->shortDesc=="Native settings and typography stress test");
+    REQUIRE(fixture->settings.size() >= 35);
+    const auto toast=std::find_if(mods.begin(),mods.end(),[](const auto& mod){return mod.id==m1arc::dev::kToastDemoId;});
+    REQUIRE(toast!=mods.end());
+    REQUIRE(toast->settings.size()==9);
+    REQUIRE(registry.QueueAction(toast->id,"toast_burst"));
+    REQUIRE(registry.ConsumeAction(toast->id,"toast_burst"));
+    REQUIRE(!registry.ConsumeAction(toast->id,"toast_burst"));
+    REQUIRE(m1arc::dev::previewEnabled.load());
     bool hasBool=false,hasInteger=false,hasFloat=false,hasChoice=false,hasLong=false;
     bool hasCheckbox=false,hasAction=false,hasInlineAction=false,hasWeapons=false,hasHotkey=false;
-    for(const auto& setting:mods.front().settings) {
+    for(const auto& setting:fixture->settings) {
         hasBool |= setting.kind==m1arc::SettingKind::Boolean;
         hasInteger |= setting.kind==m1arc::SettingKind::Integer;
         hasFloat |= setting.kind==m1arc::SettingKind::Float;
@@ -57,6 +67,7 @@ int main() {
     m1arc::Registry restarted(state);
     REQUIRE(!m1arc::dev::RegisterIfEnabled(root,restarted));
     REQUIRE(restarted.Snapshot().empty());
+    REQUIRE(!m1arc::dev::previewEnabled.load());
     fs::remove_all(root,ec);
     std::cout<<"UI preview fixture tests passed\n";
     return 0;

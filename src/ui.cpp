@@ -1,5 +1,6 @@
 #include "ui.hpp"
 #include "fonts.hpp"
+#include "dev_fixture.hpp"
 #include "localization.hpp"
 #include "phosphor_icons.hpp"
 #include "input.hpp"
@@ -250,8 +251,43 @@ bool SetFromUI(const ModView& mod,const SettingView& setting,const nlohmann::jso
     }
     return true;
 }
+// The development fixture uses actual action registration and consumption.
+// These notifications are deliberately simulated and cannot run without
+// the opt-in marker having registered the fixture.
+bool HandleDemoAction(const ModView& mod,const std::string& id) {
+    if (!dev::previewEnabled.load()) return false;
+    if (mod.id==dev::kToastDemoId) {
+        if (!Settings().ConsumeAction(mod.id,id)) return false;
+        if (id=="toast_info") ShowToast("DEMO // An informational notification.",3.2f,ToastKind::Info);
+        else if (id=="toast_success") ShowToast("DEMO // Changes saved successfully.",3.2f,ToastKind::Success);
+        else if (id=="toast_warning") ShowToast("DEMO // Check this setting before continuing.",3.2f,ToastKind::Warning);
+        else if (id=="toast_error") ShowToast("DEMO // Simulated failure. No real error occurred.",3.2f,ToastKind::Error);
+        else if (id=="toast_long") ShowToast("DEMO // This longer notification checks line wrapping, vertical spacing and clipping. The message should remain legible without overlapping the status label.",5.f,ToastKind::Info);
+        else if (id=="toast_unicode") ShowToast("DEMO // Zażółć gęślą jaźń — 한국어 알림 테스트",4.f,ToastKind::Info);
+        else if (id=="toast_short") ShowToast("DEMO // Short notification.",1.f,ToastKind::Success);
+        else if (id=="toast_burst") {
+            ShowToast("DEMO // Queue 1: Information",2.f,ToastKind::Info);
+            ShowToast("DEMO // Queue 2: Success",2.f,ToastKind::Success);
+            ShowToast("DEMO // Queue 3: Warning",2.f,ToastKind::Warning);
+            ShowToast("DEMO // Queue 4: Error",2.f,ToastKind::Error);
+            ShowToast("DEMO // Queue 4: Error",2.f,ToastKind::Error);
+        } else if (id=="toast_close") {
+            InputRouter::Get().Close();
+            ShowToast("DEMO // M1 Arc is closed. Input should remain with the game.",4.f,ToastKind::Info);
+        }
+        return true;
+    }
+    if (mod.id=="m1arc.ui-test" || mod.id.starts_with("m1arc.ui-test.")) {
+        if (!Settings().ConsumeAction(mod.id,id)) return false;
+        ShowToast("DEMO // Action consumed: "+id+" (no gameplay effect)",2.8f,ToastKind::Info);
+        return true;
+    }
+    return false;
+}
+
 void RequestAction(const ModView& mod,const std::string& id,const std::string& label) {
     const bool queued=Settings().QueueAction(mod.id,id);
+    if (queued && HandleDemoAction(mod,id)) return;
     ShowToast((queued ? Tr("toast.action_requested","Action requested: ") :
                         Tr("toast.action_failed","Action could not be queued: ")) + label,
               2.8f,queued ? ToastKind::Info : ToastKind::Error);

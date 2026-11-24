@@ -5,10 +5,15 @@
 #include "registry.hpp"
 
 #include <filesystem>
+#include <atomic>
+#include <string_view>
 #include <system_error>
 #include <string>
 
 namespace m1arc::dev {
+inline std::atomic_bool previewEnabled{false};
+inline constexpr std::string_view kToastDemoId="m1arc.ui-test.toasts";
+inline constexpr int kDemoCount=10;
 inline nlohmann::json Schema() {
     using json = nlohmann::json;
     json rows = json::array({
@@ -92,14 +97,79 @@ inline nlohmann::json Schema() {
     return rows;
 }
 
+// Separate pages make sidebar scrolling, scope icons and selected state
+// testable even when no actual gameplay mods are installed.
+inline nlohmann::json ScopeSchema(std::string_view scope) {
+    using json=nlohmann::json;
+    json rows=json::array({
+        {{"id","enabled"},{"kind","boolean"},{"default",true},
+         {"label","Enable preview"},{"description","Only changes this fixture's saved value. No gameplay effects."},{"group","General"}},
+        {{"id","strength"},{"kind","float"},{"min",0.0},{"max",10.0},{"default",2.5},
+         {"label","Intensity"},{"description","Drag the slider and release to review the real saved-value toast."},{"group","Options"}},
+        {{"id","mode"},{"kind","choice"},{"choices",json::array({"Low","Balanced","High"})},{"default","Balanced"},
+         {"label","Preview mode"},{"description","Check both arrows and the selected value."},{"group","Options"}},
+        {{"id","check"},{"kind","boolean"},{"default",false},{"presentation","checkbox"},
+         {"label","Optional setting"},{"description","Check checkbox appearance, spacing and notifications."},{"group","Options"}},
+        {{"id","request"},{"kind","action"},{"label","Preview action"},{"buttonLabel","Request"},
+         {"description","Development fixture only. No game items or effects are created."},{"group","Actions"}}
+    });
+    if (scope=="Miscellaneous") {
+        rows.push_back({{"id","no_description"},{"kind","boolean"},{"default",false},
+                        {"label","Setting with no description"},{"group","Options"}});
+        rows.push_back({{"id","long_heading"},{"kind","boolean"},{"default",true},
+                        {"label","An unusually long setting name to check wrapping and control alignment"},
+                        {"description","A longer heading should wrap cleanly without covering the control or tooltip body."},
+                        {"group","A deliberately long section heading for checking layout"}});
+    }
+    return rows;
+}
+
+inline nlohmann::json ToastSchema() {
+    using json=nlohmann::json;
+    json rows=json::array();
+    const auto add=[&](const char* id,const char* label,const char* button,const char* description,const char* group) {
+        rows.push_back({{"id",id},{"kind","action"},{"label",label},{"buttonLabel",button},
+                        {"description",description},{"group",group}});
+    };
+    add("toast_info","Information notification","Preview info","Check information icon, pastel background and status text.","Notification types");
+    add("toast_success","Success notification","Preview success","Check success icon and contrast in both themes.","Notification types");
+    add("toast_warning","Warning notification","Preview warning","Check warning icon, text and background.","Notification types");
+    add("toast_error","Error notification","Preview error","Simulated error only: no real settings or game failure.","Notification types");
+    add("toast_long","Long notification","Preview long","Check wrapping and clipping when a notification contains several sentences.","Layout and timing");
+    add("toast_unicode","Polish / Korean notification","Preview Unicode","Check glyphs and text alignment in a mixed-language toast.","Layout and timing");
+    add("toast_short","Short duration","Preview 1 sec","Review entrance and exit animation on a short notification.","Layout and timing");
+    add("toast_burst","Queue and duplicates","Preview queue","Enqueues all four types and repeats one identical message. The duplicate should not appear.","Layout and timing");
+    add("toast_close","Notification outside the menu","Preview in game","Closes M1 Arc and displays a development notification without capturing the cursor.","Layout and timing");
+    return rows;
+}
+
 inline bool RegisterIfEnabled(const std::filesystem::path& pluginFolder,
                               Registry& registry) {
     std::error_code ec;
     const auto marker=pluginFolder / L"dev-preview.enabled";
+    previewEnabled.store(false);
     if (!std::filesystem::is_regular_file(marker,ec) || ec) return false;
-    // Do not touch mod files, alter gameplay or activate additional input.
-    return registry.Register("m1arc.ui-test",
+    // All pages use the production registry, without any gameplay effects.
+    bool ok=registry.Register("m1arc.ui-test",
       "M1 ARC UI Test — very long mod name to check sidebar clipping",Schema(),
       "UI/UX","Native settings and typography stress test");
+    ok=registry.Register(std::string(kToastDemoId),"UI Test // Notifications",ToastSchema(),
+        "UI/UX","All four notification styles, queue behavior, wrapping and feedback outside the menu") && ok;
+    struct Sample { const char* id; const char* title; const char* scope; const char* description; };
+    constexpr Sample samples[]={
+        {"gameplay","UI Test // Gameplay","Gameplay","Short title, game controller icon and normal controls"},
+        {"crafting","UI Test // Crafting","Crafting","Wrench icon, checkboxes, sliders and action request"},
+        {"cheats","UI Test // Cheats","Cheats","Terminal icon and safe preview controls"},
+        {"weapons","UI Test // Weapons","Weapons","Sword icon and switch/choice alignment"},
+        {"locations","UI Test // Locations","Locations","Map pin icon and footer containment"},
+        {"appearance","UI Test // Appearance","Appearance","Clothing icon and longer text for testing sidebar descriptions and clipping"},
+        {"characters","UI Test // Characters","Characters","Users icon and localized labels"},
+        {"misc","UI Test // Miscellaneous — deliberately long sidebar title with additional text","Miscellaneous","Toolbox icon, long section header, missing description and wrapping"}
+    };
+    for (const auto& sample:samples)
+        ok=registry.Register(std::string("m1arc.ui-test.")+sample.id,sample.title,ScopeSchema(sample.scope),
+                             sample.scope,sample.description) && ok;
+    previewEnabled.store(ok);
+    return ok;
 }
 } // namespace m1arc::dev
