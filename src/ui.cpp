@@ -237,11 +237,13 @@ std::string SettingValueLabel(const ModView& mod,const SettingView& setting,cons
 }
 
 void NotifySaved(const ModView& mod,const SettingView& setting,const nlohmann::json& value) {
+    (void)Settings().AppendLog(mod.id,LogLevel::Info,"M1 Arc: setting saved: "+setting.id+" = "+value.dump());
     ShowToast(Tr("toast.setting_saved","Saved: ") + setting.label + " — " +
               SettingValueLabel(mod,setting,value),2.8f,ToastKind::Success);
 }
 bool SetFromUI(const ModView& mod,const SettingView& setting,const nlohmann::json& value,bool notify=true) {
     if (!Settings().Set(mod.id,setting.id,value)) {
+        (void)Settings().AppendLog(mod.id,LogLevel::Error,"M1 Arc: failed to save setting: "+setting.id);
         ShowToast(Tr("toast.setting_failed","Could not save: ") + setting.label,3.5f,ToastKind::Error);
         return false;
     }
@@ -293,6 +295,9 @@ void RequestAction(const ModView& mod,const std::string& id,const std::string& l
               2.8f,queued ? ToastKind::Info : ToastKind::Error);
 }
 
+bool& LogsMode() { static bool value=false; return value; }
+std::string& PendingLogClear() { static std::string value; return value; }
+
 void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     auto& input = InputRouter::Get();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -324,7 +329,11 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     (void)headingFontSize;
 
     const float actionsWidth = themeWidth + 10.f + shortcutWidth;
-    const float rightWidth = statusWidth + 16.f + closeWidth;
+    const std::string modeLabel=std::string(fonts::HasIcons() ?
+        (LogsMode() ? ARC_ICON_SLIDERS : ARC_ICON_LOGS) :
+        (LogsMode() ? Tr("ui.logs_settings","Settings").c_str() : Tr("ui.logs_title","Logs").c_str()))+"##arc-mode";
+    const float modeWidth=fonts::HasIcons() ? 38.f : std::max(62.f,ImGui::CalcTextSize(modeLabel.c_str()).x+20.f);
+    const float rightWidth = modeWidth + 10.f + statusWidth + 16.f + closeWidth;
     const bool secondRow = brandWidth + actionsWidth + rightWidth + 46.f > width;
     const bool thirdRow = secondRow && actionsWidth + rightWidth + 48.f > width;
     const float height = thirdRow ? 140.f : secondRow ? 98.f : 56.f;
@@ -352,12 +361,12 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     if (fonts::titleBold) ImGui::PopFont();
 
     // All header controls have light text on dark backgrounds in both themes.
-    const auto action = [&](const char* label, float x, float y, float w) {
+    const auto action = [&](const char* label, float x, float y, float w,bool active=false) {
         ImGui::SetCursorScreenPos(ImVec2(origin.x+x,origin.y+y));
-        ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.21f,.24f,.20f,1.f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.29f,.32f,.26f,1.f));
-        ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+        ImGui::PushStyleColor(ImGuiCol_Button,active ? p.amber : p.bar);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,active ? ImVec4(.98f,.76f,.28f,1.f) : ImVec4(.21f,.24f,.20f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,active ? ImVec4(.84f,.59f,.08f,1.f) : ImVec4(.29f,.32f,.26f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_Text,active ? ImVec4(.10f,.11f,.09f,1.f) : p.barText);
         ImGui::PushStyleColor(ImGuiCol_Border,p.barText);
         const bool clicked=ImGui::Button(label,ImVec2(w,34.f));
         ImGui::PopStyleColor(5);
@@ -379,6 +388,15 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
     const float closeX = std::max(8.f,width-closeWidth-14.f);
     const float statusX = std::max(8.f,closeX-statusWidth-16.f);
+    const float modeX=std::max(8.f,statusX-modeWidth-10.f);
+    if (action(modeLabel.c_str(),modeX,rightY,modeWidth,LogsMode())) {
+        LogsMode()=!LogsMode();
+        PendingLogClear().clear();
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(LogsMode() ? Tr("ui.logs_settings","Settings") : Tr("ui.logs_title","Logs"),
+                    LogsMode() ? Tr("ui.logs_back_help","Return to mod settings.") :
+                                 Tr("ui.logs_switch_help","View diagnostic logs for the selected mod."),p);
     ImGui::SetCursorScreenPos(ImVec2(origin.x+statusX,origin.y+rightY+8.f));
     ImGui::TextUnformatted(status.c_str());
     if (action(closeLabel.c_str(),closeX,rightY,closeWidth))
@@ -983,6 +1001,8 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                            Tr("ui.defaults", "DEFAULTS") + "##mod").c_str(),
                           ImVec2(116.f,32.f))) {
             const bool restored = Settings().ResetMod(selected->id);
+            (void)Settings().AppendLog(selected->id,restored ? LogLevel::Info : LogLevel::Error,
+                                       restored ? "M1 Arc: defaults restored" : "M1 Arc: failed to restore defaults");
             ShowToast(restored ? Tr("toast.defaults_restored_prefix", "Defaults restored for ") + selected->title
                                : Tr("toast.defaults_failed_prefix", "Failed to reset ") + selected->title,
                       3.2f, restored ? ToastKind::Success : ToastKind::Error);
@@ -991,6 +1011,111 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     }
     ImGui::EndChild();
 }
+ImVec4 LogColor(LogLevel level,const Palette& p) {
+    const bool dark=p.paper.x<.2f;
+    switch(level) {
+    case LogLevel::Debug: return p.muted;
+    case LogLevel::Info: return dark ? ImVec4(.65f,.80f,.94f,1.f) : ImVec4(.18f,.32f,.52f,1.f);
+    case LogLevel::Warning: return dark ? p.amber : ImVec4(.49f,.30f,.04f,1.f);
+    case LogLevel::Error: return dark ? ImVec4(1.f,.55f,.53f,1.f) : ImVec4(.65f,.12f,.12f,1.f);
+    }
+    return p.ink;
+}
+
+void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,float height) {
+    ImGui::BeginChild("##arc-logs",ImVec2(width,height),ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    const auto selected=std::find_if(mods.begin(),mods.end(),[](const ModView& mod){
+        return mod.id==SelectedMod();
+    });
+    constexpr float pad=24.f, footerHeight=42.f;
+    ImGui::SetCursorPos(ImVec2(pad,16.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,7.f));
+    ImGui::BeginChild("##log-header",ImVec2(std::max(1.f,width-2.f*pad),0.f),
+                      ImGuiChildFlags_AutoResizeY,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+    ImGui::TextWrapped("%s",(Tr("ui.logs_title","Logs")+" // "+
+        (selected==mods.end() ? Tr("ui.no_mods","NO REGISTERED MODS") : selected->title)).c_str());
+    if (fonts::titleHeavy) ImGui::PopFont();
+    if (fonts::caption) ImGui::PushFont(fonts::caption);
+    ImGui::TextDisabled("%s",Tr("ui.logs_session","Current session · Newest first").c_str());
+    if (fonts::caption) ImGui::PopFont();
+
+    std::vector<LogEntry> rows;
+    if (selected!=mods.end()) rows=Settings().Logs(selected->id);
+    auto& confirmation=PendingLogClear();
+    if (selected==mods.end() || confirmation!=selected->id) confirmation.clear();
+    const bool confirming=!confirmation.empty();
+    const std::string copyLabel=Tr("ui.logs_copy","Copy to clipboard");
+    const std::string clearLabel=confirming ? Tr("ui.logs_confirm","Confirm clear") : Tr("ui.logs_clear","Clear logs");
+    const std::string cancelLabel=Tr("ui.cancel","Cancel");
+    const float copyWidth=ImGui::CalcTextSize(copyLabel.c_str()).x+24.f;
+    const float clearWidth=ImGui::CalcTextSize(clearLabel.c_str()).x+24.f;
+    const float cancelWidth=ImGui::CalcTextSize(cancelLabel.c_str()).x+24.f;
+    const float available=ImGui::GetContentRegionAvail().x;
+    ImGui::BeginDisabled(rows.empty());
+    if (ImGui::Button(copyLabel.c_str(),ImVec2(std::min(copyWidth,available),32.f))) {
+        std::string text=selected->title+" ["+selected->id+"]\n";
+        for (const auto& entry:rows)
+            text+=entry.timestamp+" ["+LogLevelName(entry.level)+"] "+entry.message+"\n";
+        ImGui::SetClipboardText(text.c_str());
+        ShowToast(Tr("toast.logs_copied","Logs copied to clipboard"),2.8f,ToastKind::Success);
+    }
+    if (copyWidth+8.f+clearWidth<=available) ImGui::SameLine();
+    if (ImGui::Button(clearLabel.c_str(),ImVec2(std::min(clearWidth,available),32.f))) {
+        if (confirming) {
+            if (Settings().ClearLogs(selected->id)) {
+                rows.clear();
+                ShowToast(Tr("toast.logs_cleared","Selected mod logs cleared"),2.8f,ToastKind::Success);
+            } else ShowToast(Tr("toast.logs_clear_failed","Could not clear logs"),3.2f,ToastKind::Error);
+            confirmation.clear();
+        } else confirmation=selected->id;
+    }
+    ImGui::EndDisabled();
+    if (confirming && !confirmation.empty()) {
+        if (ImGui::GetContentRegionAvail().x>=cancelWidth+8.f) ImGui::SameLine();
+        if (ImGui::Button(cancelLabel.c_str(),ImVec2(std::min(cancelWidth,available),32.f)))
+            confirmation.clear();
+    }
+    ImGui::Separator();
+    ImGui::EndChild();
+
+    ImGui::SetCursorPosX(pad);
+    if (selected!=mods.end()) ImGui::PushID(selected->id.c_str());
+    const float scrollHeight=std::max(1.f,height-ImGui::GetCursorPosY()-footerHeight);
+    ImGui::BeginChild("##log-scroll",ImVec2(std::max(1.f,width-2.f*pad),scrollHeight),
+                      ImGuiChildFlags_None,0);
+    if (rows.empty()) {
+        ImGui::TextWrapped("%s",Tr("ui.logs_empty","No logs for this mod in the current session.").c_str());
+    } else {
+        for (const auto& entry:rows) {
+            if (fonts::caption) ImGui::PushFont(fonts::caption);
+            ImGui::TextDisabled("%s",entry.timestamp.c_str());
+            ImGui::SameLine(0.f,12.f);
+            if (fonts::caption) ImGui::PopFont();
+            if (fonts::label) ImGui::PushFont(fonts::label);
+            ImGui::TextColored(LogColor(entry.level,p),"%s",LogLevelName(entry.level));
+            if (fonts::label) ImGui::PopFont();
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+std::max(1.f,ImGui::GetContentRegionAvail().x-6.f));
+            ImGui::TextUnformatted(entry.message.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::PushStyleColor(ImGuiCol_Separator,p.muted);
+            ImGui::Separator();
+            ImGui::PopStyleColor();
+        }
+    }
+    ImGui::EndChild();
+    if (selected!=mods.end()) ImGui::PopID();
+    ImGui::SetCursorPos(ImVec2(pad,std::max(0.f,height-footerHeight+8.f)));
+    if (fonts::caption) ImGui::PushFont(fonts::caption);
+    ImGui::TextDisabled("%s",(std::to_string(rows.size())+" / "+
+        std::to_string(Registry::kLogsPerMod)+" · "+Tr("ui.logs_entries","entries")).c_str());
+    if (fonts::caption) ImGui::PopFont();
+    ImGui::PopStyleVar();
+    ImGui::EndChild();
+}
+
 void DrawRebindModal(const Palette& p) {
     auto& input = InputRouter::Get();
     if (input.IsRecording()) ImGui::OpenPopup("M1 ARC - CHOOSE MENU KEY");
@@ -1147,7 +1272,8 @@ void DrawArcUI() {
         const float navWidth = std::min(320.f,std::max(100.f,area.x*.26f));
         DrawSidebar(palette,mods,navWidth,area.y);
         ImGui::SameLine(0.f,0.f);
-        DrawDetail(palette,mods,std::max(0.f,area.x-navWidth),area.y);
+        if (LogsMode()) DrawLogs(palette,mods,std::max(0.f,area.x-navWidth),area.y);
+        else DrawDetail(palette,mods,std::max(0.f,area.x-navWidth),area.y);
         ImGui::PopStyleVar();
     }
     ImGui::End();

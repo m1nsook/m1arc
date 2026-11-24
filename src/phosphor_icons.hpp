@@ -2,6 +2,7 @@
 // MIT-licensed Phosphor regular glyphs. Codepoints verified against
 // phosphor-icons/web src/regular/style.css (as in the m1core backup).
 #define ARC_ICON_RESET "\xEE\x80\xB8"   // U+E038
+#define ARC_ICON_LOGS "\xEE\x86\x98" // U+E198, clipboard-text
 #define ARC_ICON_KEY "\xEE\x8B\x98"     // U+E2D8
 #define ARC_ICON_CUBE "\xEE\x87\x9A"    // U+E1DA
 #define ARC_ICON_CHECK "\xEE\x86\x84"   // U+E184

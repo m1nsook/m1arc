@@ -169,6 +169,20 @@ inline bool RegisterIfEnabled(const std::filesystem::path& pluginFolder,
     for (const auto& sample:samples)
         ok=registry.Register(std::string("m1arc.ui-test.")+sample.id,sample.title,ScopeSchema(sample.scope),
                              sample.scope,sample.description) && ok;
+    if (ok) {
+        for (const auto& sample:samples) {
+            const std::string id=std::string("m1arc.ui-test.")+sample.id;
+            (void)registry.AppendLog(id,LogLevel::Info,"DEMO // Preview initialized for "+std::string(sample.scope));
+        }
+        const std::string id(kToastDemoId);
+        (void)registry.AppendLog(id,LogLevel::Debug,"DEMO // Notification preview registered");
+        (void)registry.AppendLog(id,LogLevel::Info,"DEMO // All four notification types are available");
+        (void)registry.AppendLog(id,LogLevel::Warning,"DEMO // Simulated warning: optional data not found");
+        (void)registry.AppendLog(id,LogLevel::Error,"DEMO // Simulated error only, no gameplay failure");
+        (void)registry.AppendLog(id,LogLevel::Info,"DEMO // Polish and Korean: Zażółć gęślą jaźń — 한국어");
+        for (int i=1;i<=24;++i)
+            (void)registry.AppendLog("m1arc.ui-test",LogLevel::Debug,"DEMO // Scrollable log entry "+std::to_string(i));
+    }
     previewEnabled.store(ok);
     return ok;
 }

@@ -47,6 +47,19 @@
     "toast.shortcut_saved": "Zapisano skrót menu: ",
     "toast.mod_shortcut_saved": "Zapisano skrót moda: ",
     "ui.registered_mods": "ZAREJESTROWANE MODY",
-    "ui.rebind_intro": "Wybierz preferowany skrót do menu."
+    "ui.rebind_intro": "Wybierz preferowany skrót do menu.",
+    "ui.logs_title": "Logi",
+    "ui.logs_settings": "Ustawienia",
+    "ui.logs_back_help": "Wróć do ustawień moda.",
+    "ui.logs_switch_help": "Wyświetl logi diagnostyczne wybranego moda.",
+    "ui.logs_session": "Bieżąca sesja · Od najnowszych",
+    "ui.logs_copy": "Kopiuj do schowka",
+    "ui.logs_clear": "Wyczyść logi",
+    "ui.logs_confirm": "Potwierdź usunięcie",
+    "ui.logs_empty": "Brak logów tego moda w bieżącej sesji.",
+    "ui.logs_entries": "wpisów",
+    "toast.logs_copied": "Skopiowano logi do schowka",
+    "toast.logs_cleared": "Wyczyszczono logi wybranego moda",
+    "toast.logs_clear_failed": "Nie udało się wyczyścić logów"
   }
 }
