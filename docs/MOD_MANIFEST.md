@@ -89,7 +89,8 @@ M1Arc_Log("example.mod", "WARNING", "Optional feature unavailable");
 Use DEBUG, INFO, WARNING or ERROR, a registered mod ID and a non-empty message
 of at most 2048 UTF-8 bytes. The function returns whether the message was accepted.
 Avoid logging every frame. M1 Arc retains up to 256 entries per mod and 4096 in
-total, newest first. Copy and Clear operate on the selected mod only. Logs are
+total, newest first. Clear operates on the selected mod only; Copy Diagnostics
+also includes shared framework startup information. Logs are
 in-memory for the current game session; clearing them never touches disk logs.
 Existing mods' private diagnostics require opt-in calls to M1Arc_Log.
 
@@ -100,3 +101,6 @@ mod-authored log messages may contain data chosen by the mod author. Use stable
 error codes and include the operation, inputs relevant to the failure, and reason
 where known. Do not log secrets or every polling call. A consumed action is not
 proof that the requested gameplay effect succeeded.
+
+Mods that call this API should declare `"requires": { "m1arc": "1.0.1" }`
+in their manifest. See the [complete logging and support guide](https://m1nsook.github.io/m1arc/diagnostics).
