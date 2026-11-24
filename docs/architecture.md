@@ -6,6 +6,7 @@ Dear ImGui interface rendered using the game's DX12 frame integration.
 | Part | Responsibility |
 | --- | --- |
 | `m1arc.dll` | Native registry, state storage, UI, input ownership and game-safe RED4ext bridge |
+| Per-mod diagnostic registry | Bounded session logs, scoped history and support report generation (1.0.1+) |
 | `M1Arc.reds` | Declarations for native REDscript functions |
 | `mod.json` | Author-selected mod identity, scope and sidebar description |
 | `settings.json` in each mod | Declarative control definitions |
@@ -14,5 +15,5 @@ Dear ImGui interface rendered using the game's DX12 frame integration.
 M1 Arc reads mod settings from JSON and exposes typed native functions to
 REDscript. Game actions belong to the mod that handles them.
 
-See the [native API](/native-api), [mod manifests](/mod-manifest), and
+See [Logs and diagnostics](/diagnostics), the [native API](/native-api), [mod manifests](/mod-manifest), and
 [GitHub repository](https://github.com/m1nsook/m1arc).

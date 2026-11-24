@@ -18,6 +18,8 @@ features:
     details: A native RED4ext plugin and REDscript API for configurable mod settings.
   - title: Mod-specific settings
     details: Mod authors define data-only settings, scopes and short descriptions.
+  - title: Per-mod diagnostics
+    details: View session logs and copy support reports with specific error reasons (1.0.1+).
   - title: Persistent configuration
     details: User-selected settings, profiles, theme and the M1 Arc menu shortcut survive restarts.
 ---
@@ -33,4 +35,4 @@ Check [GitHub Releases](https://github.com/m1nsook/m1arc/releases) for available
 installers and checksums, or visit [M1 Arc on Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311).
 
 See the [installation guide](/quickstart), [mod manifest reference](/mod-manifest)
-and [REDscript API](/native-api) for the real framework.
+and [REDscript API](/native-api) for the real framework. See [Logs and diagnostics](/diagnostics) for support reports and the logging API.

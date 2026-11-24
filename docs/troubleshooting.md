@@ -15,13 +15,14 @@ Place `mod.json` and `settings.json` in
 `red4ext/plugins/m1arc/mods/<matching-mod-id>/`. Ensure the folder name
 matches the `id` and the scope is one of the nine documented names.
 Restart Cyberpunk; M1 Arc reads manifests when the process starts.
-Review the RED4ext or M1 Arc logs for rejection reasons.
+In 1.0.1+, open the Logs view and use **Copy diagnostics** even if no mod is registered. The report includes startup manifest rejection reasons. If M1 Arc cannot open, review the RED4ext or M1 Arc disk logs.
 
 ## I see the M1 ARC UI Test mod
 
-This is a **development-only fixture**. It appears only if
-`red4ext/plugins/m1arc/dev-preview.enabled` exists. Delete that
-marker and restart the game. GitHub Release ZIPs omit it.
+This is a **development-only fixture**. Older test builds can show it when
+`red4ext/plugins/m1arc/dev-preview.enabled` exists. Normal 1.0.1 builds
+do not compile the fixture and ignore the old marker. Install the ordinary
+game-root ZIP, not the optional UI Test ZIP.
 
 ## My settings disappeared after an update
 
@@ -29,8 +30,20 @@ The ordinary release ZIP does not contain or overwrite
 `red4ext/plugins/m1arc/settings.json`. Confirm you installed to the
 same Cyberpunk game directory and haven't deleted your stored file.
 
+## The update asks me to choose a new shortcut
+
+This is intentional when upgrading from 1.0.0 to 1.0.1. Click Capture,
+choose a key or Ctrl/Shift combination, then Save. The migration preserves
+mod settings, profiles, theme and language. Do not delete settings.json.
+After reopening M1 Arc, acknowledge the one-time update message.
+
 ## How should I report an issue?
 
-Open [GitHub Issues](https://github.com/m1nsook/m1arc/issues) with the
-Cyberpunk version, M1 Arc release tag, RED4ext version, exact symptom
-and relevant log messages. Avoid posting private game data.
+Use the header Logs switch, select the affected mod and click **Copy diagnostics**
+(1.0.1+). Review the copied report and include it with reproduction steps in
+[Nexus Mods discussions](https://www.nexusmods.com/cyberpunk2077/mods/39311?tab=posts)
+or [GitHub Issues](https://github.com/m1nsook/m1arc/issues).
+
+If the game crashes before the panel opens, include the relevant original
+RED4ext/REDscript logs and installed versions instead. See the full
+[Logs and diagnostics](/diagnostics) guide.

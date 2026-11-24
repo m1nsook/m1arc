@@ -23,6 +23,7 @@ export default defineConfig({
           { text: 'Settings and profiles', link: '/settings' },
           { text: 'Languages', link: '/localization' },
           { text: 'Shortcut and keybinds', link: '/keybinds' },
+          { text: 'Logs and diagnostics', link: '/diagnostics' },
           { text: 'Troubleshooting', link: '/troubleshooting' }
         ]
       },

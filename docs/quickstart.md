@@ -18,10 +18,20 @@ include the development-only UI Test fixture or gameplay mods.
 Existing `red4ext/plugins/m1arc/settings.json` stores personal settings
 and is not included in the release archive. Do not delete it while updating.
 
+## Updating from 1.0.0 to 1.0.1
+
+Install the complete new ZIP over the previous version with the game closed.
+Keep your existing settings.json. On launch, choose and save your menu
+shortcut again to complete the one-time migration. Your mod settings, profiles,
+theme and language preferences are preserved. Open M1 Arc and acknowledge the
+welcome message. Future updates can show their own welcome without requiring
+another shortcut reset unless a migration needs it.
+
 ## Open the panel
 
 The selected key opens and closes the panel. You can rebind it inside M1 Arc.
 The panel includes light/dark themes, mod-specific controls and profile saving.
+From 1.0.1, click the clipboard icon in the header to switch to [per-mod logs and diagnostics](/diagnostics).
 
 ## Install mods that support M1 Arc
 

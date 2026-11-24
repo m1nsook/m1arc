@@ -9,6 +9,7 @@ The declarations are in [M1Arc.reds](https://github.com/m1nsook/m1arc/blob/main/
 | Function | Return | Purpose |
 | --- | --- | --- |
 | `M1Arc_Version()` | String | Framework version |
+| `M1Arc_Log(modId, level, message)` | Bool | Append a per-mod session diagnostic (1.0.1+) |
 | `M1Arc_RegisterJson(modId, displayName, schemaJson)` | Bool | Register settings from a JSON schema |
 | `M1Arc_GetJson(modId, settingId)` | String | Get JSON-encoded value |
 | `M1Arc_ConsumeAction(modId, actionId)` | Bool | Consume one queued button click or mod hotkey press |
@@ -52,3 +53,14 @@ when users change controls.
 For ordinary mod registration without script code, prefer the data-only
 [manifest format](/mod-manifest). The optional scope/subtitle fields
 are *manifest metadata*, not extra native RTTI parameters.
+
+## Logging and diagnostics (1.0.1+)
+
+~~~reds
+M1Arc_Log("example.my-mod", "ERROR", "INIT_FAILED: required game system unavailable");
+~~~
+
+Use your registered mod ID, DEBUG/INFO/WARNING/ERROR and a non-empty message
+of at most 2048 UTF-8 bytes. The function returns whether the entry was accepted.
+For failure reporting, retention and support report contents, see
+[Logs and diagnostics](/diagnostics).
