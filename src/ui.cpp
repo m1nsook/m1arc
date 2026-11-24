@@ -2,6 +2,7 @@
 #include "fonts.hpp"
 #include "upgrade.hpp"
 #include "nexus_icon.hpp"
+#include <Windows.h>
 #include <shellapi.h>
 #ifdef M1ARC_ENABLE_DEV_PREVIEW
 #include "dev_fixture.hpp"
