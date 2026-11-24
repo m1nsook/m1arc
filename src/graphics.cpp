@@ -280,7 +280,15 @@ void Renderer::Present(const GameFrame& frame) noexcept
         staging_[1].Valid = false;
     }
     auto& draw = staging_[0];
-    if (!draw.Valid || draw.CmdListsCount == 0) return;
+    if (!draw.Valid) return;
+    // A closed control panel intentionally produces a valid empty frame.
+    // Requiring draw calls here creates a circular dependency: the shortcut
+    // needs rendererReady, but the closed menu cannot produce draw commands.
+    // Both backends are initialized and NewFrame has succeeded at this point.
+    if (draw.CmdListsCount == 0) {
+        InputRouter::Get().SetRendererReady(true);
+        return;
+    }
     const auto index = swapchain_->GetCurrentBackBufferIndex();
     if (index >= buffers_.size()) return;
     auto& b = buffers_[index];
