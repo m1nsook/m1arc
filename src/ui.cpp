@@ -1,6 +1,7 @@
 #include "ui.hpp"
 #include "fonts.hpp"
 #include "upgrade.hpp"
+#include "nexus_icon.hpp"
 #include <shellapi.h>
 #ifdef M1ARC_ENABLE_DEV_PREVIEW
 #include "dev_fixture.hpp"
@@ -1272,9 +1273,20 @@ void DrawWelcome(const Palette& p) {
         ImGui::TextWrapped("%s",Tr("ui.welcome_discussion","Share feedback, report issues or join the discussion on Nexus Mods.").c_str());
         if (fonts::caption) ImGui::PopFont();
         ImGui::Spacing();
-        const std::string discussion=(fonts::HasIcons() ? std::string(ARC_ICON_INFO)+"  " : "")+
-            Tr("ui.welcome_nexus","Join discussion on Nexus Mods")+"##welcome-nexus";
-        if (ImGui::Button(discussion.c_str(),ImVec2(-1.f,36.f))) {
+        const std::string discussion=Tr("ui.welcome_nexus","Join discussion on Nexus Mods");
+        const bool visitNexus=ImGui::Button("##welcome-nexus",ImVec2(-1.f,36.f));
+        const ImVec2 buttonMin=ImGui::GetItemRectMin(), buttonMax=ImGui::GetItemRectMax();
+        const float available=std::max(1.f,buttonMax.x-buttonMin.x-24.f-8.f-16.f);
+        const std::string fitted=FitLabel(discussion,available);
+        const ImVec2 textSize=ImGui::CalcTextSize(fitted.c_str());
+        const float startX=buttonMin.x+std::max(8.f,(buttonMax.x-buttonMin.x-24.f-8.f-textSize.x)*.5f);
+        auto* draw=ImGui::GetWindowDrawList();
+        draw->PushClipRect(buttonMin,buttonMax,true);
+        DrawNexusIcon(draw,ImVec2(std::floor(startX),std::floor(buttonMin.y+(buttonMax.y-buttonMin.y-24.f)*.5f)));
+        draw->AddText(ImVec2(startX+32.f,buttonMin.y+(buttonMax.y-buttonMin.y-textSize.y)*.5f),
+                      ImGui::GetColorU32(ImGuiCol_Text),fitted.c_str());
+        draw->PopClipRect();
+        if (visitNexus) {
             const auto result=ShellExecuteW(nullptr,L"open",
                 L"https://www.nexusmods.com/cyberpunk2077/mods/39311?tab=posts",nullptr,nullptr,SW_SHOWNORMAL);
             if (reinterpret_cast<INT_PTR>(result)<=32)
