@@ -850,7 +850,8 @@ void DrawRebindModal() {
     ImGui::PushStyleColor(ImGuiCol_Text,ImGui::GetStyleColorVec4(ImGuiCol_Text));
     if (ImGui::BeginPopupModal("M1 ARC - CHOOSE MENU KEY",nullptr,
                               ImGuiWindowFlags_AlwaysAutoResize |
-                              ImGuiWindowFlags_NoTitleBar)) {
+                              ImGuiWindowFlags_NoTitleBar |
+                              ImGuiWindowFlags_NoNavInputs)) {
         if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
         ImGui::TextUnformatted(Tr("ui.rebind_heading", "M1 ARC  //  CHOOSE MENU KEY").c_str());
         if (fonts::titleBold) ImGui::PopFont();
@@ -866,6 +867,8 @@ void DrawRebindModal() {
             capturing ? Tr("ui.hotkey.press","Press a key...") :
             Tr("ui.hotkey.unbound","Not assigned");
         ImGui::TextWrapped("%s",label.c_str());
+        // The keys being recorded must not also activate Capture or Save via ImGui navigation.
+        ImGui::PushItemFlag(ImGuiItemFlags_NoNav,true);
         if (ImGui::Button(Tr("ui.rebind_capture","Capture").c_str()))
             input.StartCapture();
         ImGui::SameLine();
@@ -880,6 +883,7 @@ void DrawRebindModal() {
             if (ImGui::Button(Tr("ui.cancel","Cancel").c_str()))
                 input.CancelRebind();
         }
+        ImGui::PopItemFlag();
         if (!input.IsRecording()) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
