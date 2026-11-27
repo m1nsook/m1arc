@@ -1,4 +1,7 @@
-# Native REDscript API
+---
+title: "Native REDscript API"
+description: "Native declarations and typed setting access"
+---
 
 M1 Arc registers these functions through the RED4ext plugin.
 `r6/scripts/m1arc/M1Arc.reds` contains native declarations that must
@@ -37,7 +40,7 @@ The owning mod handles the requested action in REDscript.
 
 ## Using values
 
-~~~reds
+~~~text
 let enabled: Bool = M1Arc_GetBool("example.my-mod", "enabled");
 let limit: Int32 = M1Arc_GetInt("example.my-mod", "limit");
 let revision: Int32 = M1Arc_Revision();
@@ -56,7 +59,7 @@ are *manifest metadata*, not extra native RTTI parameters.
 
 ## Logging and diagnostics (1.0.1+)
 
-~~~reds
+~~~text
 M1Arc_Log("example.my-mod", "ERROR", "INIT_FAILED: required game system unavailable");
 ~~~
 

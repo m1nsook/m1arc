@@ -1,4 +1,7 @@
-# Mod manifest and settings schema
+---
+title: "Mod manifest"
+description: "mod.json and settings.json reference"
+---
 
 M1 Arc loads mod metadata and settings definitions from JSON at startup.
 
@@ -147,7 +150,7 @@ when a mod uses groups other than the default General section.
 Button clicks are queued **in memory** and consumed once by a
 mod's REDscript code:
 
-~~~reds
+~~~text
 if M1Arc_ConsumeAction("example.my-mod", "spawn_ammo") {
   let amount: Int32 = M1Arc_GetInt("example.my-mod", "ammo_count");
   let light: Bool = M1Arc_GetBool("example.my-mod", "light_ammo");
@@ -195,7 +198,7 @@ JSON; the mod implements its own behavior.
 After installing M1 Arc's matching `M1Arc.reds` native declarations,
 normal REDscript can read values:
 
-~~~reds
+~~~text
 let enabled: Bool = M1Arc_GetBool("example.my-mod", "enabled");
 let limit: Int32 = M1Arc_GetInt("example.my-mod", "limit");
 ~~~

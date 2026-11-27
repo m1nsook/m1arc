@@ -1,15 +1,30 @@
 {
-    "dependencies": {
-        "vue": "^3.5.46"
-    },
-    "devDependencies": {
-        "vitepress": "^2.0.0-alpha.21"
-    },
-    "scripts": {
-        "docs:dev": "vitepress dev",
-        "docs:build": "vitepress build",
-        "docs:preview": "vitepress preview",
-        "api:check": "bun scripts/check-api.mjs",
-        "check": "bun run api:check && bun run docs:build"
-    }
+  "name": "m1arc-docs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/setup-nextguide.mjs",
+    "dev": "next dev",
+    "build": "next build",
+    "check": "node scripts/check-api.mjs && next build && node scripts/check-export.mjs"
+  },
+  "dependencies": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "nextguide": "file:.nextguide-cache/nextguide.tgz"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2",
+    "tailwindcss": "4.3.5",
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/node": "^22"
+  }
 }

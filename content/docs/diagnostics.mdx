@@ -1,4 +1,7 @@
-# Logs and diagnostics
+---
+title: "Logs and diagnostics"
+description: "Per-mod logs and support reports"
+---
 
 Available in **M1 Arc 1.0.1 and later**. M1 Arc provides a separate diagnostic history for each registered mod, without requiring CET or an external log viewer.
 
@@ -34,7 +37,7 @@ Declare a minimum M1 Arc version of 1.0.1 in your [manifest](/mod-manifest) when
 
 The native declaration, provided by M1 Arc itself, is:
 
-~~~reds
+~~~text
 native func M1Arc_Log(modId: String, level: String, message: String) -> Bool;
 ~~~
 
@@ -51,7 +54,7 @@ Uppercase or lowercase level names are supported, including WARN/warn as aliases
 
 ### Write useful failure messages
 
-~~~reds
+~~~text
 M1Arc_Log("example.mod", "INFO", "Initialization completed");
 M1Arc_Log("example.mod", "DEBUG", "CONVERT_START: requested item conversion");
 M1Arc_Log("example.mod", "ERROR", "CONVERT_FAILED: inventory system unavailable");
