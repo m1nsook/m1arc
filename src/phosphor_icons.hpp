@@ -25,3 +25,10 @@
 
 #define ARC_ICON_SUN "\xEE\x91\xB2" // U+E472
 #define ARC_ICON_MOON "\xEE\x8C\xB0" // U+E330
+
+#define ARC_ICON_USER "\xEE\x93\x82"     // U+E4C2
+#define ARC_ICON_TAG "\xEE\x91\xB8"      // U+E478
+#define ARC_ICON_EXTERNAL "\xEE\x97\x9E" // U+E5DE
+#define ARC_ICON_CODE "\xEE\x86\xBC"     // U+E1BC
+#define ARC_ICON_BOOK "\xEE\x83\xA6"     // U+E0E6
+#define ARC_ICON_DISCORD "\xEE\x98\x9A"  // U+E61A

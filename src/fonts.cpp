@@ -45,6 +45,23 @@ void MergeHangul(ImFontAtlas* atlas, const std::filesystem::path& dir,
     config.OversampleV = 2;
     atlas->AddFontFromFileTTF(filename.c_str(),size,&config,hangulRanges);
 }
+// Local Windows fallback for Greek (e.g. NetWatch Σ); never packaged.
+void MergeGreek(ImFontAtlas* atlas,ImFont* dest,float size) {
+    if (!dest) return;
+    wchar_t win[MAX_PATH+1]{};
+    const auto len=GetWindowsDirectoryW(win,MAX_PATH);
+    if (!len || len>=MAX_PATH) return;
+    const auto path=std::filesystem::path(win)/L"Fonts"/L"segoeui.ttf";
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path,ec)) return;
+    const auto filename=Utf8(path);
+    if (filename.empty()) return;
+    static const ImWchar greek[]={0x0370,0x03FF,0};
+    ImFontConfig config{};
+    config.MergeMode=true;
+    config.DstFont=dest;
+    atlas->AddFontFromFileTTF(filename.c_str(),size,&config,greek);
+}
 ImFont* Add(ImFontAtlas* atlas,const std::filesystem::path& dir,
             const wchar_t* file,float size,const ImWchar* ranges) {
     const auto path=dir / file;
@@ -71,7 +88,7 @@ void Load() noexcept {
         auto* atlas=io.Fonts;
         const auto folder=Directory();
         static const ImWchar textRanges[] = {
-            0x0020,0x024F,0x2000,0x206F,0x20AC,0x20AC,0
+            0x0020,0x024F,0x0370,0x03FF,0x2000,0x206F,0x20AC,0x20AC,0
         };
         // Use a real static, pinned SemiBold (wght=600) rather than an
         // uninstanced variable font. Small/thin letters lose strokes in DX12.
@@ -94,7 +111,8 @@ void Load() noexcept {
             0xE26E,0xE26E, 0xE316,0xE316, 0xE432,0xE432,
             0xE47E,0xE47E, 0xE4D6,0xE4D6, 0xE4E0,0xE4E0,
             0xE4F6,0xE4F6, 0xE4F8,0xE4F8, 0xE5BA,0xE5BA,
-            0xE330,0xE330, 0xE472,0xE472, 0xE5D4,0xE5D4, 0xE670,0xE670, 0xECA0,0xECA0, 0
+            0xE0E6,0xE0E6, 0xE1BC,0xE1BC, 0xE330,0xE330, 0xE472,0xE472,
+            0xE478,0xE478, 0xE4C2,0xE4C2, 0xE5DE,0xE5DE, 0xE61A,0xE61A, 0xE5D4,0xE5D4, 0xE670,0xE670, 0xECA0,0xECA0, 0
         };
         const auto iconFile=folder / L"Phosphor-Regular.ttf";
         std::error_code ec;
@@ -143,6 +161,14 @@ void Load() noexcept {
             MergeHangul(atlas,folder,titleBold,20.f);
         if (titleHeavy && titleHeavy != body && titleHeavy != caption && titleHeavy != label && titleHeavy != titleMedium && titleHeavy != titleBold)
             MergeHangul(atlas,folder,titleHeavy,22.f);
+        const struct { ImFont* font; float size; } greekFonts[]={
+            {body,17.f},{caption,14.f},{label,19.f},{titleMedium,19.f},
+            {titleBold,20.f},{titleHeavy,22.f}};
+        for (int i=0;i<6;++i) {
+            bool seen=false;
+            for (int j=0;j<i;++j) if (greekFonts[j].font==greekFonts[i].font) seen=true;
+            if (!seen) MergeGreek(atlas,greekFonts[i].font,greekFonts[i].size);
+        }
     } catch (...) {
         // Damaged optional files must not stop the game.
         if (!body && io.Fonts->Fonts.Size==0)
