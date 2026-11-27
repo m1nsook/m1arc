@@ -26,7 +26,10 @@ import {
 } from "nextguide/components"
 import { NextDocsSiteMdxLink } from "nextguide/site/next"
 
+import { M1Preview } from "@/components/m1-preview"
+
 export const nextguideMdxComponents = {
+  M1Preview,
   a: NextDocsSiteMdxLink,
   pre: Pre,
   MethodBadge, Markdown, CodeBlock, DocsBreadcrumbs, DocsPageActions, Callout, CodeWindow, CodeTabs,

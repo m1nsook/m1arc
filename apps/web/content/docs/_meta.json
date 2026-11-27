@@ -1,22 +1,50 @@
 [
   {
     "slug": "index",
-    "title": "Overview"
+    "title": "M1 Arc"
   },
   {
-    "slug": "getting-started",
-    "title": "Getting started"
+    "slug": "quickstart",
+    "title": "Install M1 Arc"
   },
   {
-    "slug": "guides",
-    "title": "Guides"
+    "slug": "settings",
+    "title": "Settings and profiles"
   },
   {
-    "slug": "components",
-    "title": "Components"
+    "slug": "localization",
+    "title": "Languages and translations"
   },
   {
-    "slug": "api-reference",
-    "title": "API reference"
+    "slug": "keybinds",
+    "title": "Shortcut and keybinds"
+  },
+  {
+    "slug": "diagnostics",
+    "title": "Logs and diagnostics"
+  },
+  {
+    "slug": "troubleshooting",
+    "title": "Troubleshooting"
+  },
+  {
+    "slug": "mod-manifest",
+    "title": "Mod manifest"
+  },
+  {
+    "slug": "manifest-example",
+    "title": "Manifest example"
+  },
+  {
+    "slug": "native-api",
+    "title": "Native REDscript API"
+  },
+  {
+    "slug": "architecture",
+    "title": "Architecture"
+  },
+  {
+    "slug": "development",
+    "title": "1.1.0 development preview"
   }
 ]

@@ -3,13 +3,7 @@ on:
   push:
     branches: [web]
     paths:
-      - "src/**"
-      - "content/**"
-      - "public/**"
-      - "*.json"
-      - "*.mjs"
-      - "bun.lock"
-      - "scripts/**"
+      - "apps/web/**"
       - ".github/workflows/deploy.yaml"
   workflow_dispatch:
 permissions:
@@ -32,14 +26,28 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
-      - name: Install pinned NextGuide package
+      - name: Obtain exact published NextGuide package
+        shell: bash
+        working-directory: apps/web
+        run: |
+          mkdir -p ../../../NextGuide
+          if ! npm view nextguide@0.0.1-alpha.2 version >/dev/null 2>&1; then
+            echo "::error::NextGuide 0.0.1-alpha.2 has not been published to npm yet. Local development uses the existing sibling package archive."
+            exit 1
+          fi
+          npm pack nextguide@0.0.1-alpha.2 --ignore-scripts --pack-destination ../../../NextGuide
+      - name: Install dependencies
+        working-directory: apps/web
         run: bun install
       - name: Validate API and static Pages export
-        run: bun run check
-      - run: touch out/.nojekyll
+        working-directory: apps/web
+        env:
+          M1ARC_PAGES: "1"
+        run: bun run check:export
+      - run: touch apps/web/out/.nojekyll
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: out
+          path: apps/web/out/
           include-hidden-files: true
           retention-days: 1
   deploy:

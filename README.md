@@ -1,16 +1,17 @@
 # M1 Arc documentation
 
-Built with [NextGuide](https://github.com/m1nsook/NextGuide) in Developer Mode. This branch contains the documentation website only, not the native mod.
+Documentation built with NextGuide. The only website application is in `apps/web`.
 
-## Local development
+## Development
 
-Requires Node.js 22, Bun 1.4.4.
+The existing local NextGuide 0.0.1-alpha.2 archive is resolved from the sibling NextGuide repository, not a machine-specific absolute path.
 
-```sh
+```powershell
+cd apps/web
 bun install
 bun run dev
-````
+```
 
-Open http://localhost:3000/m1arc/ (or the port printed by Next.js). NextGuide is pinned to the npm alpha version matching the upstream source manifest (0.0.1-alpha.2). Installation does not publish anything. The first install requires network access. Run `bun run check` for API and static-export link validation. Subsequent edits to content only need `bun run dev` or `bun run build`.
+Edit `apps/web/content/docs` and `apps/web/nextguide.config.json`.
 
-Edit `content/docs/*.mdx` and `_meta.json`. Site identity is in `nextguide.config.json`. Production Pages deployment uses the existing /m1arc/ URL. The 1.1.0 page describes unreleased features; do not publish it until approved. Commit the Bun lockfile after a successful dependency resolution.
+GitHub Pages deploys from the `web` branch using a static export at /m1arc/. CI requires the exact NextGuide version to be published to npm. The native M1 Arc framework is maintained separately.

@@ -8,7 +8,7 @@ export const site = config.site
 export const appearance = config.appearance
 export const ngCopyright = (config as unknown as { ngCopyright?: { enabled?: boolean; text?: string; href?: string } }).ngCopyright ?? { enabled: true, text: "Built with NextGuide", href: "https://m1nsook.github.io/NextGuide/" }
 export const branding = {
-  logo: "logo" in config.site && typeof config.site.logo === "string" ? config.site.logo : "",
+  logo: config.site.logo && process.env.M1ARC_PAGES === "1" ? "/m1arc" + config.site.logo : config.site.logo,
   logoAlt: "logoAlt" in config.site && typeof config.site.logoAlt === "string" ? config.site.logoAlt : "",
   ogImage: "ogImage" in config.site && typeof config.site.ogImage === "string" ? config.site.ogImage : "",
 }
@@ -36,17 +36,7 @@ function section(title: string, href: string, items: import("nextguide/core").Na
 /** Same three-section sidebar convention as apps/web/lib/navigation.ts. */
 export async function getSidebar() {
   const navigation = withBase(await docs.getNavigation())
-  const docsItems = [], componentItems = [], apiItems = []
-  for (const item of navigation) {
-    if (item.href === prefix + "/components" || item.href.startsWith(prefix + "/components/")) componentItems.push(item)
-    else if (item.href === prefix + "/api-reference" || item.href.startsWith(prefix + "/api-reference/")) apiItems.push(item)
-    else docsItems.push(item)
-  }
-  return [
-    section("Documentation", "#documentation", docsItems),
-    section("Components", "#components", componentItems),
-    section("API Reference", "#api-reference", apiItems),
-  ]
+  return [section("Documentation", "#documentation", navigation)]
 }
 function flatten(items: import("nextguide/core").NavItem[]): import("nextguide/core").NavItem[] {
   return items.flatMap((item) => !item.nav ? [] : item.items.length ? flatten(item.items) : [item])

@@ -30,7 +30,7 @@ for (const scope of scopes) {
 for (const key of ['shortDesc', 'mod.json', 'settings.json', '180 UTF-8']) {
   assert.ok(manifest.includes(key), 'Missing manifest key: ' + key)
 }
-const config = read('next.config.mjs')
+const config = read('next.config.ts')
 assert.ok(config.includes('basePath: "/m1arc"'), 'Website base must be /m1arc')
 const landing = read('content/docs/index.mdx')
 assert.ok(landing.includes('browser-only demonstration'))
