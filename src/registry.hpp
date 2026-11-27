@@ -52,6 +52,9 @@ struct ModView {
     std::string shortDesc;
     std::vector<SettingView> settings;
     std::string version; // manifest version, empty for legacy registration
+    std::string author;
+    std::string nexusProfile;
+    std::string description;
 };
 
 // Exact author-selectable manifest scopes. Missing scope defaults to Miscellaneous.
@@ -64,7 +67,9 @@ public:
     explicit Registry(StateStore& store) : store_(store) {}
     bool Register(std::string id, std::string title, const nlohmann::json& definitions,
                   std::string scope = "Miscellaneous",
-                  std::string shortDesc = {}, std::string version = {});
+                  std::string shortDesc = {}, std::string version = {},
+                  std::string author = {}, std::string nexusProfile = {},
+                  std::string description = {});
     [[nodiscard]] std::vector<ModView> Snapshot() const;
     // Session-only, bounded, independently scoped diagnostic streams.
     static constexpr std::size_t kLogsPerMod=256, kLogsTotal=4096, kLogMessageBytes=2048;

@@ -245,7 +245,8 @@ std::optional<nlohmann::json> Registry::Normalize(
 }
 
 bool Registry::Register(std::string id, std::string title, const nlohmann::json& definitions,
-                        std::string scope, std::string shortDesc, std::string version)
+                        std::string scope, std::string shortDesc, std::string version,
+                        std::string author, std::string nexusProfile, std::string description)
 {
     // Metadata is visual only. Preserve the old 3-parameter REDscript API.
     if (!ValidId(id) || title.empty() || title.size() > 150 ||
@@ -373,8 +374,22 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
     pendingActions_.erase(id); // Re-registration does not replay stale clicks.
     const bool first=!mods_.contains(id);
     // A subsequent script registration must not erase manifest identity.
-    if (!first && version.empty()) version=mods_.at(id).version;
+    if (!first && version.empty()) {
+        const auto& old=mods_.at(id);
+        version=old.version;
+        author=old.author;
+        nexusProfile=old.nexusProfile;
+        description=old.description;
+        if (!old.version.empty()) {
+            prepared.scope=old.scope;
+            prepared.shortDesc=old.shortDesc;
+            prepared.title=old.title;
+        }
+    }
     prepared.version=std::move(version);
+    prepared.author=std::move(author);
+    prepared.nexusProfile=std::move(nexusProfile);
+    prepared.description=std::move(description);
     mods_[id] = std::move(prepared);
     if (first) AppendLogLocked(id,LogLevel::Info,"M1 Arc: mod registered");
     return true;

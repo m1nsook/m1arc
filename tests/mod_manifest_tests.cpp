@@ -140,6 +140,37 @@ int main() {
     REQUIRE(badType.registered==11);
     REQUIRE(badType.rejected==6);
 
+    // Author metadata is optional; malformed links are ignored, not executed.
+    Make(root,"author.mod","author.mod","1.2.3","0.1.0");
+    const auto metaPath=root/"mods"/"author.mod"/"mod.json";
+    nlohmann::json meta={{"format",1},{"id","author.mod"},{"name","Author mod"},
+        {"version","1.2.3"},{"author","Test Author"},{"nexusProfile","test_author"},
+        {"description","Full description"},{"shortDesc","Short"}};
+    Write(metaPath,meta.dump());
+    REQUIRE(m1arc::LoadManifests(root,newRegistry).registered==12);
+    for(const auto& mod:newRegistry.Snapshot()) if(mod.id=="author.mod") {
+        REQUIRE(mod.version=="1.2.3");
+        REQUIRE(mod.author=="Test Author");
+        REQUIRE(mod.nexusProfile=="test_author");
+        REQUIRE(mod.description=="Full description");
+    }
+    REQUIRE(newRegistry.Register("author.mod","Script title",nlohmann::json::parse(
+        R"([{"id":"enabled","kind":"boolean","default":true}])")));
+    for(const auto& mod:newRegistry.Snapshot()) if(mod.id=="author.mod") {
+        REQUIRE(mod.author=="Test Author");
+        REQUIRE(mod.nexusProfile=="test_author");
+        REQUIRE(mod.shortDesc=="Short");
+        REQUIRE(mod.title=="Author mod");
+    }
+    meta["nexusProfile"]="../not-a-profile";
+    meta["author"]=42;
+    Write(metaPath,meta.dump());
+    REQUIRE(m1arc::LoadManifests(root,newRegistry).registered==12);
+    for(const auto& mod:newRegistry.Snapshot()) if(mod.id=="author.mod") {
+        REQUIRE(mod.nexusProfile.empty());
+        REQUIRE(mod.author.empty());
+    }
+
     fs::remove_all(root,ec);
     std::cout<<"M1 Arc manifest discovery tests passed\n";
     return 0;

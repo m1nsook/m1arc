@@ -168,11 +168,30 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
                 continue;
             }
         }
+        // Optional author metadata must never prevent a working legacy mod from loading.
+        const auto optionalText=[&](const char* key,std::size_t max) {
+            const auto it=manifest.find(key);
+            if (it==manifest.end() || !it->is_string()) return std::string{};
+            auto value=it->get<std::string>();
+            if (value.size()>max || std::any_of(value.begin(),value.end(),[](unsigned char c) {
+                return c<0x20u || c==0x7fu;
+            })) return std::string{};
+            return value;
+        };
+        auto author=optionalText("author",120);
+        auto nexusProfile=optionalText("nexusProfile",96);
+        // One ASCII username segment only; no URL, escaping or path traversal.
+        if (!std::all_of(nexusProfile.begin(),nexusProfile.end(),[](unsigned char c) {
+            return (c>='a' && c<='z') || (c>='A' && c<='Z') ||
+                   (c>='0' && c<='9') || c=='_' || c=='-';
+        })) nexusProfile.clear();
+        auto description=optionalText("description",1024);
         json settings;
         // Fixed filename: no untrusted executable names or paths in manifests.
         if (!ReadJsonFile(folder / L"settings.json",settings) ||
             !registry.Register(id,manifest["name"].get<std::string>(),settings,
-                               std::move(scope),std::move(shortDesc),manifest["version"].get<std::string>())) {
+                               std::move(scope),std::move(shortDesc),manifest["version"].get<std::string>(),
+                               std::move(author),std::move(nexusProfile),std::move(description))) {
             Reject(report,id,"invalid settings.json or registration failed");
             continue;
         }

@@ -104,3 +104,20 @@ proof that the requested gameplay effect succeeded.
 
 Mods that call this API should declare `"requires": { "m1arc": "1.0.1" }`
 in their manifest. See the [complete logging and support guide](https://m1nsook.github.io/m1arc/diagnostics).
+
+## Optional author metadata
+
+Add these fields to an existing format-1 `mod.json` alongside its existing fields:
+
+```json
+{
+  "author": "m1nsook",
+  "nexusProfile": "m1nsook",
+  "description": "A longer description shown in the configuration header."
+}
+```
+
+- `author`: display name, up to 120 UTF-8 bytes.
+- `nexusProfile`: Nexus Mods username only (ASCII letters, digits, underscore or hyphen, up to 96 bytes). M1 Arc generates `https://www.nexusmods.com/profile/<username>`. No full URL or arbitrary external destination is accepted.
+- `description`: optional full description, up to 1024 UTF-8 bytes. The header falls back to `shortDesc` if absent. Localized mod dictionaries may supply a translated `description`.
+- The existing `version` is displayed in the sidebar and configuration header. Old manifests work unchanged; missing or malformed new metadata is omitted.
