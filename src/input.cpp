@@ -87,6 +87,8 @@ bool InputRouter::Attach(HWND hwnd) noexcept
 
 void InputRouter::Detach() noexcept
 {
+    textEntryActive_.store(false);
+    searchRequested_.store(false);
     ClearWheel();
     auto* hwnd = window_.load();
     open_.store(false);
@@ -157,6 +159,7 @@ void InputRouter::Toggle() noexcept
 {
     if (!HasKey() || recording_.load()) return;
     open_.store(!open_.load());
+    if (!open_.load()) { textEntryActive_.store(false); searchRequested_.store(false); }
     if (const auto hwnd = window_.load())
         PostMessageW(hwnd, kCursorSync, 0, 0);
 }
@@ -260,6 +263,8 @@ std::string InputRouter::CandidateLabel() const
 void InputRouter::Close() noexcept
 {
     std::lock_guard lock(stateMutex_);
+    textEntryActive_.store(false);
+    searchRequested_.store(false);
     modRecording_.store(false);
     modCaptureId_.clear();
     modCaptureSetting_.clear();
@@ -357,6 +362,16 @@ void InputRouter::KeyEdge(unsigned code, bool down) noexcept
         justAssigned_ = 0;
         return;
     }
+    if (down && open_.load() && CanCapture() &&
+        MatchesMenuShortcut(searchShortcut_.load(),static_cast<int>(code),mods) &&
+        !MatchesMenuShortcut(shortcut_.load(),static_cast<int>(code),mods)) {
+        menuPress_.Reset();
+        searchRequested_.store(true);
+        return;
+    }
+    // Search owns normal typing only. Recovery and both capture paths
+    // above retain priority; gameplay bindings are unchanged.
+    if (open_.load() && textEntryActive_.load()) { menuPress_.Reset(); return; }
     // Match on press; release modifiers in either order.
     if (down && MatchesMenuShortcut(shortcut_.load(),static_cast<int>(code),mods)) {
         menuPress_.Down(shortcut_.load(),static_cast<int>(code),mods);

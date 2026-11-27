@@ -1,4 +1,5 @@
 #include "registry.hpp"
+#include "setting_rules.hpp"
 
 #include <algorithm>
 #include <array>
@@ -133,6 +134,12 @@ void Registry::AddStartupDiagnostic(std::string message)
     if (!message.empty() && message.size()<=kLogMessageBytes && startupDiagnostics_.size()<160)
         startupDiagnostics_.push_back(std::move(message));
 }
+void Registry::SetRefreshDiagnostics(std::vector<std::string> messages)
+{
+    std::lock_guard guard(mutex_);
+    if (messages.size()>257) messages.resize(257);
+    refreshDiagnostics_=std::move(messages);
+}
 std::string Registry::DiagnosticReport(std::string_view mod) const
 {
     std::lock_guard guard(mutex_);
@@ -164,6 +171,10 @@ std::string Registry::DiagnosticReport(std::string_view mod) const
     result+="\nFRAMEWORK STARTUP DIAGNOSTICS\n";
     if (startupDiagnostics_.empty()) result+="No startup diagnostics recorded.\n";
     for (const auto& line:startupDiagnostics_) result+=line+"\n";
+    if (!refreshDiagnostics_.empty()) {
+        result+="\nLATEST MANIFEST REFRESH\n";
+        for (const auto& line:refreshDiagnostics_) result+=line+"\n";
+    }
     result+="\nSELECTED MOD LOGS (current session; newest first; bounded history)\n";
     std::size_t count=0;
     for (auto it=logs_.rbegin();it!=logs_.rend();++it) if (it->modId==mod) {
@@ -245,7 +256,9 @@ std::optional<nlohmann::json> Registry::Normalize(
 }
 
 bool Registry::Register(std::string id, std::string title, const nlohmann::json& definitions,
-                        std::string scope, std::string shortDesc, std::string version)
+                        std::string scope, std::string shortDesc, std::string version,
+                        std::string author, std::string nexusProfile, std::string description,
+                        std::string nexusProject, bool refreshing, const json& tabs)
 {
     // Metadata is visual only. Preserve the old 3-parameter REDscript API.
     if (!ValidId(id) || title.empty() || title.size() > 150 ||
@@ -258,7 +271,16 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
 
     ModView prepared{.id = id, .title = std::move(title),
                      .scope = std::move(scope), .shortDesc = std::move(shortDesc)};
-    const json saved = ReadSaved(store_);
+    if (!tabs.is_array() || tabs.size()>24) return false;
+    for (const auto& tab:tabs) {
+        if (!tab.is_object() || !tab.contains("id") || !tab["id"].is_string() ||
+            !tab.contains("label") || !tab["label"].is_string() ||
+            (tab.contains("icon") && !tab["icon"].is_string())) return false;
+        TabView page{tab["id"].get<std::string>(),tab["label"].get<std::string>(),tab.value("icon",std::string{})};
+        if (!ValidId(page.id) || page.label.empty() || page.label.size()>96 || page.icon.size()>40 ||
+            std::any_of(prepared.tabs.begin(),prepared.tabs.end(),[&](const auto& t){return t.id==page.id;})) return false;
+        prepared.tabs.push_back(std::move(page));
+    }
     for (const auto& item : definitions) {
         if (!item.is_object()) return false;
         if (!item.contains("id") || !item["id"].is_string() ||
@@ -282,6 +304,35 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
         if (row.label.size() > 140 || row.description.size() > 500 ||
             row.group.size() > 96) return false;
 
+        row.groupKey=row.group;
+        if (item.contains("tab")) {
+            if (!item["tab"].is_string()) return false;
+            row.tab=item["tab"].get<std::string>();
+            if (!ValidId(row.tab) || std::none_of(prepared.tabs.begin(),prepared.tabs.end(),
+                [&](const auto& t){return t.id==row.tab;})) return false;
+        } else if (!prepared.tabs.empty()) row.tab="general";
+        if (item.contains("controlsGroup")) {
+            if (row.kind!=SettingKind::Boolean || !item["controlsGroup"].is_boolean()) return false;
+            row.controlsGroup=item["controlsGroup"].get<bool>();
+        }
+        if (item.contains("enabledWhen")) {
+            const auto& condition=item["enabledWhen"];
+            if (!condition.is_object() || !condition.contains("setting") || !condition["setting"].is_string() ||
+                !condition.contains("equals")) return false;
+            row.enabledBy=condition["setting"].get<std::string>();
+            row.enabledEquals=condition["equals"];
+            if (!ValidId(row.enabledBy)) return false;
+        }
+        if (item.contains("keywords")) {
+            const auto& words=item["keywords"];
+            if (!words.is_array() || words.size()>16) return false;
+            for (const auto& word:words) {
+                if (!word.is_string()) return false;
+                auto value=word.get<std::string>();
+                if (value.empty() || value.size()>80) return false;
+                row.keywords.push_back(std::move(value));
+            }
+        }
         if (item.contains("presentation")) {
             if (row.kind != SettingKind::Boolean || !item["presentation"].is_string())
                 return false;
@@ -346,14 +397,20 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
         row.defaultValue = *def;
         row.value = row.defaultValue;
 
-        if (saved.contains("values") && saved["values"].is_object() &&
-            saved["values"].contains(id) && saved["values"][id].is_object() &&
-            saved["values"][id].contains(row.id)) {
-            const auto restored = Normalize(row, saved["values"][id][row.id]);
-            if (restored) row.value = *restored;
-        }
         prepared.settings.push_back(std::move(row));
     }
+    if (!prepared.tabs.empty() && std::any_of(prepared.settings.begin(),prepared.settings.end(),
+        [](const auto& s){return s.tab=="general";}) &&
+        std::none_of(prepared.tabs.begin(),prepared.tabs.end(),[](const auto& t){return t.id=="general";}))
+        prepared.tabs.insert(prepared.tabs.begin(),TabView{"general","General","gear"});
+    for (const auto& row:prepared.settings) if (!row.enabledBy.empty()) {
+        const auto parent=std::find_if(prepared.settings.begin(),prepared.settings.end(),
+            [&](const auto& s){return s.id==row.enabledBy;});
+        if (parent==prepared.settings.end() || parent->kind==SettingKind::Action) return false;
+        const auto expected=Normalize(*parent,row.enabledEquals);
+        if (!expected || *expected!=row.enabledEquals) return false;
+    }
+    if (!rules::Valid(prepared)) return false;
     // Button IDs must not collide with any setting ID or other button IDs.
     std::vector<std::string> actionIds;
     for (const auto& row : prepared.settings) {
@@ -370,13 +427,58 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
             })) return false;
 
     std::lock_guard guard(mutex_);
-    pendingActions_.erase(id); // Re-registration does not replay stale clicks.
+    // Read the latest durable values under the registry lock, after schema
+    // validation. Concurrent REDscript setters cannot be lost during a rescan.
+    const json saved=ReadSaved(store_);
+    for (auto& row:prepared.settings) {
+        if (row.kind==SettingKind::Action) continue;
+        if (saved.contains("values") && saved["values"].is_object() &&
+            saved["values"].contains(id) && saved["values"][id].is_object() &&
+            saved["values"][id].contains(row.id)) {
+            const auto restored=Normalize(row,saved["values"][id][row.id]);
+            if (restored) row.value=*restored;
+        }
+    }
     const bool first=!mods_.contains(id);
+    // An enhanced file-backed schema is authoritative; legacy script
+    // registration must not silently erase its tab/dependency definitions.
+    if (!first && version.empty()) {
+        const auto& old=mods_.at(id);
+        if (!old.version.empty() && (!old.tabs.empty() ||
+            std::any_of(old.settings.begin(),old.settings.end(),[](const auto& s){
+                return s.controlsGroup || !s.enabledBy.empty() || !s.keywords.empty();
+            }))) return true;
+    }
     // A subsequent script registration must not erase manifest identity.
-    if (!first && version.empty()) version=mods_.at(id).version;
+    if (!first && version.empty()) {
+        const auto& old=mods_.at(id);
+        version=old.version;
+        author=old.author;
+        nexusProfile=old.nexusProfile;
+        description=old.description;
+        nexusProject=old.nexusProject;
+        if (!old.version.empty()) {
+            prepared.scope=old.scope;
+            prepared.shortDesc=old.shortDesc;
+            prepared.title=old.title;
+        }
+    }
     prepared.version=std::move(version);
+    prepared.author=std::move(author);
+    prepared.nexusProfile=std::move(nexusProfile);
+    prepared.description=std::move(description);
+    prepared.nexusProject=std::move(nexusProject);
+    // Do not replay queued actions against a changed schema. A failed
+    // registration never reaches this point and keeps its queue intact.
     mods_[id] = std::move(prepared);
+    const auto discarded=pendingActions_.erase(id);
     if (first) AppendLogLocked(id,LogLevel::Info,"M1 Arc: mod registered");
+    if (refreshing) {
+        store_.MarkSchemaChanged();
+        AppendLogLocked(id,LogLevel::Info,discarded ?
+            "M1 Arc: manifest refreshed; pending actions cleared" :
+            "M1 Arc: manifest refreshed");
+    }
     return true;
 }
 
@@ -562,6 +664,23 @@ bool Registry::ResetMod(std::string_view mod)
     for (auto& setting : it->second.settings)
         if (setting.kind != SettingKind::Action)
             setting.value = setting.defaultValue;
+    return true;
+}
+
+bool Registry::ResetTab(std::string_view mod,std::string_view tab)
+{
+    std::lock_guard guard(mutex_);
+    const auto it=mods_.find(std::string(mod));
+    if (it==mods_.end() || std::none_of(it->second.tabs.begin(),it->second.tabs.end(),
+        [&](const auto& t){return t.id==tab;})) return false;
+    if (!Persist([&](json& document){
+        auto& values=document["values"][it->first];
+        if (!values.is_object()) values=json::object();
+        for (const auto& row:it->second.settings)
+            if (row.tab==tab && row.kind!=SettingKind::Action) values[row.id]=row.defaultValue;
+    })) return false;
+    for (auto& row:it->second.settings)
+        if (row.tab==tab && row.kind!=SettingKind::Action) row.value=row.defaultValue;
     return true;
 }
 

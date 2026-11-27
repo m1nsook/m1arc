@@ -22,3 +22,20 @@
 #define ARC_SCOPE_USERS "\xEE\x93\x96" // U+E4D6
 #define ARC_SCOPE_TOOLBOX "\xEE\xB2\xA0" // U+ECA0
 #define ARC_SCOPE_SLIDERS_SCOPE "\xEE\x90\xB2" // U+E432
+
+#define ARC_ICON_SUN "\xEE\x91\xB2" // U+E472
+#define ARC_ICON_MOON "\xEE\x8C\xB0" // U+E330
+
+#define ARC_ICON_USER "\xEE\x93\x82"     // U+E4C2
+#define ARC_ICON_TAG "\xEE\x91\xB8"      // U+E478
+#define ARC_ICON_EXTERNAL "\xEE\x97\x9E" // U+E5DE
+#define ARC_ICON_CODE "\xEE\x86\xBC"     // U+E1BC
+#define ARC_ICON_BOOK "\xEE\x83\xA6"     // U+E0E6
+#define ARC_ICON_DISCORD "\xEE\x98\x9A"  // U+E61A
+
+#define ARC_ICON_PAUSE "\xEE\x8E\x9E" // U+E39E
+#define ARC_ICON_PLAY "\xEE\x8F\x90"  // U+E3D0
+#define ARC_ICON_TRASH "\xEE\x92\xA6" // U+E4A6
+#define ARC_ICON_COPY "\xEE\x87\x8A"  // U+E1CA
+
+#define ARC_ICON_SEARCH "\xEE\x8C\x8C" // U+E30C, magnifying-glass

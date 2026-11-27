@@ -104,3 +104,41 @@ proof that the requested gameplay effect succeeded.
 
 Mods that call this API should declare `"requires": { "m1arc": "1.0.1" }`
 in their manifest. See the [complete logging and support guide](https://m1nsook.github.io/m1arc/diagnostics).
+
+## Optional author metadata
+
+Add these fields to an existing format-1 `mod.json` alongside its existing fields:
+
+```json
+{
+  "author": "m1nsook",
+  "nexusProfile": "m1nsook",
+  "nexusProject": "https://www.nexusmods.com/cyberpunk2077/mods/39454",
+  "description": "A longer description shown in the configuration header."
+}
+```
+
+- `author`: display name, up to 120 UTF-8 bytes.
+- `nexusProfile`: Nexus Mods username only (ASCII letters, digits, underscore or hyphen, up to 96 bytes). M1 Arc generates `https://www.nexusmods.com/profile/<username>`. No full URL or arbitrary external destination is accepted.
+- `description`: optional full description, up to 1024 UTF-8 bytes. The header falls back to `shortDesc` if absent. Localized mod dictionaries may supply a translated `description`.
+- The existing `version` is displayed in the sidebar and configuration header. Old manifests work unchanged; missing or malformed new metadata is omitted.
+
+- `nexusProject`: optional full HTTPS Cyberpunk 2077 Nexus Mods project URL, with a numeric mod ID and optional trailing slash. Invalid or missing values hide the project button without rejecting the mod. The author link remains independent.
+
+## Live refresh (developer workflow)
+
+Use **Refresh** in the control panel toolbar after editing a mod's `mod.json`, `settings.json`, or `language/*.json`. The framework rescans all mod directories and applies validated definitions in the next UI frame. Existing saved values are normalized against the new schema; new or incompatible values use their declared defaults, and numeric values may be clamped to new bounds. Saved values, profiles, and the framework's own global settings file are not rewritten or reloaded by Refresh. Successful refreshes advance `M1Arc_Revision()` so mods that poll the revision can re-read settings.
+
+If a mod's files are missing or invalid, its last registered definition remains active. Script-only mods are not removed. New file-backed definitions can be discovered but installing, removing, or changing REDscript, native DLLs, archives, TweakDB data, or gameplay initialization still requires the relevant game reload/restart. Successful schema reloads clear pending action requests for that mod to avoid stale clicks. Copy Diagnostics includes the most recent rescan results. No executable code is reloaded or executed by this feature.
+
+### Diagnostics viewer
+
+The diagnostics view shows per-severity counts, a searchable compact log table, and a pause/resume control. Pause freezes the selected mod's visible list only; logging continues. Select any row to inspect and copy its full message. Copy Diagnostics always copies the live, unfiltered support report. Clear Logs requires confirmation and clears only the selected mod's current-session history. Switching mods resets the view filters and pause state. Search ignores ASCII case and matches other UTF-8 text exactly.
+
+## Tabs, conditional controls and Quick Search
+
+Declare optional `tabs` in `mod.json`: `[{"id":"weapons","label":"Weapons","icon":"sword"}]`. IDs are unique, ordered, stable, and limited to 24 declared tabs. Settings declare `"tab":"weapons"`; unassigned settings go to General (created if necessary). Unknown tab IDs reject the schema; omitted tabs preserve the legacy layout. Supported icons: gear, sliders, sword, t-shirt, game-controller, wrench, terminal, map-pin, users, toolbox, package, cube. Unknown icons fall back to text. Localize labels in `language/<locale>.json` under `"tabs":{"weapons":{"label":"Weapons"}}`.
+
+A Boolean setting may specify `"controlsGroup":true` to disable other controls in its original group and tab when false. Any non-master setting may declare `"enabledWhen":{"setting":"weaponsEnabled","equals":true}` referencing another setting in the same mod. Conditions chain, and missing references, circular dependencies, duplicate group controllers and incompatible comparison values reject the schema. Master settings (`enabled` or `active` booleans) remain interactive. Disabled controls retain their values; gameplay logic remains the author's responsibility. The Defaults menu can reset a current tab or the entire mod.
+
+Quick Search indexes local mod metadata, tabs, groups, settings and a fixed set of framework commands. Optional setting `"keywords":["weight","capacity"]` aliases (up to 16) improve results. It searches original and translated labels, tolerates common typos, and navigates to the selected setting. Disabled settings remain visible with their dependency explanation on the setting. The magnifying-glass button opens the palette; choose an optional shortcut inside it. No shortcut is assigned by default, and it works only while the panel is open. Escape dismisses search, never the M1 Arc panel. Recent selections and tab selection are session-only. Refresh reindexes current definitions automatically. No network access or mod-authored commands are involved.

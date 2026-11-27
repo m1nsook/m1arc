@@ -36,7 +36,7 @@ using RED4ext::IScriptable;
 void Version(IScriptable*,CStackFrame* frame,CString* output,std::int64_t)
 {
     frame->code++;
-    if (output) *output=CString("1.0.1");
+    if (output) *output=CString("1.0.10");
 }
 void Register(IScriptable*,CStackFrame* frame,bool* output,std::int64_t)
 {
@@ -342,6 +342,13 @@ std::filesystem::path ModuleDirectory()
 }
 }
 
+m1arc::ModLoadReport m1arc::RefreshInstalledManifests()
+{
+    auto report=RefreshManifests(ModuleDirectory(),Settings());
+    Translations().InvalidateModCache();
+    return report;
+}
+
 RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     RED4ext::v1::PluginHandle handle,RED4ext::v1::EMainReason reason,
     const RED4ext::v1::Sdk* sdk)
@@ -414,7 +421,7 @@ RED4EXT_C_EXPORT void RED4EXT_CALL Query(RED4ext::v1::PluginInfo* info)
 {
     info->name=L"m1arc";
     info->author=L"MISO";
-    info->version=RED4EXT_V1_SEMVER(1,0,1);
+    info->version=RED4EXT_V1_SEMVER(1,0,10);
     info->runtime=RED4EXT_V1_RUNTIME_VERSION_LATEST;
     info->sdk=RED4EXT_V1_SDK_VERSION_CURRENT;
 }

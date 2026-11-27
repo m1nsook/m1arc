@@ -25,11 +25,20 @@ struct LogEntry {
 
 enum class SettingKind { Boolean, Integer, Float, Choice, Action, Hotkey };
 
+struct TabView {
+    std::string id, label, icon;
+};
 struct SettingView {
     std::string id;
     std::string label;
     std::string description;
     std::string group;
+    std::string groupKey; // stable, untranslated group identity
+    std::string tab;
+    bool controlsGroup=false;
+    std::string enabledBy;
+    nlohmann::json enabledEquals;
+    std::vector<std::string> keywords;
     SettingKind kind{SettingKind::Boolean};
     double minimum{0.0};
     double maximum{100.0};
@@ -52,6 +61,11 @@ struct ModView {
     std::string shortDesc;
     std::vector<SettingView> settings;
     std::string version; // manifest version, empty for legacy registration
+    std::string author;
+    std::string nexusProfile;
+    std::string description;
+    std::string nexusProject;
+    std::vector<TabView> tabs;
 };
 
 // Exact author-selectable manifest scopes. Missing scope defaults to Miscellaneous.
@@ -64,7 +78,10 @@ public:
     explicit Registry(StateStore& store) : store_(store) {}
     bool Register(std::string id, std::string title, const nlohmann::json& definitions,
                   std::string scope = "Miscellaneous",
-                  std::string shortDesc = {}, std::string version = {});
+                  std::string shortDesc = {}, std::string version = {},
+                  std::string author = {}, std::string nexusProfile = {},
+                  std::string description = {}, std::string nexusProject = {},
+                  bool refreshing = false, const nlohmann::json& tabs = nlohmann::json::array());
     [[nodiscard]] std::vector<ModView> Snapshot() const;
     // Session-only, bounded, independently scoped diagnostic streams.
     static constexpr std::size_t kLogsPerMod=256, kLogsTotal=4096, kLogMessageBytes=2048;
@@ -73,11 +90,13 @@ public:
     bool ClearLogs(std::string_view mod);
     void SetDiagnosticEnvironment(std::string gameBuild,std::string loaderBuild);
     void AddStartupDiagnostic(std::string message);
+    void SetRefreshDiagnostics(std::vector<std::string> messages);
     [[nodiscard]] std::string DiagnosticReport(std::string_view mod) const;
     [[nodiscard]] std::optional<nlohmann::json> Get(std::string_view mod, std::string_view key) const;
     bool Set(std::string_view mod, std::string_view key, const nlohmann::json& value);
     bool Reset(std::string_view mod, std::string_view key);
     bool ResetMod(std::string_view mod);
+    bool ResetTab(std::string_view mod,std::string_view tab);
     // In-memory one-shot button queue. REDscript consumes clicks to perform
     // game actions; no commands/scripts are executed by the framework.
     bool QueueAction(std::string_view mod, std::string_view action);
@@ -101,6 +120,7 @@ private:
     std::deque<LogEntry> logs_;
     std::string gameBuild_="unknown",loaderBuild_="unknown";
     std::vector<std::string> startupDiagnostics_;
+    std::vector<std::string> refreshDiagnostics_;
     StateStore& store_;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, ModView> mods_;

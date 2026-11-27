@@ -18,6 +18,8 @@ public:
     // Transactional read-modify-write across all native callers. The updater
     // runs under the store mutex; failures never alter the on-disk state.
     [[nodiscard]] bool Update(const std::function<void(nlohmann::json&)>& updater);
+    // Schema-only revision notification; does not rewrite the durable store.
+    void MarkSchemaChanged();
     [[nodiscard]] std::int32_t Revision() const;
     [[nodiscard]] bool Ready() const;
     [[nodiscard]] std::string LastError() const;

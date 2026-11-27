@@ -151,6 +151,13 @@ bool StateStore::Update(const std::function<void(nlohmann::json&)>& updater)
     return true;
 }
 
+void StateStore::MarkSchemaChanged()
+{
+    std::lock_guard lock(mutex_);
+    if (revision_ == std::numeric_limits<std::int32_t>::max()) revision_=1;
+    else ++revision_;
+}
+
 std::int32_t StateStore::Revision() const
 {
     std::lock_guard lock(mutex_);

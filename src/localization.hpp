@@ -21,6 +21,7 @@ struct LanguageOption {
 class Localization {
 public:
     void Configure(const std::filesystem::path& pluginDirectory, StateStore& store);
+    void InvalidateModCache();
     [[nodiscard]] std::vector<LanguageOption> Languages() const;
     [[nodiscard]] std::string Current() const;
     [[nodiscard]] bool Select(std::string_view code);
