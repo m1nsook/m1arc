@@ -1,0 +1,96 @@
+---
+title: "Setting types and controls"
+description: "Complete control reference for released M1 Arc."
+---
+
+Every setting has a stable id, kind and label. Use description for help text, group for its section and default for persistent controls. The examples below are individual objects to include inside the settings.json array.
+
+## Boolean
+
+A switch by default; set presentation to checkbox for a checkbox.
+
+~~~json
+{ "id": "enabled", "kind": "boolean", "label": "Enabled", "default": true }
+~~~
+
+~~~json
+{ "id": "notify", "kind": "boolean", "label": "Notify", "default": false, "presentation": "checkbox" }
+~~~
+
+## Integer and float
+
+Use min, max and step to define the range. The default must match the kind and be within the range. Use integers for counts and float for fractional values.
+
+<CodeTabs>
+  <CodeWindow title="Integer" language="json" code={'{"id":"capacity","kind":"integer","label":"Carry capacity","default":500,"min":50,"max":5000,"step":10}'} />
+  <CodeWindow title="Float" language="json" code={'{"id":"multiplier","kind":"float","label":"Multiplier","default":1.0,"min":0.5,"max":3.0,"step":0.1}'} />
+</CodeTabs>
+
+## Choice
+
+Choices are stored as exact strings. A translation may change their visible labels but not their saved values.
+
+~~~json
+{
+  "id": "mode",
+  "kind": "choice",
+  "label": "Mode",
+  "choices": ["Keep", "Sell", "Disassemble"],
+  "default": "Keep"
+}
+~~~
+
+## Action
+
+A standalone button has no default. Clicking queues a one-shot request for the owning mod to consume.
+
+~~~json
+{
+  "id": "apply",
+  "kind": "action",
+  "label": "Apply settings",
+  "buttonLabel": "Apply"
+}
+~~~
+
+For numeric controls, add an inline button with a unique action ID.
+
+~~~json
+{
+  "id": "amount",
+  "kind": "integer",
+  "label": "Amount",
+  "min": 1,
+  "max": 100,
+  "default": 10,
+  "button": { "id": "apply_amount", "label": "Apply" }
+}
+~~~
+
+## Hotkey
+
+~~~json
+{
+  "id": "activate_key",
+  "kind": "hotkey",
+  "label": "Activation shortcut",
+  "default": 0
+}
+~~~
+
+The default 0 means unassigned. A bound key queues an action with the setting ID when the game is focused and the panel is closed. See [keybinds](/keybinds).
+
+## Read and consume controls
+
+| Kind | Native access |
+| --- | --- |
+| boolean | M1Arc_GetBool |
+| integer | M1Arc_GetInt |
+| float | M1Arc_GetFloat |
+| choice | M1Arc_GetString |
+| action | M1Arc_ConsumeAction |
+| hotkey | M1Arc_ConsumeAction |
+
+<Callout kind="warning" title="Settings are not gameplay code">A control definition cannot execute a console command, modify inventory or change a stat. Implement those effects in your owning mod.</Callout>
+
+Tabs, group gates, enabledWhen and search keywords are documented separately in the [1.1.0 development preview](/development). They are not part of the published stable contract.

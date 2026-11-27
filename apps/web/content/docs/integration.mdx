@@ -1,0 +1,74 @@
+---
+title: "REDscript integration guide"
+description: "Connect M1 Arc preferences to your existing game logic."
+---
+
+Install matching M1 Arc native declarations and DLL, and define your mod in the [manifest](/mod-manifest). The framework registers file-backed controls at startup. Your REDscript owns all gameplay effects.
+
+## Read typed values
+
+The following snippets belong inside your own REDscript method. They are not complete gameplay mods.
+
+~~~text
+let enabled: Bool = M1Arc_GetBool("example.inventory", "enabled");
+let capacity: Int32 = M1Arc_GetInt("example.inventory", "capacity");
+let mode: String = M1Arc_GetString("example.inventory", "mode");
+~~~
+
+Match the manifest IDs exactly. A typed getter returns its zero or empty fallback if the value is unavailable or incorrectly typed. Do not treat a fallback as proof of registration.
+
+## Respond to live settings changes
+
+M1Arc_Revision is a shared settings revision. Cache it in your own system and re-read your preferences when it changes. Initialize the cache and read values during your normal game/session initialization as well. A change to another mod can advance the revision, so compare the actual values before applying expensive effects.
+
+~~~text
+let revision: Int32 = M1Arc_Revision();
+// Compare with the revision cached by your mod.
+// If changed, re-read your own settings and apply safe differences.
+~~~
+
+Use the game's appropriate lifecycle and systems to apply changes. Do not poll or log unnecessarily every frame, and do not assume a save is loaded merely because a setting exists.
+
+## Handle a button or hotkey request
+
+~~~text
+if M1Arc_ConsumeAction("example.inventory", "apply") {
+  let enabled: Bool = M1Arc_GetBool("example.inventory", "enabled");
+  if enabled {
+    let capacity: Int32 = M1Arc_GetInt("example.inventory", "capacity");
+    // Validate your game state and apply the requested operation here.
+  };
+};
+~~~
+
+Consume requests from an appropriate gameplay callback. A click is an event, not a persistent setting. Each declared action can hold up to 16 pending requests; each successful consume removes one. Use your own checks for player availability, quest restrictions and disabled features. The same pattern handles a mod hotkey.
+
+## Write values from your mod
+
+~~~text
+let saved: Bool = M1Arc_SetInt("example.inventory", "capacity", 750);
+if !saved {
+  M1Arc_Log("example.inventory", "WARNING", "CAPACITY_SAVE_FAILED");
+};
+~~~
+
+Check the Boolean result. Do not repeatedly write unchanged values. For the full list of typed getters, setters, profile helpers and registration functions, see [native API](/native-api).
+
+## Report useful diagnostics
+
+~~~text
+M1Arc_Log("example.inventory", "INFO", "Settings initialized");
+~~~
+
+Log initialization after it actually succeeds, and log meaningful failure branches with a stable code. Never log secrets. A consumed request is not evidence that a game operation succeeded.
+
+## Test before release
+
+- First launch with no saved preferences.
+- Changes with the player loaded, and after reloading a save.
+- Disabled features and invalid game states.
+- Profile loading, reset to defaults and restarting the game.
+- Missing optional mods and incompatible game versions.
+- Meaningful diagnostic output and support report.
+
+Use [diagnostics](/diagnostics) and [troubleshooting](/troubleshooting) for debugging.

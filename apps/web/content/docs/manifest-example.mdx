@@ -1,8 +1,112 @@
 ---
-title: "Manifest example"
-description: "Authoring a data-only mod"
+title: "Create your first mod manifest"
+description: "A complete, installable data-only example for M1 Arc 1.0.10."
 ---
 
-The current mod authoring example has moved to
-[`mod.json` and `settings.json`](/mod-manifest).
-That page documents the real M1 Arc manifest and all nine scope icons.
+This tutorial creates a test mod that appears in the in-game panel, saves its values and exposes them to REDscript. It requires the published M1 Arc framework; the example does not alter gameplay by itself.
+
+<Callout kind="info" title="Before starting">Install M1 Arc and confirm that the panel opens. See [installation](/quickstart). You do not need CET, an additional DLL or a custom UI.</Callout>
+
+## 1. Create the mod directory
+
+Create the following files relative to the Cyberpunk 2077 game root.
+
+~~~text
+red4ext/
+  plugins/
+    m1arc/
+      mods/
+        example.inventory/
+          mod.json
+          settings.json
+~~~
+
+Use the exact same ID in the directory name and manifest. Pick your own unique ID for a published mod.
+
+## 2. Write mod.json
+
+~~~json
+{
+  "format": 1,
+  "id": "example.inventory",
+  "name": "Inventory Example",
+  "version": "1.0.0",
+  "scope": "Gameplay",
+  "shortDesc": "Configure an example inventory feature",
+  "requires": { "m1arc": "1.0.10" }
+}
+~~~
+
+## 3. Write settings.json
+
+~~~json
+[
+  {
+    "id": "enabled",
+    "kind": "boolean",
+    "label": "Enable inventory example",
+    "description": "Master preference for the example.",
+    "default": true,
+    "group": "General"
+  },
+  {
+    "id": "capacity",
+    "kind": "integer",
+    "label": "Carry capacity",
+    "description": "Example numeric value, in kilograms.",
+    "default": 500,
+    "min": 50,
+    "max": 5000,
+    "step": 10,
+    "group": "Inventory"
+  },
+  {
+    "id": "mode",
+    "kind": "choice",
+    "label": "Processing mode",
+    "choices": ["Keep", "Sell", "Disassemble"],
+    "default": "Keep",
+    "group": "Inventory"
+  },
+  {
+    "id": "notify",
+    "kind": "boolean",
+    "label": "Show notification",
+    "presentation": "checkbox",
+    "default": true,
+    "group": "Inventory"
+  },
+  {
+    "id": "apply",
+    "kind": "action",
+    "label": "Request apply",
+    "buttonLabel": "Apply",
+    "group": "Inventory"
+  }
+]
+~~~
+
+## 4. Test the registration
+
+Launch Cyberpunk and open M1 Arc. Select Inventory Example in the registered mods list. Change the capacity or processing mode, close the panel and reopen it. Restart the game and check that the new values remain.
+
+The Apply button queues an action; nothing happens to the game until your REDscript consumes it.
+
+If the entry is missing, open [diagnostics](/diagnostics) and check for manifest rejection reasons. Do not delete the global settings file to troubleshoot a single mod.
+
+## 5. Connect gameplay code
+
+Inside your own mod's existing REDscript logic, read the settings using the stable native API:
+
+~~~text
+let enabled: Bool = M1Arc_GetBool("example.inventory", "enabled");
+let capacity: Int32 = M1Arc_GetInt("example.inventory", "capacity");
+let mode: String = M1Arc_GetString("example.inventory", "mode");
+~~~
+
+The values are preferences, not gameplay commands. Your code must validate the current game state and apply its own effects. Follow the [REDscript integration guide](/integration) for handling queued actions and live updates.
+
+<LinkCards>
+  <LinkCard title="Setting types" href="/setting-types" description="All supported controls and their JSON fields." />
+  <LinkCard title="Manifest reference" href="/mod-manifest" description="Metadata, constraints and localization." />
+</LinkCards>

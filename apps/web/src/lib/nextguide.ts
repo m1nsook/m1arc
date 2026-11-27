@@ -3,6 +3,7 @@ import { createDocs } from "nextguide/mdx"
 import { remarkGfm, rehypeSlug, rehypeCodeRaw, rehypeCodeTitles, rehypePrism } from "nextguide/mdx/plugins"
 import { nextguideMdxComponents } from "@/lib/nextguide-mdx-components"
 import config from "../../nextguide.config.json"
+import { pagesHref } from "./pages-href"
 
 export const site = config.site
 export const appearance = config.appearance
@@ -23,9 +24,7 @@ export const docs = createDocs({
 
 // Only raw HTML anchors need the Pages prefix. Next Link and router add it themselves.
 export function publicDocHref(href: string) {
-  return process.env.M1ARC_PAGES === "1" && href.startsWith("/") && !href.startsWith("//")
-    ? "/m1arc" + (href === "/" ? "/" : href + (href.endsWith("/") ? "" : "/"))
-    : href
+  return process.env.M1ARC_PAGES === "1" ? pagesHref(href) : href
 }
 
 const base = "/"
@@ -43,7 +42,14 @@ function section(title: string, href: string, items: import("nextguide/core").Na
 /** Same three-section sidebar convention as apps/web/lib/navigation.ts. */
 export async function getSidebar() {
   const navigation = withBase(await docs.getNavigation())
-  return [section("Documentation", "#documentation", navigation)]
+  const sections = [
+    ["Getting started", ["index","quickstart","settings","keybinds","localization"]],
+    ["Mod development", ["mod-manifest","manifest-example","setting-types","native-api","integration"]],
+    ["Support and reference", ["diagnostics","troubleshooting","architecture"]],
+    ["Development preview", ["development"]]
+  ] as const
+  return sections.map(([title, slugs]) => section(title, "#"+title.toLowerCase().replace(/[^a-z]+/g,"-"),
+    slugs.flatMap(slug=>navigation.filter(item=>item.href===(slug==="index"?"/":"/"+slug)))))
 }
 function flatten(items: import("nextguide/core").NavItem[]): import("nextguide/core").NavItem[] {
   return items.flatMap((item) => !item.nav ? [] : item.items.length ? flatten(item.items) : [item])
