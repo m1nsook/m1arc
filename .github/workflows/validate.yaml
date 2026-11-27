@@ -34,6 +34,15 @@ jobs:
         env:
           M1ARC_PAGES: "1"
         run: bun run check:export
+      - name: Browser-test the exported site at its real Pages prefix
+        working-directory: apps/web
+        run: |
+          mkdir -p "$RUNNER_TEMP/m1arc-browser-site"
+          ln -s "$PWD/out" "$RUNNER_TEMP/m1arc-browser-site/m1arc"
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory "$RUNNER_TEMP/m1arc-browser-site" >"$RUNNER_TEMP/m1arc-browser-server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          node scripts/check-browser.mjs http://127.0.0.1:8765/m1arc/
       - run: touch apps/web/out/.nojekyll
       - uses: actions/upload-artifact@v4
         with:
