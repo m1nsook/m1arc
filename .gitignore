@@ -9,3 +9,5 @@ next-env.d.ts
 .idea/
 .vscode/
 .claude/
+.nextguide-cache/
+.nextguide-source/
