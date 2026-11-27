@@ -68,6 +68,14 @@ int main() {
     REQUIRE(tr.Choice("sample.weight", "mode", "Unknown") == "Unknown");
     REQUIRE(tr.Choice("../unsafe", "mode", "High") == "High");
 
+    // A live refresh invalidates cached mod dictionaries, not the locale choice.
+    std::ofstream(root / "mods" / "sample.weight" / "language" / "ko_KR.json",std::ios::binary)
+        << R"({"name":"Updated title","settings":{"mode":{"choices":{"High":"Updated choice"}}}})";
+    REQUIRE(tr.Choice("sample.weight","mode","High")=="높음");
+    tr.InvalidateModCache();
+    REQUIRE(tr.Current()=="ko_KR");
+    REQUIRE(tr.Choice("sample.weight","mode","High")=="Updated choice");
+
     // Language changes persist, without modifying profiles or setting values.
     REQUIRE(store.Update([](nlohmann::json& doc) {
         doc["values"]["sample.weight"]["mode"] = "High";

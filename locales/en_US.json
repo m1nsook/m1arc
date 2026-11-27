@@ -87,6 +87,12 @@
     "ui.about_docs": "Documentation",
     "ui.about_discord": "Official Discord server",
     "toast.link_failed": "Could not open link",
-    "ui.nexus_project": "Show on Nexus"
+    "ui.nexus_project": "Show on Nexus",
+    "ui.refresh": "REFRESH",
+    "ui.refresh_help": "Reload all mod manifests, setting definitions and mod translations. Saved values are preserved when compatible. Code changes still require a restart.",
+    "toast.refresh_loaded": "Reloaded: ",
+    "toast.refresh_rejected": "Rejected: ",
+    "toast.refresh_retained": "Retained: ",
+    "toast.refresh_failed": "Refresh could not be completed; see diagnostics."
   }
 }

@@ -14,6 +14,8 @@ namespace m1arc {
 struct ModLoadReport {
     std::size_t registered = 0;
     std::size_t rejected = 0;
+    std::size_t retained = 0;
+    std::vector<std::string> loadedIds;
     std::vector<std::string> errors;
 };
 
@@ -21,5 +23,9 @@ struct ModLoadReport {
 // Strict folder/id matching and fixed settings.json paths prevent traversal.
 // Failures in one mod do not prevent the others from loading.
 ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
-                            Registry& registry);
+                            Registry& registry, bool refreshing = false);
+// Live rescan: retain existing definitions on failures/removals; never unload code.
+ModLoadReport RefreshManifests(const std::filesystem::path& pluginDirectory, Registry& registry);
+// Native DLL entry point for the UI; resolves the installed plugin directory.
+ModLoadReport RefreshInstalledManifests();
 } // namespace m1arc

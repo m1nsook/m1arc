@@ -70,7 +70,8 @@ public:
                   std::string scope = "Miscellaneous",
                   std::string shortDesc = {}, std::string version = {},
                   std::string author = {}, std::string nexusProfile = {},
-                  std::string description = {}, std::string nexusProject = {});
+                  std::string description = {}, std::string nexusProject = {},
+                  bool refreshing = false);
     [[nodiscard]] std::vector<ModView> Snapshot() const;
     // Session-only, bounded, independently scoped diagnostic streams.
     static constexpr std::size_t kLogsPerMod=256, kLogsTotal=4096, kLogMessageBytes=2048;
@@ -79,6 +80,7 @@ public:
     bool ClearLogs(std::string_view mod);
     void SetDiagnosticEnvironment(std::string gameBuild,std::string loaderBuild);
     void AddStartupDiagnostic(std::string message);
+    void SetRefreshDiagnostics(std::vector<std::string> messages);
     [[nodiscard]] std::string DiagnosticReport(std::string_view mod) const;
     [[nodiscard]] std::optional<nlohmann::json> Get(std::string_view mod, std::string_view key) const;
     bool Set(std::string_view mod, std::string_view key, const nlohmann::json& value);
@@ -107,6 +109,7 @@ private:
     std::deque<LogEntry> logs_;
     std::string gameBuild_="unknown",loaderBuild_="unknown";
     std::vector<std::string> startupDiagnostics_;
+    std::vector<std::string> refreshDiagnostics_;
     StateStore& store_;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, ModView> mods_;

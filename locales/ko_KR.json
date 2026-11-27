@@ -87,6 +87,12 @@
     "ui.about_docs": "문서",
     "ui.about_discord": "공식 Discord 서버",
     "toast.link_failed": "링크를 열 수 없습니다",
-    "ui.nexus_project": "Nexus에서 보기"
+    "ui.nexus_project": "Nexus에서 보기",
+    "ui.refresh": "새로고침",
+    "ui.refresh_help": "모드 매니페스트, 설정 정의 및 번역을 다시 불러옵니다. 호환되는 저장 값은 유지됩니다. 코드 변경은 재시작이 필요합니다.",
+    "toast.refresh_loaded": "다시 불러옴: ",
+    "toast.refresh_rejected": "거부됨: ",
+    "toast.refresh_retained": "유지됨: ",
+    "toast.refresh_failed": "새로고침 실패: 진단을 확인하세요."
   }
 }

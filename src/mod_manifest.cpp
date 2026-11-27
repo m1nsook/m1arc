@@ -10,6 +10,7 @@
 #include <system_error>
 #include <tuple>
 #include <vector>
+#include <utility>
 
 namespace m1arc {
 namespace {
@@ -69,7 +70,7 @@ void Reject(ModLoadReport& report,const std::string& folder,const char* reason) 
 } // namespace
 
 ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
-                            Registry& registry) {
+                            Registry& registry, bool refreshing) {
     ModLoadReport report;
     const auto root=pluginDirectory / L"mods";
     std::error_code ec;
@@ -202,16 +203,42 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
         if (!ReadJsonFile(folder / L"settings.json",settings) ||
             !registry.Register(id,manifest["name"].get<std::string>(),settings,
                                std::move(scope),std::move(shortDesc),manifest["version"].get<std::string>(),
-                               std::move(author),std::move(nexusProfile),std::move(description),std::move(nexusProject))) {
+                               std::move(author),std::move(nexusProfile),std::move(description),std::move(nexusProject),refreshing)) {
             Reject(report,id,"invalid settings.json or registration failed");
             continue;
         }
         ++report.registered;
+        report.loadedIds.push_back(id);
         } catch (...) {
             // Malformed inputs must NEVER unwind across the RED4ext DLL entrypoint.
             Reject(report,id,"invalid manifest or settings field type");
         }
     }
+    return report;
+}
+
+ModLoadReport RefreshManifests(const std::filesystem::path& pluginDirectory, Registry& registry) {
+    const auto before=registry.Snapshot();
+    ModLoadReport report;
+    if (pluginDirectory.empty()) {
+        Reject(report,"mods","plugin directory unavailable");
+    } else {
+        report=LoadManifests(pluginDirectory,registry,true);
+    }
+    std::vector<std::string> diagnostics;
+    for (const auto& old:before) {
+        // Script-only registrations and the dev fixture are not file-backed.
+        if (old.version.empty()) continue;
+        if (std::find(report.loadedIds.begin(),report.loadedIds.end(),old.id)==report.loadedIds.end()) {
+            ++report.retained;
+            diagnostics.push_back("ARC_REFRESH_RETAINED: "+old.id);
+        }
+    }
+    for (const auto& reason:report.errors)
+        diagnostics.push_back("ARC_REFRESH_REJECTED: "+reason);
+    diagnostics.insert(diagnostics.begin(),"Manifest refresh: "+std::to_string(report.registered)+
+        " loaded; "+std::to_string(report.rejected)+" rejected; "+std::to_string(report.retained)+" retained");
+    registry.SetRefreshDiagnostics(std::move(diagnostics));
     return report;
 }
 

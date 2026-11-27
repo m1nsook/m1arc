@@ -124,3 +124,9 @@ Add these fields to an existing format-1 `mod.json` alongside its existing field
 - The existing `version` is displayed in the sidebar and configuration header. Old manifests work unchanged; missing or malformed new metadata is omitted.
 
 - `nexusProject`: optional full HTTPS Cyberpunk 2077 Nexus Mods project URL, with a numeric mod ID and optional trailing slash. Invalid or missing values hide the project button without rejecting the mod. The author link remains independent.
+
+## Live refresh (developer workflow)
+
+Use **Refresh** in the control panel toolbar after editing a mod's `mod.json`, `settings.json`, or `language/*.json`. The framework rescans all mod directories and applies validated definitions in the next UI frame. Existing saved values are normalized against the new schema; new or incompatible values use their declared defaults, and numeric values may be clamped to new bounds. Saved values, profiles, and the framework's own global settings file are not rewritten or reloaded by Refresh. Successful refreshes advance `M1Arc_Revision()` so mods that poll the revision can re-read settings.
+
+If a mod's files are missing or invalid, its last registered definition remains active. Script-only mods are not removed. New file-backed definitions can be discovered but installing, removing, or changing REDscript, native DLLs, archives, TweakDB data, or gameplay initialization still requires the relevant game reload/restart. Successful schema reloads clear pending action requests for that mod to avoid stale clicks. Copy Diagnostics includes the most recent rescan results. No executable code is reloaded or executed by this feature.

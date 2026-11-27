@@ -12,6 +12,7 @@
 #include "phosphor_icons.hpp"
 #include "input.hpp"
 #include "registry.hpp"
+#include "mod_manifest.hpp"
 #include "state.hpp"
 
 #include <imgui.h>
@@ -309,7 +310,7 @@ void RequestAction(const ModView& mod,const std::string& id,const std::string& l
 bool& LogsMode() { static bool value=false; return value; }
 std::string& PendingLogClear() { static std::string value; return value; }
 
-void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
+void DrawHeader(const Palette& p, const std::vector<ModView>& mods, bool& refreshRequested) {
     auto& input = InputRouter::Get();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
@@ -339,7 +340,10 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     if (fonts::titleBold) ImGui::PopFont();
     (void)headingFontSize;
 
-    const float actionsWidth = themeWidth + 10.f + shortcutWidth;
+    const std::string refreshLabel=(fonts::HasIcons()?std::string(ARC_ICON_RESET)+" ":"")+
+        Tr("ui.refresh","REFRESH")+"##arc-refresh";
+    const float refreshWidth=std::max(90.f,ImGui::CalcTextSize(refreshLabel.c_str(),nullptr,true).x+22.f);
+    const float actionsWidth = themeWidth + 10.f + shortcutWidth + 10.f + refreshWidth;
     const std::string modeLabel=std::string(fonts::HasIcons() ?
         (LogsMode() ? ARC_ICON_SLIDERS : ARC_ICON_LOGS) :
         (LogsMode() ? Tr("ui.logs_settings","Settings").c_str() : Tr("ui.logs_title","Logs").c_str()))+"##arc-mode";
@@ -402,6 +406,14 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         ShowTooltip(Tr("ui.shortcut_help", "Change M1 Arc's menu shortcut"),
                     input.KeyLabel() + "\n" +
                     Tr("ui.rebind_recovery", "Recovery: Ctrl + Shift + F11"),p);
+
+    const float refreshX=shortcutX+shortcutWidth+10.f;
+    ImGui::BeginDisabled(input.IsRecording() || input.IsModRecording());
+    if (action(refreshLabel.c_str(),refreshX,buttonsY,refreshWidth)) refreshRequested=true;
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(Tr("ui.refresh","REFRESH"),Tr("ui.refresh_help",
+            "Reload all mod manifests, setting definitions and mod translations. Saved values are preserved when compatible. Code changes still require a restart."),p);
 
     const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
     const float closeX = std::max(8.f,width-closeWidth-14.f);
@@ -1632,9 +1644,10 @@ void DrawArcUI() {
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    bool refreshRequested=false;
     if (ImGui::Begin("##M1ArcControlPanel",nullptr,flags)) {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(0,0));
-        DrawHeader(palette,mods);
+        DrawHeader(palette,mods,refreshRequested);
         const ImVec2 area = ImGui::GetContentRegionAvail();
         const float navWidth = std::min(320.f,std::max(100.f,area.x*.26f));
         DrawSidebar(palette,mods,navWidth,area.y);
@@ -1651,5 +1664,19 @@ void DrawArcUI() {
     // First-run, rebind and emergency recovery share the same modal.
     DrawRebindModal(palette);
     DrawWelcome(palette);
+    // Apply after all widgets have used the current immutable snapshot.
+    // The next frame receives the new schemas; no stale setting can be edited
+    // in the same frame that replaced its definition.
+    if (refreshRequested && !input.IsRecording() && !input.IsModRecording()) {
+        try {
+            const auto report=RefreshInstalledManifests();
+            const auto message=Tr("toast.refresh_loaded","Reloaded: ")+std::to_string(report.registered)+
+                " | "+Tr("toast.refresh_rejected","Rejected: ")+std::to_string(report.rejected)+
+                " | "+Tr("toast.refresh_retained","Retained: ")+std::to_string(report.retained);
+            ShowToast(message,4.f,(report.rejected||report.retained)?ToastKind::Warning:ToastKind::Success);
+        } catch (...) {
+            ShowToast(Tr("toast.refresh_failed","Refresh could not be completed; see diagnostics."),4.f,ToastKind::Error);
+        }
+    }
 }
 } // namespace m1arc

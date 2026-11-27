@@ -176,6 +176,71 @@ int main() {
         REQUIRE(mod.author.empty());
     }
 
+    // Refresh is per-mod transactional, not an unconditional registry reset.
+    const auto refreshRoot=root/"refresh";
+    m1arc::StateStore refreshStore;
+    refreshStore.Configure(refreshRoot/"state.json");
+    m1arc::Registry live(refreshStore);
+    Make(refreshRoot,"live.mod","live.mod","1.0.0","0.1.0");
+    REQUIRE(m1arc::LoadManifests(refreshRoot,live).registered==1);
+    REQUIRE(live.Set("live.mod","limit",900));
+    const auto durable=refreshStore.Snapshot();
+    const auto revision=refreshStore.Revision();
+    const auto dir=refreshRoot/"mods"/"live.mod";
+    nlohmann::json changed={{"format",1},{"id","live.mod"},{"name","Updated"},
+        {"version","1.0.1"},{"author","Updated author"}};
+    Write(dir/"mod.json",changed.dump());
+    Write(dir/"settings.json",R"JSON([
+        {"id":"limit","kind":"integer","min":0,"max":1000,"default":42},
+        {"id":"added","kind":"boolean","default":true},
+        {"id":"run","kind":"action"}])JSON");
+    REQUIRE(live.Register("script.only","Script only",nlohmann::json::parse(
+        R"([{"id":"enabled","kind":"boolean","default":true}])")));
+    auto refreshed=m1arc::RefreshManifests(refreshRoot,live);
+    REQUIRE(refreshed.registered==1);
+    REQUIRE(refreshed.rejected==0);
+    REQUIRE(refreshed.retained==0);
+    REQUIRE(refreshStore.Revision()>revision);
+    REQUIRE(refreshStore.Snapshot()==durable);
+    REQUIRE(live.Get("live.mod","limit").value()==900);
+    REQUIRE(live.Get("live.mod","added").value()==true);
+    REQUIRE(!live.Get("live.mod","enabled").has_value());
+    REQUIRE(live.Get("script.only","enabled").value()==true);
+    bool seenLive=false;
+    for (const auto& mod:live.Snapshot()) if (mod.id=="live.mod") {
+        seenLive=true;
+        REQUIRE(mod.title=="Updated");
+        REQUIRE(mod.version=="1.0.1");
+        REQUIRE(mod.author=="Updated author");
+        REQUIRE(mod.settings.front().defaultValue==42);
+    }
+    REQUIRE(seenLive);
+    REQUIRE(live.QueueAction("live.mod","run"));
+    Write(dir/"settings.json","{broken");
+    const auto badRevision=refreshStore.Revision();
+    auto failed=m1arc::RefreshManifests(refreshRoot,live);
+    REQUIRE(failed.registered==0);
+    REQUIRE(failed.rejected==1);
+    REQUIRE(failed.retained==1);
+    REQUIRE(refreshStore.Revision()==badRevision);
+    REQUIRE(live.Get("live.mod","limit").value()==900);
+    REQUIRE(live.ConsumeAction("live.mod","run"));
+    REQUIRE(live.DiagnosticReport("live.mod").find("ARC_REFRESH_REJECTED")!=std::string::npos);
+    REQUIRE(live.QueueAction("live.mod","run"));
+    Write(dir/"settings.json",R"([{"id":"limit","kind":"integer","min":0,"max":100,"default":25}])");
+    Make(refreshRoot,"new.mod","new.mod","1.0.0","0.1.0");
+    auto added=m1arc::RefreshManifests(refreshRoot,live);
+    REQUIRE(added.registered==2);
+    REQUIRE(live.Get("new.mod","limit").value()==500);
+    REQUIRE(live.Get("live.mod","limit").value()==100);
+    REQUIRE(!live.ConsumeAction("live.mod","run"));
+    REQUIRE(refreshStore.Snapshot()==durable);
+    fs::remove_all(dir,ec);
+    auto removed=m1arc::RefreshManifests(refreshRoot,live);
+    REQUIRE(removed.retained==1);
+    REQUIRE(live.Get("live.mod","limit").value()==100);
+    REQUIRE(live.DiagnosticReport("live.mod").find("ARC_REFRESH_RETAINED: live.mod")!=std::string::npos);
+
     fs::remove_all(root,ec);
     std::cout<<"M1 Arc manifest discovery tests passed\n";
     return 0;

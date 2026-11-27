@@ -133,6 +133,12 @@ void Registry::AddStartupDiagnostic(std::string message)
     if (!message.empty() && message.size()<=kLogMessageBytes && startupDiagnostics_.size()<160)
         startupDiagnostics_.push_back(std::move(message));
 }
+void Registry::SetRefreshDiagnostics(std::vector<std::string> messages)
+{
+    std::lock_guard guard(mutex_);
+    if (messages.size()>257) messages.resize(257);
+    refreshDiagnostics_=std::move(messages);
+}
 std::string Registry::DiagnosticReport(std::string_view mod) const
 {
     std::lock_guard guard(mutex_);
@@ -164,6 +170,10 @@ std::string Registry::DiagnosticReport(std::string_view mod) const
     result+="\nFRAMEWORK STARTUP DIAGNOSTICS\n";
     if (startupDiagnostics_.empty()) result+="No startup diagnostics recorded.\n";
     for (const auto& line:startupDiagnostics_) result+=line+"\n";
+    if (!refreshDiagnostics_.empty()) {
+        result+="\nLATEST MANIFEST REFRESH\n";
+        for (const auto& line:refreshDiagnostics_) result+=line+"\n";
+    }
     result+="\nSELECTED MOD LOGS (current session; newest first; bounded history)\n";
     std::size_t count=0;
     for (auto it=logs_.rbegin();it!=logs_.rend();++it) if (it->modId==mod) {
@@ -247,7 +257,7 @@ std::optional<nlohmann::json> Registry::Normalize(
 bool Registry::Register(std::string id, std::string title, const nlohmann::json& definitions,
                         std::string scope, std::string shortDesc, std::string version,
                         std::string author, std::string nexusProfile, std::string description,
-                        std::string nexusProject)
+                        std::string nexusProject, bool refreshing)
 {
     // Metadata is visual only. Preserve the old 3-parameter REDscript API.
     if (!ValidId(id) || title.empty() || title.size() > 150 ||
@@ -260,7 +270,6 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
 
     ModView prepared{.id = id, .title = std::move(title),
                      .scope = std::move(scope), .shortDesc = std::move(shortDesc)};
-    const json saved = ReadSaved(store_);
     for (const auto& item : definitions) {
         if (!item.is_object()) return false;
         if (!item.contains("id") || !item["id"].is_string() ||
@@ -348,12 +357,6 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
         row.defaultValue = *def;
         row.value = row.defaultValue;
 
-        if (saved.contains("values") && saved["values"].is_object() &&
-            saved["values"].contains(id) && saved["values"][id].is_object() &&
-            saved["values"][id].contains(row.id)) {
-            const auto restored = Normalize(row, saved["values"][id][row.id]);
-            if (restored) row.value = *restored;
-        }
         prepared.settings.push_back(std::move(row));
     }
     // Button IDs must not collide with any setting ID or other button IDs.
@@ -372,7 +375,18 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
             })) return false;
 
     std::lock_guard guard(mutex_);
-    pendingActions_.erase(id); // Re-registration does not replay stale clicks.
+    // Read the latest durable values under the registry lock, after schema
+    // validation. Concurrent REDscript setters cannot be lost during a rescan.
+    const json saved=ReadSaved(store_);
+    for (auto& row:prepared.settings) {
+        if (row.kind==SettingKind::Action) continue;
+        if (saved.contains("values") && saved["values"].is_object() &&
+            saved["values"].contains(id) && saved["values"][id].is_object() &&
+            saved["values"][id].contains(row.id)) {
+            const auto restored=Normalize(row,saved["values"][id][row.id]);
+            if (restored) row.value=*restored;
+        }
+    }
     const bool first=!mods_.contains(id);
     // A subsequent script registration must not erase manifest identity.
     if (!first && version.empty()) {
@@ -393,8 +407,17 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
     prepared.nexusProfile=std::move(nexusProfile);
     prepared.description=std::move(description);
     prepared.nexusProject=std::move(nexusProject);
+    // Do not replay queued actions against a changed schema. A failed
+    // registration never reaches this point and keeps its queue intact.
     mods_[id] = std::move(prepared);
+    const auto discarded=pendingActions_.erase(id);
     if (first) AppendLogLocked(id,LogLevel::Info,"M1 Arc: mod registered");
+    if (refreshing) {
+        store_.MarkSchemaChanged();
+        AppendLogLocked(id,LogLevel::Info,discarded ?
+            "M1 Arc: manifest refreshed; pending actions cleared" :
+            "M1 Arc: manifest refreshed");
+    }
     return true;
 }
 

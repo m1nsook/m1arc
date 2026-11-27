@@ -114,6 +114,11 @@ void Localization::Configure(const std::filesystem::path& directory, StateStore&
     modCache_.clear();
 }
 
+void Localization::InvalidateModCache() {
+    std::lock_guard lock(mutex_);
+    modCache_.clear();
+}
+
 std::vector<LanguageOption> Localization::Languages() const {
     std::lock_guard lock(mutex_);
     std::vector<LanguageOption> result;
