@@ -3,7 +3,7 @@ import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { isMdxNotFound } from "nextguide/mdx"
 import { DocsSitePage } from "nextguide/site"
-import { docs, site, branding, editBase, getNeighbours } from "@/lib/nextguide"
+import { docs, site, branding, editBase, getNeighbours, publicDocHref } from "@/lib/nextguide"
 
 export async function generateStaticParams() {
   const paths = await docs.getPagePaths()
@@ -55,10 +55,10 @@ async function DocumentationBody({ params }: { params: Promise<{ slug?: string[]
   if (slug.startsWith(".well-known/") || slug.startsWith("_next/")) notFound()
   const segments = slug ? slug.split("/") : []
   const breadcrumbs = [
-    { title: "Documentation", href: "/" },
+    { title: "Documentation", href: publicDocHref("/") },
     ...segments.map((segment, i) => ({
       title: segment.replace(/[-_]/g, " "),
-      ...(i < segments.length - 1 ? { href: "" + "/" + segments.slice(0, i + 1).join("/") } : {}),
+      ...(i < segments.length - 1 ? { href: publicDocHref("/" + segments.slice(0, i + 1).join("/")) } : {}),
     })),
   ]
   try {

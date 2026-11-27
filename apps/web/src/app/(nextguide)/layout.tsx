@@ -18,7 +18,7 @@ async function DocumentationSite({ children }: { children: ReactNode }) {
     <DocsSiteProviders defaultTheme={appearance.mode as "light" | "dark" | "system"} enableSystem>
       <NextDocsSiteSearchProvider entries={searchIndex}>
         <div className={fontSans.variable + " " + fontMono.variable + " ng-official-docs"} data-ng-accent={appearance.accent}>
-          <NextDocsSiteClientNavigation basePath={"/"} />
+          {process.env.M1ARC_PAGES !== "1" && <NextDocsSiteClientNavigation basePath={"/"} />}
           <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
             <NextDocsSiteSidebar items={navigation} version={nextguidePackage.version}
               siteName={site.name} basePath={"/"} homeHref={"/"} prewarm={true}

@@ -21,6 +21,13 @@ export const docs = createDocs({
   rehypePlugins: [rehypeSlug, rehypeCodeTitles, rehypePrism, rehypeCodeRaw],
 })
 
+// Only raw HTML anchors need the Pages prefix. Next Link and router add it themselves.
+export function publicDocHref(href: string) {
+  return process.env.M1ARC_PAGES === "1" && href.startsWith("/") && !href.startsWith("//")
+    ? "/m1arc" + (href === "/" ? "/" : href + (href.endsWith("/") ? "" : "/"))
+    : href
+}
+
 const base = "/"
 const prefix = ""
 function withBase(items: import("nextguide/core").NavItem[]): import("nextguide/core").NavItem[] {
@@ -48,8 +55,8 @@ export async function getNeighbours(slug: string) {
   if (index < 0) return {}
   const previous = items[index - 1], next = items[index + 1]
   return {
-    ...(previous ? { previous: { href: previous.href, title: previous.title } } : {}),
-    ...(next ? { next: { href: next.href, title: next.title } } : {}),
+    ...(previous ? { previous: { href: publicDocHref(previous.href), title: previous.title } } : {}),
+    ...(next ? { next: { href: publicDocHref(next.href), title: next.title } } : {}),
   }
 }
 /** Local search index, compiled from authored MDX, with no external service. */
