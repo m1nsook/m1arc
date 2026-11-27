@@ -27,7 +27,7 @@ try{
   await new Promise((resolve,reject)=>{socket.addEventListener("open",resolve,{once:true});socket.addEventListener("error",reject,{once:true})})
   let id=0
   const pending=new Map()
-  socket.addEventListener("message",e=>{const m=JSON.parse(e.data);if(pending.has(m.id)){const {resolve,reject,timer}=pending.get(m.id);clearTimeout(timer);pending.delete(m.id);m.error?reject(Error(JSON.stringify(m.error))):resolve(m.result)}})
+  socket.addEventListener("message",e=>{const m=JSON.parse(e.data);if(m.method==="Runtime.exceptionThrown")console.error("Browser exception:",JSON.stringify(m.params.exceptionDetails));if(m.method==="Log.entryAdded"&&m.params.entry.level==="error")console.error("Browser error:",m.params.entry.text);if(pending.has(m.id)){const {resolve,reject,timer}=pending.get(m.id);clearTimeout(timer);pending.delete(m.id);m.error?reject(Error(JSON.stringify(m.error))):resolve(m.result)}})
   function send(method,params={}){
     return new Promise((resolve,reject)=>{const n=++id;const timer=setTimeout(()=>{pending.delete(n);reject(Error("CDP timeout: "+method))},10000);pending.set(n,{resolve,reject,timer});socket.send(JSON.stringify({id:n,method,params}))})
   }
@@ -36,6 +36,7 @@ try{
   async function ready(path){await until(async()=>norm(await ev("location.pathname"))===norm(path)&&await ev('document.readyState==="complete" && !!document.querySelector("[data-slot=docs-nav]") && !!document.querySelector("h1")'),"page "+path);await pause(250)}
   await send("Page.enable")
   await send("Runtime.enable")
+  await send("Log.enable")
   await send("Page.navigate",{url:base.href})
   await ready(base.pathname)
   await pause(750)
@@ -63,7 +64,7 @@ try{
   await ready(base.pathname)
   console.log("PASS browser Back")
   // Test the actual demo, including hydrated NextGuide controls.
-  await until(()=>ev('Boolean(document.querySelector(".arc-preview"))'),"interactive preview")
+  await until(()=>ev('Boolean(document.querySelector(".arc-preview[data-ready=true]"))'),"interactive preview hydration")
   assert.ok(await ev('(function(){const b=document.querySelector(".arc-preview button[aria-label=\\"Toggle preview theme\\"]");if(!b)return false;b.click();return true})()'),"Theme control missing")
   await until(()=>ev('document.querySelector(".arc-preview").dataset.arcTheme==="dark"'),"preview theme switch")
   assert.ok(await ev('(function(){const b=[...document.querySelectorAll(".arc-tabs button")].find(b=>b.textContent.includes("WEAPONS"));if(!b)return false;b.click();return true})()'),"Weapons tab missing")
@@ -73,6 +74,6 @@ try{
 }finally{
   try{socket?.close()}catch{}
   try{child?.kill()}catch{}
-  await pause(150)
-  rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:200})
+  await pause(500)
+  try { rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:200}) } catch (e) { console.warn("Chrome profile cleanup:",e.message) }
 }

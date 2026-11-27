@@ -41,6 +41,8 @@ export function M1Preview() {
   const uid = useId()
   const root = useRef<HTMLDivElement>(null)
   const sequence = useRef(100)
+  const [ready,setReady] = useState(false)
+  useEffect(()=>{setReady(true)},[])
   const [values,setValues] = useState<Values>(defaults)
   const [selected,setSelected] = useState(mods[0].id)
   const [tabs,setTabs] = useState<Record<string,string>>({})
@@ -113,7 +115,7 @@ export function M1Preview() {
   }
   return <div className="not-prose arc-preview-wrap" ref={root}>
     <div className="arc-preview-caption"><span>INTERACTIVE DEMO · 1.1.0 DEVELOPMENT PREVIEW</span><Badge>Browser only</Badge></div>
-    <div className="arc-preview" data-arc-theme={dark?"dark":"light"}>
+    <div className="arc-preview" data-ready={ready} data-arc-theme={dark?"dark":"light"}>
       <header className="arc-toolbar"><div className="arc-brand"><Icon name="settings"/> M1 ARC <b>//</b> <span>CONTROL PANEL</span></div><div className="arc-toolbar-actions">
         <Button variant="outline" size="sm" title="Toggle theme" aria-label="Toggle preview theme" onClick={()=>setDark(!dark)}><Icon name={dark?"sun":"moon"}/></Button>
         <Button variant="outline" size="sm" title="Change menu shortcut" onClick={()=>chooseKey("menu")}>KEY | {menuKey}</Button>
