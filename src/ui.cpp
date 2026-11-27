@@ -1296,6 +1296,15 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
         if (DrawModTabs(p,*selected,tab)) Navigation()={};
         auto& target=Navigation();
         const bool navigating=target.mod==selected->id && target.tab==tab;
+        const auto disabledReasons=rules::BlockedAll(*selected);
+        static std::string lastMod,lastTab;
+        if (lastMod!=selected->id || lastTab!=tab) {
+            if (!navigating || target.setting.empty() && target.group.empty()) ImGui::SetScrollY(0.f);
+            lastMod=selected->id; lastTab=tab;
+        }
+        if (navigating && target.scroll && target.setting.empty() && target.group.empty()) {
+            ImGui::SetScrollY(0.f); target.scroll=false;
+        }
         // Settings are native live controls, derived from each REDscript mod's
         // own registered schema. Never substitute the HTML's demo mod data.
         // Group headers use the mod author's existing "group" field.
@@ -1305,7 +1314,8 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                 return s.group != "General";
             });
         std::string previousGroup;
-        for (const auto& setting : selected->settings) {
+        for (std::size_t settingIndex=0;settingIndex<selected->settings.size();++settingIndex) {
+            const auto& setting=selected->settings[settingIndex];
             if (!selected->tabs.empty() && setting.tab!=tab) continue;
             const auto group=setting.groupKey.empty()?setting.group:setting.groupKey;
             if ((showGroups || !selected->tabs.empty()) && group != previousGroup) {
@@ -1319,13 +1329,14 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                     ImGui::SetScrollHereY(.2f); target.scroll=false;
                 }
             }
-            const auto blocked=rules::Blocked(*selected,setting);
+            const auto& blocked=disabledReasons[settingIndex];
             const auto parent=std::find_if(selected->settings.begin(),selected->settings.end(),
                 [&](const auto& s){return s.id==blocked;});
             const bool highlighted=navigating && target.setting==setting.id && ImGui::GetTime()<target.until;
             DrawSetting(*selected,setting,p,std::max(1.f,ImGui::GetContentRegionAvail().x-8.f),
                 !blocked.empty(),parent==selected->settings.end()?blocked:parent->label,highlighted);
-            if (navigating && target.scroll && target.setting==setting.id) {
+            if (navigating && target.scroll && (target.setting==setting.id ||
+                (target.setting.empty() && target.group==group))) {
                 ImGui::SetScrollHereY(.45f); target.scroll=false;
             }
         }
@@ -1902,14 +1913,19 @@ void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std
         std::string name,path,kind,mod,tab,group,setting,search;
         int command=0,score=0;
         bool disabled=false;
+        std::string reason,foldedName;
     };
     static std::array<char,256> query{};
     static int selected=0;
     static std::vector<std::string> recent;
     static bool wasOpen=false;
+    static std::vector<Entry> index,entries;
+    static std::int32_t indexedRevision=-1;
+    static std::size_t indexedMods=0;
+    static std::string indexedLocale,lastQuery;
     auto& input=InputRouter::Get();
     if (input.IsRecording() || input.IsModRecording()) requested=false;
-    if (requested) {
+    if (requested && !wasOpen) {
         query.fill(0); selected=0;
         ImGui::OpenPopup("##quick-palette");
     }
@@ -1932,10 +1948,16 @@ void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std
             query.data(),query.size())) selected=0;
         ImGui::SameLine();
         bool dismiss=ImGui::Button("ESC",ImVec2(44.f,0.f)) || ImGui::IsKeyPressed(ImGuiKey_Escape,false);
-        std::vector<Entry> entries;
+        const auto revision=Store().Revision();
+        const auto locale=Translations().Current();
+        const bool rebuild=appearing || !wasOpen || revision!=indexedRevision || mods.size()!=indexedMods || locale!=indexedLocale;
+        if (rebuild) {
+        index.clear();
+        indexedRevision=revision; indexedMods=mods.size(); indexedLocale=locale;
         const auto add=[&](Entry item,std::string extra) {
+            item.foldedName=UpperHeading(item.name);
             item.search=UpperHeading(item.name+" "+item.path+" "+extra);
-            entries.push_back(std::move(item));
+            index.push_back(std::move(item));
         };
         for (const auto& mod:mods) {
             const auto raw=std::find_if(original.begin(),original.end(),[&](const auto& m){return m.id==mod.id;});
@@ -1948,7 +1970,9 @@ void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std
                 add({tab.label,mod.title,"TABS",mod.id,tab.id},tab.id+" "+originalLabel+" "+originalTitle);
             }
             std::vector<std::pair<std::string,std::string>> seen;
-            for (const auto& s:mod.settings) {
+            const auto blocked=rules::BlockedAll(mod);
+            for (std::size_t i=0;i<mod.settings.size();++i) {
+                const auto& s=mod.settings[i];
                 const auto group=s.groupKey.empty()?s.group:s.groupKey;
                 std::string path=mod.title;
                 for (const auto& tab:mod.tabs) if(tab.id==s.tab) path+=" / "+tab.label;
@@ -1963,7 +1987,11 @@ void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std
                 if(raw!=original.end()) for(const auto& row:raw->settings) if(row.id==s.id)
                     extra+=" "+row.label+" "+row.description+" "+row.group;
                 Entry item{s.label,path,"SETTINGS",mod.id,s.tab,group,s.id};
-                item.disabled=!rules::Blocked(mod,s).empty();
+                item.disabled=!blocked[i].empty();
+                if (item.disabled) {
+                    const auto parent=rules::Find(mod,blocked[i]);
+                    item.reason=parent<mod.settings.size()?mod.settings[parent].label:blocked[i];
+                }
                 add(std::move(item),extra);
             }
         }
@@ -1971,19 +1999,24 @@ void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std
         add({Tr("ui.diagnostics","DIAGNOSTICS"),"M1 Arc","COMMANDS","","","","","",2},"open diagnostics logs");
         add({Tr("ui.theme","TOGGLE THEME"),"M1 Arc","COMMANDS","","","","","",3},"toggle theme light dark");
         add({Tr("ui.logs_settings","Settings"),"M1 Arc","COMMANDS","","","","","",4},"open settings");
+        }
         const auto identity=[](const Entry& e){return e.kind+"|"+e.mod+"|"+e.tab+"|"+e.group+"|"+e.setting+"|"+std::to_string(e.command);};
         const auto folded=UpperHeading(query.data());
-        std::erase_if(entries,[&](auto& entry){
-            entry.score=quick::Score(UpperHeading(entry.name),entry.search,folded);
-            if (entry.score<0) return true;
+        if (rebuild || folded!=lastQuery) {
+        lastQuery=folded;
+        entries.clear();
+        for (auto& entry:index) {
+            entry.score=quick::Score(entry.foldedName,entry.search,folded);
+            if (entry.score<0) continue;
             if (folded.empty()) {
                 const auto found=std::find(recent.begin(),recent.end(),identity(entry));
-                entry.score=found==recent.end()?0:100-static_cast<int>(found-recent.begin());
+                entry.score=found==recent.end()?(entry.kind=="MODS"?5:entry.kind=="COMMANDS"?4:entry.kind=="TABS"?3:entry.kind=="GROUPS"?2:1):100-static_cast<int>(found-recent.begin());
             }
-            return false;
-        });
+            entries.push_back(entry);
+        }
         std::stable_sort(entries.begin(),entries.end(),[](const auto& a,const auto& b){return a.score>b.score;});
         if (entries.size()>80) entries.resize(80);
+        }
         const bool up=ImGui::IsKeyPressed(ImGuiKey_UpArrow);
         const bool down=ImGui::IsKeyPressed(ImGuiKey_DownArrow);
         if (up) --selected;
@@ -1999,6 +2032,8 @@ void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std
             const auto a=ImGui::GetCursorScreenPos();
             const float w=ImGui::GetContentRegionAvail().x;
             if(ImGui::Selectable("##result",selected==i,0,ImVec2(w,48.f))) activate=i;
+            if (item.disabled && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ShowTooltip(item.name,Tr("ui.disabled_by","Disabled by: ")+item.reason,p);
             if((up||down) && selected==i) ImGui::SetScrollHereY(.5f);
             auto* d=ImGui::GetWindowDrawList();
             d->PushClipRect(a,ImVec2(a.x+w,a.y+48.f),true);
@@ -2045,7 +2080,9 @@ void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std
             else {
                 SelectedMod()=item.mod; LogsMode()=false;
                 if(!item.tab.empty()) TabSelections()[item.mod]=item.tab;
-                Navigation()={item.mod,item.tab,item.group,item.setting,true,ImGui::GetTime()+2.8};
+                const auto mod=std::find_if(mods.begin(),mods.end(),[&](const auto& m){return m.id==item.mod;});
+                const auto destinationTab=mod==mods.end()?item.tab:CurrentTab(*mod);
+                Navigation()={item.mod,destinationTab,item.group,item.setting,true,ImGui::GetTime()+2.8};
             }
             dismiss=true;
         }

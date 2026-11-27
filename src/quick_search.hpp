@@ -10,6 +10,11 @@ namespace m1arc::quick {
 inline bool OneEdit(std::string_view a,std::string_view b) {
     if (a.size()<b.size()) std::swap(a,b);
     if (a.size()>b.size()+1) return false;
+    if (a.size()==b.size()) {
+        std::size_t i=0;
+        while(i<a.size() && a[i]==b[i]) ++i;
+        if(i+1<a.size() && a[i]==b[i+1] && a[i+1]==b[i] && a.substr(i+2)==b.substr(i+2)) return true;
+    }
     std::size_t i=0,j=0; int edits=0;
     while(i<a.size() && j<b.size()) {
         if(a[i]==b[j]) {++i;++j;continue;}

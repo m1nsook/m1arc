@@ -44,31 +44,40 @@ inline bool Valid(const ModView& m) {
     }
     return true;
 }
-// Return the first unmet dependency by stable ID; empty means interactive.
-// The master switch remains reachable even if another section is disabled.
-inline std::string Blocked(const ModView& m,std::size_t i,std::vector<int>& marks) {
-    if (i>=m.settings.size()) return "unknown";
-    const auto& s=m.settings[i];
-    if (Master(s)) return {};
-    if (marks[i]==1) return s.id;
-    marks[i]=1;
-    for (const auto& parent:m.settings)
-        if (Master(parent) && parent.value==false) { marks[i]=0; return parent.id; }
-    for (auto j:Parents(m,i)) {
-        if (j>=m.settings.size()) { marks[i]=0; return s.enabledBy; }
-        const auto& parent=m.settings[j];
-        const bool group=parent.controlsGroup && SameGroup(s,parent) && !s.controlsGroup;
-        if ((group && parent.value!=true) || (parent.id==s.enabledBy && parent.value!=s.enabledEquals)) {
-            marks[i]=0; return parent.id;
+// Memoize a dependency graph traversal for all rows. Shared ancestors
+// are evaluated only once, even in very deep chains.
+inline std::vector<std::string> BlockedAll(const ModView& m) {
+    std::vector<int> marks(m.settings.size());
+    std::vector<std::string> result(m.settings.size());
+    const auto master=std::find_if(m.settings.begin(),m.settings.end(),Master);
+    const std::string masterOff=master!=m.settings.end() && master->value==false?master->id:std::string{};
+    const auto evaluate=[&](auto&& self,std::size_t i)->std::string {
+        if (i>=m.settings.size()) return "unknown";
+        const auto& s=m.settings[i];
+        if (Master(s)) return {};
+        if (marks[i]==2) return result[i];
+        if (marks[i]==1) return s.id;
+        marks[i]=1;
+        std::string reason=masterOff;
+        if (reason.empty()) for (auto j:Parents(m,i)) {
+            if (j>=m.settings.size()) { reason=s.enabledBy; break; }
+            const auto& parent=m.settings[j];
+            const bool group=parent.controlsGroup && SameGroup(s,parent) && !s.controlsGroup;
+            if ((group && parent.value!=true) || (parent.id==s.enabledBy && parent.value!=s.enabledEquals)) {
+                reason=parent.id; break;
+            }
+            reason=self(self,j);
+            if (!reason.empty()) break;
         }
-        const auto upstream=Blocked(m,j,marks);
-        if (!upstream.empty()) { marks[i]=0; return upstream; }
-    }
-    marks[i]=0;
-    return {};
+        result[i]=std::move(reason);
+        marks[i]=2;
+        return result[i];
+    };
+    for(std::size_t i=0;i<m.settings.size();++i) evaluate(evaluate,i);
+    return result;
 }
 inline std::string Blocked(const ModView& m,const SettingView& s) {
-    std::vector<int> marks(m.settings.size());
-    return Blocked(m,Find(m,s.id),marks);
+    const auto i=Find(m,s.id);
+    return i<m.settings.size()?BlockedAll(m)[i]:"unknown";
 }
 }

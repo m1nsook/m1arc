@@ -64,6 +64,15 @@ int main()
         REQUIRE(enhanced.Register("tabs","Legacy",json::parse(R"([{"id":"enabled","kind":"boolean","default":true}])")));
         REQUIRE(enhanced.Snapshot().front().tabs.size()==2);
         REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","WEPON")>0);
+        REQUIRE(m1arc::quick::Score("WEIGHT","CARRY WEIGHT","WIEGHT")>0);
+        auto missing=definitions;
+        missing[3]["enabledWhen"]["setting"]="unknown";
+        REQUIRE(!enhanced.Register("tabs","Broken",missing,"Gameplay","","1.0.1","","","","",true,tabs));
+        auto duplicate=definitions;
+        duplicate[2]["kind"]="boolean"; duplicate[2]["default"]=true;
+        duplicate[2].erase("min"); duplicate[2].erase("max"); duplicate[2]["controlsGroup"]=true;
+        duplicate[3]["enabledWhen"]["equals"]=true;
+        REQUIRE(!enhanced.Register("tabs","Broken",duplicate,"Gameplay","","1.0.1","","","","",true,tabs));
         REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","ARC WEAPON")>0);
         REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","ZEBRA")<0);
         REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","WEAPON")>
