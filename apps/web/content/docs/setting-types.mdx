@@ -21,10 +21,7 @@ A switch by default; set presentation to checkbox for a checkbox.
 
 Use min, max and step to define the range. The default must match the kind and be within the range. Use integers for counts and float for fractional values.
 
-<CodeTabs>
-  <CodeWindow title="Integer" language="json" code={'{"id":"capacity","kind":"integer","label":"Carry capacity","default":500,"min":50,"max":5000,"step":10}'} />
-  <CodeWindow title="Float" language="json" code={'{"id":"multiplier","kind":"float","label":"Multiplier","default":1.0,"min":0.5,"max":3.0,"step":0.1}'} />
-</CodeTabs>
+<CodeTabs items={[{"label":"Integer","language":"json","code":"{\n  \"id\": \"capacity\",\n  \"kind\": \"integer\",\n  \"label\": \"Carry capacity\",\n  \"default\": 500,\n  \"min\": 50,\n  \"max\": 5000,\n  \"step\": 10\n}"},{"label":"Float","language":"json","code":"{\n  \"id\": \"multiplier\",\n  \"kind\": \"float\",\n  \"label\": \"Multiplier\",\n  \"default\": 1,\n  \"min\": 0.5,\n  \"max\": 3,\n  \"step\": 0.1\n}"}]} />
 
 ## Choice
 
