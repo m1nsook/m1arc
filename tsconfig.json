@@ -31,7 +31,6 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    ".nextguide-cache"
+    "node_modules"
   ]
 }

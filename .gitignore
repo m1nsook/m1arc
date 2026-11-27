@@ -1,7 +1,6 @@
 node_modules/
 .next/
 out/
-.nextguide-cache/
 next-env.d.ts
 *.tsbuildinfo
 *.log

@@ -8,7 +8,6 @@
     "node": ">=22"
   },
   "scripts": {
-    "setup": "node scripts/setup-nextguide.mjs",
     "dev": "next dev",
     "build": "next build",
     "check": "node scripts/check-api.mjs && next build && node scripts/check-export.mjs"
@@ -17,7 +16,7 @@
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "nextguide": "file:.nextguide-cache/nextguide.tgz"
+    "nextguide": "0.0.1-alpha.2"
   },
   "devDependencies": {
     "typescript": "5.9.2",

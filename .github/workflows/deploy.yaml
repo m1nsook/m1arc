@@ -32,8 +32,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
-      - name: Build pinned NextGuide package and install
-        run: bun run setup
+      - name: Install pinned NextGuide package
+        run: bun install
       - name: Validate API and static Pages export
         run: bun run check
       - run: touch out/.nojekyll
