@@ -9,3 +9,6 @@ next-env.d.ts
 .idea/
 .vscode/
 .claude/
+
+# Exact NextGuide distribution, if approved for public repository storage
+!/apps/web/vendor/nextguide-0.0.1-alpha.2.tgz

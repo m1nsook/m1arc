@@ -1,17 +1,15 @@
 # M1 Arc documentation
 
-Documentation built with NextGuide. The only website application is in `apps/web`.
+Documentation built with NextGuide. The website lives in `apps/web`.
 
-## Development
-
-The existing local NextGuide 0.0.1-alpha.2 archive is resolved from the sibling NextGuide repository, not a machine-specific absolute path.
-
-```powershell
+```sh
 cd apps/web
 bun install
 bun run dev
 ```
 
+The pinned NextGuide alpha package is resolved from `apps/web/vendor/nextguide-0.0.1-alpha.2.tgz`. The npm placeholder is not used. The archive must be present; CI verifies its SHA-512 against the tested lockfile before building. No sibling repository, private token or local absolute path is needed.
+
 Edit `apps/web/content/docs` and `apps/web/nextguide.config.json`.
 
-GitHub Pages deploys from the `web` branch using a static export at /m1arc/. CI requires the exact NextGuide version to be published to npm. The native M1 Arc framework is maintained separately.
+GitHub Pages deploys from the `web` branch using a static export at /m1arc/. The native M1 Arc framework is maintained separately.

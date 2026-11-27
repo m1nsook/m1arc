@@ -26,19 +26,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
-      - name: Obtain exact published NextGuide package
-        shell: bash
+      - name: Verify bundled NextGuide package
         working-directory: apps/web
-        run: |
-          mkdir -p ../../../NextGuide
-          if ! npm view nextguide@0.0.1-alpha.2 version >/dev/null 2>&1; then
-            echo "::error::NextGuide 0.0.1-alpha.2 has not been published to npm yet. Local development uses the existing sibling package archive."
-            exit 1
-          fi
-          npm pack nextguide@0.0.1-alpha.2 --ignore-scripts --pack-destination ../../../NextGuide
+        run: node scripts/check-nextguide.mjs
       - name: Install dependencies
         working-directory: apps/web
-        run: bun install
+        run: bun install --frozen-lockfile
       - name: Validate API and static Pages export
         working-directory: apps/web
         env:
