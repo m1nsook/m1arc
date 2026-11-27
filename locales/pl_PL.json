@@ -72,6 +72,20 @@
     "ui.welcome_nexus": "Dołącz do dyskusji na Nexus Mods",
     "ui.welcome_continue": "Kontynuuj",
     "toast.welcome_link_failed": "Nie udało się otworzyć Nexus Mods",
-    "toast.welcome_save_failed": "Nie udało się zapisać potwierdzenia. Okno może pojawić się przy następnym uruchomieniu."
+    "toast.welcome_save_failed": "Nie udało się zapisać potwierdzenia. Okno może pojawić się przy następnym uruchomieniu.",
+    "ui.theme_light": "Przełącz na jasny motyw",
+    "ui.theme_dark": "Przełącz na ciemny motyw",
+    "ui.author_profile": "Profil autora",
+    "ui.about": "INFORMACJE",
+    "ui.about_subtitle": "Framework konfiguracji modów do Cyberpunk 2077",
+    "ui.build_version": "Wersja kompilacji",
+    "ui.developer": "Autor",
+    "ui.official_links": "OFICJALNE LINKI",
+    "ui.about_nexus": "M1 Arc na Nexus Mods",
+    "ui.about_profile": "Mój profil",
+    "ui.about_source": "Kod źródłowy",
+    "ui.about_docs": "Dokumentacja",
+    "ui.about_discord": "Oficjalny serwer Discord",
+    "toast.link_failed": "Nie udało się otworzyć linku"
   }
 }

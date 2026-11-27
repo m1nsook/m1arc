@@ -72,6 +72,20 @@
     "ui.welcome_nexus": "Nexus Mods 토론 참여",
     "ui.welcome_continue": "계속",
     "toast.welcome_link_failed": "Nexus Mods를 열 수 없습니다",
-    "toast.welcome_save_failed": "업데이트 확인을 저장할 수 없습니다. 다음 실행 시 다시 표시될 수 있습니다."
+    "toast.welcome_save_failed": "업데이트 확인을 저장할 수 없습니다. 다음 실행 시 다시 표시될 수 있습니다.",
+    "ui.theme_light": "밝은 테마로 전환",
+    "ui.theme_dark": "어두운 테마로 전환",
+    "ui.author_profile": "제작자 프로필 보기",
+    "ui.about": "정보",
+    "ui.about_subtitle": "Cyberpunk 2077 모드 설정 프레임워크",
+    "ui.build_version": "빌드 버전",
+    "ui.developer": "개발자",
+    "ui.official_links": "공식 링크",
+    "ui.about_nexus": "Nexus Mods의 M1 Arc",
+    "ui.about_profile": "내 프로필",
+    "ui.about_source": "소스 코드",
+    "ui.about_docs": "문서",
+    "ui.about_discord": "공식 Discord 서버",
+    "toast.link_failed": "링크를 열 수 없습니다"
   }
 }

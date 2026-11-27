@@ -22,3 +22,6 @@
 #define ARC_SCOPE_USERS "\xEE\x93\x96" // U+E4D6
 #define ARC_SCOPE_TOOLBOX "\xEE\xB2\xA0" // U+ECA0
 #define ARC_SCOPE_SLIDERS_SCOPE "\xEE\x90\xB2" // U+E432
+
+#define ARC_ICON_SUN "\xEE\x91\xB2" // U+E472
+#define ARC_ICON_MOON "\xEE\x8C\xB0" // U+E330

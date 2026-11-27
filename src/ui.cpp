@@ -2,6 +2,7 @@
 #include "fonts.hpp"
 #include "upgrade.hpp"
 #include "nexus_icon.hpp"
+#include "arc_brand.hpp"
 #include <Windows.h>
 #include <shellapi.h>
 #ifdef M1ARC_ENABLE_DEV_PREVIEW
@@ -318,11 +319,11 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         std::count_if(mods.begin(), mods.end(), Enabled)) +
         "/" + std::to_string(mods.size()) + " " + Tr("ui.online", "ONLINE");
     const std::string keyText =
-        (fonts::HasIcons() ? ARC_ICON_KEY " " : "KEY: ") + input.KeyLabel() + "##arc-bind";
+        (fonts::HasIcons() ? ARC_ICON_KEY "  |  " : "KEY  |  ") + input.KeyLabel() + "##arc-bind";
     const std::string closeLabel = (fonts::HasIcons() ? std::string(ARC_ICON_CLOSE) + " " : "") +
         Tr("ui.close", "CLOSE") + "##arc";
-    const float themeWidth = std::max(140.f, ImGui::CalcTextSize(Tr("ui.theme", "TOGGLE THEME").c_str()).x + 24.f);
-    const float shortcutWidth = std::clamp(ImGui::CalcTextSize(keyText.c_str()).x + 22.f,
+    const float themeWidth = 38.f;
+    const float shortcutWidth = std::clamp(ImGui::CalcTextSize(keyText.c_str(),nullptr,true).x + 22.f,
                                           75.f, std::max(116.f,width*.36f));
     const float closeWidth = std::max(90.f, ImGui::CalcTextSize(closeLabel.c_str()).x + 24.f);
     const float statusWidth = ImGui::CalcTextSize(status.c_str()).x;
@@ -359,15 +360,15 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     }
     // Use ONE font/weight for the entire title: CONTROL PANEL // M1 ARC.
     if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
+    ImGui::TextUnformatted("M1 ARC");
     if (!compact) {
-        ImGui::TextUnformatted(Tr("ui.panel", "CONTROL PANEL").c_str());
         ImGui::SameLine(0.f,6.f);
         ImGui::PushStyleColor(ImGuiCol_Text,p.amber);
         ImGui::TextUnformatted("//");
         ImGui::PopStyleColor();
         ImGui::SameLine(0.f,6.f);
+        ImGui::TextUnformatted(Tr("ui.panel", "CONTROL PANEL").c_str());
     }
-    ImGui::TextUnformatted("M1 ARC");
     if (fonts::titleBold) ImGui::PopFont();
 
     // All header controls have light text on dark backgrounds in both themes.
@@ -384,9 +385,13 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     };
     const float buttonsY = secondRow ? 56.f : 10.f;
     const float themeX = secondRow ? 16.f : brandWidth+12.f;
-    const std::string themeLabel = Tr("ui.theme", "TOGGLE THEME") + "##arc-theme";
+    const std::string themeLabel = std::string(fonts::HasIcons() ?
+        (Theme().dark ? ARC_ICON_SUN : ARC_ICON_MOON) : (Theme().dark ? "L" : "D")) + "##arc-theme";
     if (action(themeLabel.c_str(),themeX,buttonsY,themeWidth))
         ToggleTheme();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(Tr("ui.theme","TOGGLE THEME"), Theme().dark ?
+            Tr("ui.theme_light","Switch to light theme") : Tr("ui.theme_dark","Switch to dark theme"),p);
     const float shortcutX = themeX + themeWidth + 10.f;
     if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
@@ -620,7 +625,11 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
             const ImVec2 row=ImGui::GetCursorScreenPos();
             const float rowWidth=std::max(1.f,ImGui::GetContentRegionAvail().x-2.f);
             const bool hasDescription=!mod.shortDesc.empty();
-            const float rowHeight=hasDescription ? 70.f : 58.f;
+            const std::string metadata=mod.author + (!mod.author.empty() && !mod.version.empty() ? "  |  " : "") +
+                (mod.version.empty() ? "" : "v"+mod.version);
+            const bool hasMetadata=!metadata.empty();
+            const float rowHeight=hasDescription && hasMetadata ? 88.f :
+                (hasDescription || hasMetadata ? 70.f : 58.f);
             if (ImGui::Selectable("##mod-row",selected,0,ImVec2(rowWidth,rowHeight)))
                 SelectedMod()=mod.id;
             const bool hovered=ImGui::IsItemHovered();
@@ -641,13 +650,21 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
             ImGui::PushFont(nameFont);
             const std::string label=FitLabel(mod.title,usable);
             ImGui::PopFont();
-            const float titleY=hasDescription ? row.y+12.f
+            const float titleY=(hasDescription || hasMetadata) ? row.y+10.f
                 : row.y+(rowHeight-nameFont->FontSize)*.5f;
             if (fonts::HasIcons()) {
                 const char* icon=ModScopeIcon(mod.scope);
                 draw->AddText(ImVec2(row.x+16.f,titleY),Color(foreground),icon);
             }
             draw->AddText(nameFont,nameFont->FontSize,ImVec2(nameX,titleY),Color(foreground),label.c_str());
+            if (hasMetadata) {
+                ImFont* small=fonts::caption ? fonts::caption : ImGui::GetFont();
+                ImGui::PushFont(small);
+                const auto fitted=FitLabel(metadata,usable);
+                ImGui::PopFont();
+                draw->AddText(small,small->FontSize,ImVec2(nameX,row.y+34.f),
+                              Color(foreground),fitted.c_str());
+            }
             if (hasDescription) {
                 ImFont* small=fonts::caption ? fonts::caption : ImGui::GetFont();
                 const float smallSize=small->FontSize;
@@ -656,7 +673,7 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
                 ImGui::PopFont();
                 ImVec4 descriptionColor=foreground;
                 descriptionColor.w*=.82f;
-                draw->AddText(small,smallSize,ImVec2(nameX,row.y+38.f),
+                draw->AddText(small,smallSize,ImVec2(nameX,row.y+(hasMetadata ? 54.f : 36.f)),
                               Color(descriptionColor),detail.c_str());
             }
 
@@ -670,7 +687,7 @@ void DrawSidebar(const Palette& p, const std::vector<ModView>& mods,
                 draw->AddRectFilled(ImVec2(a.x+2.f,a.y+2.f),
                                     ImVec2(a.x+8.f,a.y+8.f),Color(p.amber));
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                ShowTooltip(mod.title,mod.shortDesc,p);
+                ShowTooltip(mod.title,metadata + (metadata.empty() ? "" : "\n") + mod.shortDesc,p);
             ImGui::PopStyleColor(3);
             ImGui::PopID();
         }
@@ -896,6 +913,136 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
     ImGui::PopID();
 }
 
+
+void OpenOfficialLink(const std::string& url) {
+    // All callers use fixed HTTPS destinations or a validated profile segment.
+    const std::wstring wide(url.begin(),url.end());
+    const auto result=ShellExecuteW(nullptr,L"open",wide.c_str(),nullptr,nullptr,SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(result)<=32)
+        ShowToast(Tr("toast.link_failed","Could not open link"),3.2f,ToastKind::Error);
+}
+
+void AngularHeading(const Palette& p,const std::string& label) {
+    const ImVec2 pos=ImGui::GetCursorScreenPos();
+    const float w=std::max(1.f,ImGui::GetContentRegionAvail().x);
+    constexpr float h=30.f;
+    const float tab=std::min(w,std::max(40.f,ImGui::CalcTextSize(label.c_str()).x+48.f));
+    auto* d=ImGui::GetWindowDrawList();
+    d->AddLine(ImVec2(pos.x,pos.y+h-1),ImVec2(pos.x+w,pos.y+h-1),Color(p.ink));
+    d->AddQuadFilled(pos,ImVec2(pos.x+tab,pos.y),ImVec2(pos.x+tab-std::min(14.f,tab/3),pos.y+h),ImVec2(pos.x,pos.y+h),Color(p.ink));
+    d->PushClipRect(pos,ImVec2(pos.x+tab-std::min(14.f,tab/3),pos.y+h),true);
+    d->AddText(ImVec2(pos.x+8.f,pos.y+6.f),Color(p.amber),"//");
+    d->AddText(ImVec2(pos.x+30.f,pos.y+6.f),Color(p.paper),label.c_str());
+    d->PopClipRect();
+    ImGui::Dummy(ImVec2(w,h+6.f));
+}
+
+void DrawModHeader(const Palette& p,const ModView& mod) {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(12.f,10.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,5.f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg,p.fill);
+    ImGui::PushStyleColor(ImGuiCol_Border,p.muted);
+    ImGui::BeginChild("##mod-header",ImVec2(0,0),
+        ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding,
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    if (fonts::HasIcons()) {
+        ImGui::TextUnformatted(ModScopeIcon(mod.scope));
+        ImGui::SameLine(0.f,8.f);
+    }
+    if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+    ImGui::TextWrapped("%s",mod.title.c_str());
+    if (fonts::titleHeavy) ImGui::PopFont();
+    const auto& description=mod.description.empty() ? mod.shortDesc : mod.description;
+    if (!description.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text,p.muted);
+        ImGui::TextWrapped("%s",description.c_str());
+        ImGui::PopStyleColor();
+    }
+    const std::string meta=mod.author + (!mod.author.empty() && !mod.version.empty() ? "  |  " : "") +
+        (mod.version.empty() ? "" : "v"+mod.version);
+    if (!meta.empty()) ImGui::TextWrapped("%s",meta.c_str());
+    if (!mod.nexusProfile.empty()) {
+        const std::string url="https://www.nexusmods.com/profile/"+mod.nexusProfile;
+        const auto label=Tr("ui.author_profile","View author profile");
+        if (!meta.empty() && ImGui::GetContentRegionAvail().x>
+            ImGui::CalcTextSize(meta.c_str()).x+ImGui::CalcTextSize(label.c_str()).x+48.f)
+            ImGui::SameLine(0.f,16.f);
+        if (ImGui::Button((label+"  >##author-profile").c_str(),ImVec2(0,28.f))) OpenOfficialLink(url);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ShowTooltip(label,url,p);
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
+    ImGui::Dummy(ImVec2(1.f,10.f));
+}
+
+constexpr const char* kAboutPopup="##arc-about";
+void DrawAbout(const Palette& p) {
+    const auto* viewport=ImGui::GetMainViewport();
+    const float width=std::max(180.f,std::min(760.f,viewport->Size.x-36.f));
+    ImGui::SetNextWindowPos(viewport->GetCenter(),ImGuiCond_Appearing,ImVec2(.5f,.5f));
+    ImGui::SetNextWindowSize(ImVec2(width,0.f),ImGuiCond_Always);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(width,0.f),ImVec2(width,std::max(100.f,viewport->Size.y-36.f)));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(20.f,16.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,8.f));
+    if (ImGui::BeginPopupModal(kAboutPopup,nullptr,ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        const float available=ImGui::GetContentRegionAvail().x;
+        AngularHeading(p,Tr("ui.about","ABOUT")+" // M1 ARC");
+        const auto branding=[&] {
+            const float w=ImGui::GetContentRegionAvail().x;
+            const float logo=std::min(112.f,w);
+            const auto at=ImGui::GetCursorScreenPos();
+            DrawArcBrand(ImGui::GetWindowDrawList(),ImVec2(at.x+(w-logo)*.5f,at.y),logo);
+            ImGui::Dummy(ImVec2(w,logo+6.f));
+            if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX()+std::max(0.f,(w-ImGui::CalcTextSize("M1 ARC").x)*.5f));
+            ImGui::TextUnformatted("M1 ARC");
+            if (fonts::titleHeavy) ImGui::PopFont();
+            const auto subtitle=Tr("ui.about_subtitle","Mod configuration framework for Cyberpunk 2077");
+            const float textWidth=ImGui::CalcTextSize(subtitle.c_str()).x;
+            if (textWidth<w) ImGui::SetCursorPosX(ImGui::GetCursorPosX()+(w-textWidth)*.5f);
+            ImGui::TextWrapped("%s",subtitle.c_str());
+            ImGui::Separator();
+            ImGui::TextWrapped("%s: %s",Tr("ui.build_version","Build version").c_str(),M1ARC_BUILD_VERSION);
+            ImGui::TextWrapped("%s: m1nsook",Tr("ui.developer","Developer").c_str());
+        };
+        const auto links=[&] {
+            AngularHeading(p,Tr("ui.official_links","OFFICIAL LINKS"));
+            struct Entry { const char* key; const char* fallback; const char* url; };
+            constexpr Entry entries[]={
+                {"ui.about_nexus","M1 Arc on Nexus Mods","https://www.nexusmods.com/cyberpunk2077/mods/39311"},
+                {"ui.about_profile","My profile","https://www.nexusmods.com/profile/m1nsook/"},
+                {"ui.about_source","Source code","https://github.com/m1nsook/m1arc"},
+                {"ui.about_docs","Documentation","https://m1nsook.github.io/m1arc/"},
+                {"ui.about_discord","Official Discord server","https://discord.gg/mAYhepremH"}
+            };
+            for (const auto& entry:entries) {
+                ImGui::PushID(entry.key);
+                if (ImGui::Button((Tr(entry.key,entry.fallback)+"  >").c_str(),ImVec2(-1.f,34.f)))
+                    OpenOfficialLink(entry.url);
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    ShowTooltip(Tr(entry.key,entry.fallback),entry.url,p);
+                ImGui::PopID();
+            }
+        };
+        if (available>=590.f && ImGui::BeginTable("##about-columns",2,
+                ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_NoSavedSettings)) {
+            ImGui::TableNextColumn(); branding();
+            ImGui::TableNextColumn(); links();
+            ImGui::EndTable();
+        } else { branding(); links(); }
+        ImGui::Separator();
+        ImGui::TextDisabled("2026 (c) M1NSOOK");
+        ImGui::SameLine(0.f,12.f);
+        const auto close=Tr("ui.close","CLOSE");
+        ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(),ImGui::GetWindowWidth()-20.f-100.f));
+        if (ImGui::Button(close.c_str(),ImVec2(100.f,32.f))) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar(2);
+}
+
 void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                 float width, float height) {
     ImGui::BeginChild("##arc-detail",ImVec2(width,height),ImGuiChildFlags_None,
@@ -916,17 +1063,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     ImGui::SetCursorPosY(10.f);
     if (selected) {
         const bool active = Enabled(*selected);
-        if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
-        ImGui::TextWrapped("%s",selected->title.c_str());
-        if (fonts::titleHeavy) ImGui::PopFont();
-        if (!selected->shortDesc.empty()) {
-            if (fonts::caption) ImGui::PushFont(fonts::caption);
-            ImGui::PushStyleColor(ImGuiCol_Text,p.muted);
-            ImGui::TextWrapped("%s",selected->shortDesc.c_str());
-            ImGui::PopStyleColor();
-            if (fonts::caption) ImGui::PopFont();
-        }
-        ImGui::Dummy(ImVec2(1.f,12.f));
+        DrawModHeader(p,*selected);
         // Settings are native live controls, derived from each REDscript mod's
         // own registered schema. Never substitute the HTML's demo mod data.
         // Group headers use the mod author's existing "group" field.
@@ -940,12 +1077,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
             if (showGroups && setting.group != previousGroup) {
                 ImGui::Spacing();
                 ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
-                if (fonts::titleBold) ImGui::PushFont(fonts::titleBold);
-                ImGui::TextWrapped("%s",setting.group.c_str());
-                if (fonts::titleBold) ImGui::PopFont();
-                ImGui::PushStyleColor(ImGuiCol_Separator,p.muted);
-                ImGui::Separator();
-                ImGui::PopStyleColor();
+                AngularHeading(p,setting.group);
                 ImGui::PopStyleColor();
                 ImGui::Spacing();
                 previousGroup = setting.group;
@@ -971,17 +1103,23 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     auto* draw = ImGui::GetWindowDrawList();
     draw->AddLine(foot,ImVec2(ImGui::GetWindowPos().x+width-1.f,foot.y),
                   Color(p.ink),2.f);
-    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad,foot.y+20.f));
-    if (fonts::caption) ImGui::PushFont(fonts::caption);
-    if (width >= 520.f) ImGui::TextDisabled("2026 (c) M1NSOOK");
-    if (fonts::caption) ImGui::PopFont();
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad,foot.y+12.f));
+    ImGui::PushStyleColor(ImGuiCol_Button,p.ink);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,Theme().dark ? p.amber : ImVec4(.23f,.27f,.21f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,Theme().dark ? p.amber : ImVec4(.31f,.35f,.28f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_Text,p.paper);
+    if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_INFO "##about" : "i##about",ImVec2(38.f,32.f)))
+        ImGui::OpenPopup(kAboutPopup);
+    ImGui::PopStyleColor(4);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(Tr("ui.about","ABOUT"),"M1 ARC",p);
     const auto langs = Translations().Languages();
     const std::string currentLang = Translations().Current();
     const auto currentLangIt = std::find_if(langs.begin(), langs.end(),
         [&](const auto& lang) { return lang.code == currentLang; });
     const std::string nativeName = currentLangIt == langs.end() ? "English" : currentLangIt->name;
-    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad+(width>=520.f ? 175.f : 0.f), foot.y+12.f));
-    ImGui::SetNextItemWidth(140.f);
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad+48.f, foot.y+12.f));
+    ImGui::SetNextItemWidth(std::max(55.f,std::min(140.f,width-2.f*pad-48.f-(selected ? 124.f : 0.f))));
     if (ImGui::BeginCombo("##m1arc-language",nativeName.c_str())) {
         for (const auto& lang : langs) {
             const bool selected = lang.code == currentLang;
@@ -1018,6 +1156,7 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
         }
         ImGui::PopStyleColor(4);
     }
+    DrawAbout(p);
     ImGui::EndChild();
 }
 ImVec4 LogColor(LogLevel level,const Palette& p) {
