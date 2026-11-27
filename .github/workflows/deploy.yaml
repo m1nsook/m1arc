@@ -1,62 +1,61 @@
-name: Deploy VitePress site to Pages
-
+name: Deploy NextGuide documentation to Pages
 on:
   push:
     branches: [web]
     paths:
-      - ".vitepress/**"
-      - "docs/**"
-      - "package.json"
+      - "src/**"
+      - "content/**"
+      - "public/**"
+      - "*.json"
+      - "*.mjs"
       - "bun.lock"
+      - "scripts/**"
       - ".github/workflows/deploy.yaml"
-      - "scripts/check-api.mjs"
   workflow_dispatch:
-
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: true
-
 jobs:
   build:
+    if: github.ref == 'refs/heads/web'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
+          bun-version: "1.4.4"
+      - name: Resolve published NextGuide package
+        run: npm view nextguide dist-tags versions --json
       - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Verify API contract and build VitePress site
+        run: bun install
+      - name: Verify NextGuide installed package
+        run: node -e 'const p = require("./node_modules/nextguide/package.json"); console.log(JSON.stringify({version:p.version,exports:p.exports},null,2))'
+      - name: Validate API and static Pages export
         run: bun run check
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - run: touch out/.nojekyll
+      - uses: actions/upload-pages-artifact@v4
         with:
-          path: .vitepress/dist
-
+          path: out
+          include-hidden-files: true
+          retention-days: 1
   deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

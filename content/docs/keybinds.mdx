@@ -1,4 +1,7 @@
-# Panel shortcut and keyboard handling
+---
+title: "Shortcut and keybinds"
+description: "Panel shortcut and keyboard handling"
+---
 
 M1 Arc uses a **user-selected** shortcut for its native settings panel. You choose it the first time you launch
 Cyberpunk with M1 Arc installed, and can rebind it using the panel.
@@ -37,7 +40,7 @@ game restarts, and participates in profiles. While the game is focused
 and M1 Arc is closed, a key-down queues a one-shot action for the mod.
 The mod consumes it from its normal REDscript code:
 
-~~~reds
+~~~text
 if M1Arc_ConsumeAction("example.my-mod", "spawn_hotkey") {
   // Handle the action using the owning mod's REDscript.
 }

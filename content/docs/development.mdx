@@ -1,0 +1,73 @@
+---
+title: "1.1.0 development preview"
+description: "Upcoming features for players and mod authors. Not released."
+---
+
+<Callout kind="warning" title="Development only">These features are implemented in draft [PR #26](https://github.com/m1nsook/m1arc/pull/26). The published stable version is still 1.0.10. Do not require 1.1.0 in a public mod until the release is available.</Callout>
+
+## Quick Search
+
+Open the magnifying glass in the toolbar to find mods, tabs, groups, settings and built-in commands. Use the arrow keys and Enter to select a result, or Escape to dismiss search. Selecting a setting navigates to its page and highlights it. An optional shortcut can be chosen inside the palette; it starts unassigned and only works while M1 Arc is open.
+
+## Tabs and conditional controls
+
+Authors can declare tabs in mod.json and assign settings to them. Settings without a tab use General. Each tab may have groups. The Defaults menu can reset the current tab or the entire mod.
+
+~~~json
+{
+  "format": 1,
+  "id": "example.my-mod",
+  "name": "Example Mod",
+  "version": "1.0.0",
+  "requires": { "m1arc": "1.1.0" },
+  "scope": "Weapons",
+  "author": "Example Author",
+  "tabs": [
+    { "id": "general", "label": "General", "icon": "gear" },
+    { "id": "weapons", "label": "Weapons", "icon": "sword" }
+  ]
+}
+~~~
+
+~~~json
+[
+  { "id": "enabled", "kind": "boolean", "default": true },
+  {
+    "id": "weaponsEnabled", "kind": "boolean", "label": "Process weapons",
+    "tab": "weapons", "group": "Processing", "default": true, "controlsGroup": true
+  },
+  {
+    "id": "tier", "kind": "integer", "label": "Maximum tier",
+    "tab": "weapons", "group": "Processing", "min": 1, "max": 5, "default": 3,
+    "enabledWhen": { "setting": "weaponsEnabled", "equals": true },
+    "keywords": ["rarity", "quality"]
+  }
+]
+~~~
+
+The master Boolean switch (enabled or active) remains interactive when the mod is off. Disabled controls retain their values. A group switch disables other controls in the same tab and group; enabledWhen references another setting ID in the same mod. Dependencies chain, and missing references, duplicate group controllers and cycles reject the schema. This is UI interaction gating, not an automatic replacement for gameplay logic.
+
+Tab IDs are stable, unique and ordered. Up to 24 declared tabs are supported. Icons: gear, sliders, sword, t-shirt, game-controller, wrench, terminal, map-pin, users, toolbox, package and cube. Unknown icons display text only. Settings may define up to 16 search keywords.
+
+## Metadata and localization
+
+Optional manifest fields include author, description, nexusProfile (Nexus username) and nexusProject (canonical Cyberpunk 2077 Nexus mod URL). Missing optional metadata is hidden. Links open the browser only when clicked.
+
+Translate tabs in the existing per-mod language JSON:
+
+~~~json
+{
+  "tabs": { "weapons": { "label": "Broń" } },
+  "settings": { "tier": { "label": "Maksymalny poziom" } }
+}
+~~~
+
+## Refresh
+
+The toolbar Refresh button reloads mod manifests, setting definitions and mod translations. Existing compatible values are retained; invalid or missing definitions retain the last working schema. Refresh does not reload gameplay code, native DLLs, game archives or the framework's global settings file. Successful refreshes update the revision and discard stale pending actions.
+
+## Diagnostics
+
+Severity counters, search and filters, a compact table, pause/resume and full-message inspection are built in. Pausing freezes the displayed list, not logging. Copy Diagnostics always uses the live unfiltered report. Clear Logs requires confirmation.
+
+See the [stable manifest reference](/mod-manifest), [native API](/native-api) and [diagnostics guide](/diagnostics) for existing features.
