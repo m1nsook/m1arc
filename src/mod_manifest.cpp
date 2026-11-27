@@ -203,7 +203,7 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
         if (!ReadJsonFile(folder / L"settings.json",settings) ||
             !registry.Register(id,manifest["name"].get<std::string>(),settings,
                                std::move(scope),std::move(shortDesc),manifest["version"].get<std::string>(),
-                               std::move(author),std::move(nexusProfile),std::move(description),std::move(nexusProject),refreshing)) {
+                               std::move(author),std::move(nexusProfile),std::move(description),std::move(nexusProject),refreshing,manifest.value("tabs",json::array()))) {
             Reject(report,id,"invalid settings.json or registration failed");
             continue;
         }

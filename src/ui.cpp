@@ -13,6 +13,9 @@
 #include "input.hpp"
 #include "registry.hpp"
 #include "log_view.hpp"
+#include "setting_rules.hpp"
+#include "quick_search.hpp"
+#include <unordered_map>
 #include "mod_manifest.hpp"
 #include "state.hpp"
 
@@ -134,7 +137,7 @@ void ApplyTheme(const Palette& p) {
     style.ScrollbarSize = 12.f;
     style.GrabMinSize = 10.f;
     // ImGui's default disabled opacity can make thin strokes disappear.
-    style.DisabledAlpha = 0.88f;
+    style.DisabledAlpha = 0.48f;
     auto& c = style.Colors;
     c[ImGuiCol_WindowBg] = p.paper;
     c[ImGuiCol_ChildBg] = p.paper;
@@ -313,7 +316,7 @@ void RequestAction(const ModView& mod,const std::string& id,const std::string& l
 bool& LogsMode() { static bool value=false; return value; }
 std::string& PendingLogClear() { static std::string value; return value; }
 
-void DrawHeader(const Palette& p, const std::vector<ModView>& mods, bool& refreshRequested) {
+void DrawHeader(const Palette& p, const std::vector<ModView>& mods, bool& refreshRequested,bool& searchRequested) {
     auto& input = InputRouter::Get();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
@@ -346,7 +349,8 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods, bool& refres
     const std::string refreshLabel=(fonts::HasIcons()?std::string(ARC_ICON_RESET)+" ":"")+
         Tr("ui.refresh","REFRESH")+"##arc-refresh";
     const float refreshWidth=std::max(90.f,ImGui::CalcTextSize(refreshLabel.c_str(),nullptr,true).x+22.f);
-    const float actionsWidth = themeWidth + 10.f + shortcutWidth + 10.f + refreshWidth;
+    const float searchWidth=38.f;
+    const float actionsWidth = themeWidth + 10.f + shortcutWidth + 10.f + refreshWidth+10.f+searchWidth;
     const std::string modeLabel=std::string(fonts::HasIcons() ?
         (LogsMode() ? ARC_ICON_SLIDERS : ARC_ICON_LOGS) :
         (LogsMode() ? Tr("ui.logs_settings","Settings").c_str() : Tr("ui.logs_title","Logs").c_str()))+"##arc-mode";
@@ -417,6 +421,13 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods, bool& refres
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
         ShowTooltip(Tr("ui.refresh","REFRESH"),Tr("ui.refresh_help",
             "Reload all mod manifests, setting definitions and mod translations. Saved values are preserved when compatible. Code changes still require a restart."),p);
+
+    ImGui::BeginDisabled(input.IsRecording() || input.IsModRecording());
+    if (action(fonts::HasIcons()?ARC_ICON_SEARCH "##quick-search":"?##quick-search",
+        refreshX+refreshWidth+10.f,buttonsY,searchWidth)) searchRequested=true;
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(Tr("ui.quick_search","Quick Search"),Tr("ui.search_hint","Search mods, tabs, groups, settings and commands..."),p);
 
     const float rightY = thirdRow ? 100.f : secondRow ? 56.f : 10.f;
     const float closeX = std::max(8.f,width-closeWidth-14.f);
@@ -802,7 +813,7 @@ void DrawChoice(const ModView& mod,const SettingView& setting,const Palette& p,f
 }
 
 void DrawSetting(const ModView& mod,const SettingView& setting,
-                 const Palette& p,float width,bool disabled) {
+                 const Palette& p,float width,bool disabled,const std::string& reason={},bool highlight=false) {
     ImGui::PushID(setting.id.c_str());
     const bool stacked=width<430.f;
     const float controls=stacked ? std::min(250.f,width) :
@@ -816,15 +827,16 @@ void DrawSetting(const ModView& mod,const SettingView& setting,
         std::max(54.f,textHeight+22.f);
     const ImVec2 row=ImGui::GetCursorScreenPos();
 
+    if (highlight) ImGui::GetWindowDrawList()->AddRect(row,ImVec2(row.x+width,row.y+rowHeight),Color(p.amber),0.f,0,2.f);
     if (disabled) ImGui::BeginDisabled();
     ImGui::SetCursorScreenPos(ImVec2(row.x,row.y+12.f));
     // PushTextWrapPos uses WINDOW-LOCAL X, not screen X (previously wrong).
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+labelWidth);
     ImGui::TextUnformatted(setting.label.c_str());
     ImGui::PopTextWrapPos();
-    if (!setting.description.empty() &&
+    if ((!setting.description.empty() || disabled) &&
         ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort | ImGuiHoveredFlags_AllowWhenDisabled))
-        ShowTooltip(setting.label,setting.description,p);
+        ShowTooltip(setting.label,setting.description+(disabled ? "\n"+Tr("ui.disabled_by","Disabled by: ")+reason : ""),p);
 
     const float x=stacked ? row.x : row.x+width-controls;
     const float y=stacked ? row.y+textHeight+22.f :
@@ -1205,6 +1217,61 @@ void DrawAbout(const Palette& p) {
     ImGui::PopStyleVar(3);
 }
 
+std::unordered_map<std::string,std::string>& TabSelections() {
+    static std::unordered_map<std::string,std::string> tabs;
+    return tabs;
+}
+std::string& CurrentTab(const ModView& mod) {
+    auto& tab=TabSelections()[mod.id];
+    if (mod.tabs.empty()) tab.clear();
+    else if (std::none_of(mod.tabs.begin(),mod.tabs.end(),[&](const auto& t){return t.id==tab;}))
+        tab=mod.tabs.front().id;
+    return tab;
+}
+struct NavigationTarget {
+    std::string mod,tab,group,setting;
+    bool scroll=false;
+    double until=0;
+};
+NavigationTarget& Navigation() { static NavigationTarget target; return target; }
+const char* TabIcon(std::string_view icon) {
+    if (icon=="gear" || icon=="sliders") return ARC_ICON_SLIDERS;
+    if (icon=="sword") return ARC_SCOPE_SWORD;
+    if (icon=="t-shirt") return ARC_SCOPE_T_SHIRT;
+    if (icon=="game-controller") return ARC_SCOPE_GAME_CONTROLLER;
+    if (icon=="wrench") return ARC_SCOPE_WRENCH;
+    if (icon=="terminal") return ARC_SCOPE_TERMINAL;
+    if (icon=="map-pin") return ARC_SCOPE_MAP_PIN;
+    if (icon=="users") return ARC_SCOPE_USERS;
+    if (icon=="toolbox") return ARC_SCOPE_TOOLBOX;
+    if (icon=="package" || icon=="cube") return ARC_ICON_CUBE;
+    return "";
+}
+bool DrawModTabs(const Palette& p,const ModView& mod,std::string& tab) {
+    if (mod.tabs.empty()) return false;
+    bool changed=false;
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(0,0));
+    ImGui::BeginChild("##mod-tabs",ImVec2(0,48.f),ImGuiChildFlags_None,
+        ImGuiWindowFlags_HorizontalScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
+    for (std::size_t i=0;i<mod.tabs.size();++i) {
+        const auto& item=mod.tabs[i];
+        if (i) ImGui::SameLine(0,0);
+        ImGui::PushID(item.id.c_str());
+        const auto icon=fonts::HasIcons()?TabIcon(item.icon):"";
+        const std::string text=(*icon?std::string(icon)+" ":"")+UpperHeading(item.label);
+        const bool active=item.id==tab;
+        ImGui::PushStyleColor(ImGuiCol_Button,active?p.amber:p.fill);
+        ImGui::PushStyleColor(ImGuiCol_Text,active?ImVec4(.10f,.11f,.09f,1.f):p.ink);
+        if (ImGui::Button((text+"##tab").c_str(),ImVec2(std::max(72.f,ImGui::CalcTextSize(text.c_str()).x+24.f),34.f))) {
+            changed=tab!=item.id; tab=item.id;
+        }
+        ImGui::PopStyleColor(2);
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
+    return changed;
+}
 void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
                 float width, float height) {
     ImGui::BeginChild("##arc-detail",ImVec2(width,height),ImGuiChildFlags_None,
@@ -1224,8 +1291,11 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     // setting: ImGui advances subsequent rows back to the child's x=0.
     ImGui::SetCursorPosY(10.f);
     if (selected) {
-        const bool active = Enabled(*selected);
+        auto& tab=CurrentTab(*selected);
         DrawModHeader(p,*selected);
+        if (DrawModTabs(p,*selected,tab)) Navigation()={};
+        auto& target=Navigation();
+        const bool navigating=target.mod==selected->id && target.tab==tab;
         // Settings are native live controls, derived from each REDscript mod's
         // own registered schema. Never substitute the HTML's demo mod data.
         // Group headers use the mod author's existing "group" field.
@@ -1236,17 +1306,28 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
             });
         std::string previousGroup;
         for (const auto& setting : selected->settings) {
-            if (showGroups && setting.group != previousGroup) {
+            if (!selected->tabs.empty() && setting.tab!=tab) continue;
+            const auto group=setting.groupKey.empty()?setting.group:setting.groupKey;
+            if ((showGroups || !selected->tabs.empty()) && group != previousGroup) {
                 ImGui::Spacing();
                 ImGui::PushStyleColor(ImGuiCol_Text,p.ink);
                 AngularHeading(p,setting.group);
                 ImGui::PopStyleColor();
                 ImGui::Spacing();
-                previousGroup = setting.group;
+                previousGroup=group;
+                if (navigating && target.scroll && target.setting.empty() && target.group==group) {
+                    ImGui::SetScrollHereY(.2f); target.scroll=false;
+                }
             }
-            DrawSetting(*selected,setting,p,
-                std::max(1.f,ImGui::GetContentRegionAvail().x-8.f),
-                !active && !IsMasterSwitch(setting));
+            const auto blocked=rules::Blocked(*selected,setting);
+            const auto parent=std::find_if(selected->settings.begin(),selected->settings.end(),
+                [&](const auto& s){return s.id==blocked;});
+            const bool highlighted=navigating && target.setting==setting.id && ImGui::GetTime()<target.until;
+            DrawSetting(*selected,setting,p,std::max(1.f,ImGui::GetContentRegionAvail().x-8.f),
+                !blocked.empty(),parent==selected->settings.end()?blocked:parent->label,highlighted);
+            if (navigating && target.scroll && target.setting==setting.id) {
+                ImGui::SetScrollHereY(.45f); target.scroll=false;
+            }
         }
     } else {
         ImGui::TextDisabled("%s", Tr("ui.no_mods_detail", "No registered mods yet.").c_str());
@@ -1313,14 +1394,23 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     if (selected) {
         ImGui::SetCursorScreenPos(ImVec2(foot.x+width-inset-defaultsWidth-2.f,y));
         pushBar();
-        if (ImGui::Button(defaultsLabel.c_str(),ImVec2(defaultsWidth,34.f))) {
-            const bool restored=Settings().ResetMod(selected->id);
-            if (restored) (void)Settings().AppendLog(selected->id,LogLevel::Info,"M1 Arc: defaults restored");
+        const auto reset=[&](bool onlyTab) {
+            const bool restored=onlyTab?Settings().ResetTab(selected->id,CurrentTab(*selected)):Settings().ResetMod(selected->id);
+            if (restored) (void)Settings().AppendLog(selected->id,LogLevel::Info,onlyTab?"M1 Arc: tab defaults restored":"M1 Arc: defaults restored");
             ShowToast(restored?Tr("toast.defaults_restored_prefix","Defaults restored for ")+selected->title:
                 Tr("toast.defaults_failed_prefix","Failed to reset ")+selected->title,
                 3.2f,restored?ToastKind::Success:ToastKind::Error);
+        };
+        if (ImGui::Button(defaultsLabel.c_str(),ImVec2(defaultsWidth,34.f))) {
+            if (selected->tabs.empty()) reset(false);
+            else ImGui::OpenPopup("##reset-choice");
         }
         ImGui::PopStyleColor(5);
+        if (ImGui::BeginPopup("##reset-choice")) {
+            if (ImGui::Selectable(Tr("ui.reset_tab","Reset current tab").c_str())) reset(true);
+            if (ImGui::Selectable(Tr("ui.reset_mod","Reset entire mod").c_str())) reset(false);
+            ImGui::EndPopup();
+        }
     }
     DrawAbout(p);
     ImGui::EndChild();
@@ -1804,6 +1894,168 @@ void ShowToast(std::string message, float seconds, ToastKind kind) {
     while (queue.size() > 4) queue.pop_front(); // bounded backlog
 }
 
+// Quick Search is native and offline: every result is a navigation target
+// or one of a fixed set of framework commands (never a mod-authored action).
+void DrawQuickSearch(const Palette& p,const std::vector<ModView>& mods,const std::vector<ModView>& original,
+                     bool requested,bool& refreshRequested) {
+    struct Entry {
+        std::string name,path,kind,mod,tab,group,setting,search;
+        int command=0,score=0;
+        bool disabled=false;
+    };
+    static std::array<char,256> query{};
+    static int selected=0;
+    static std::vector<std::string> recent;
+    static bool wasOpen=false;
+    auto& input=InputRouter::Get();
+    if (input.IsRecording() || input.IsModRecording()) requested=false;
+    if (requested) {
+        query.fill(0); selected=0;
+        ImGui::OpenPopup("##quick-palette");
+    }
+    const auto* viewport=ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->GetCenter(),ImGuiCond_Appearing,ImVec2(.5f,.5f));
+    ImGui::SetNextWindowSize(ImVec2(std::max(180.f,std::min(680.f,viewport->Size.x-48.f)),
+        std::max(180.f,std::min(490.f,viewport->Size.y-48.f))),ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,10.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding,10.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(16.f,14.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,6.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,5.f);
+    if (ImGui::BeginPopupModal("##quick-palette",nullptr,ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoSavedSettings)) {
+        input.SetTextEntryActive(true);
+        const bool appearing=ImGui::IsWindowAppearing();
+        if (fonts::HasIcons()) { ImGui::TextUnformatted(ARC_ICON_SEARCH); ImGui::SameLine(); }
+        if (appearing || requested) ImGui::SetKeyboardFocusHere();
+        ImGui::SetNextItemWidth(std::max(30.f,ImGui::GetContentRegionAvail().x-52.f));
+        if (ImGui::InputTextWithHint("##quick-query",Tr("ui.search_hint","Search mods, tabs, groups, settings and commands...").c_str(),
+            query.data(),query.size())) selected=0;
+        ImGui::SameLine();
+        bool dismiss=ImGui::Button("ESC",ImVec2(44.f,0.f)) || ImGui::IsKeyPressed(ImGuiKey_Escape,false);
+        std::vector<Entry> entries;
+        const auto add=[&](Entry item,std::string extra) {
+            item.search=UpperHeading(item.name+" "+item.path+" "+extra);
+            entries.push_back(std::move(item));
+        };
+        for (const auto& mod:mods) {
+            const auto raw=std::find_if(original.begin(),original.end(),[&](const auto& m){return m.id==mod.id;});
+            const std::string originalTitle=raw==original.end()?mod.title:raw->title;
+            add({mod.title,mod.scope,"MODS",mod.id},mod.id+" "+mod.author+" "+mod.shortDesc+" "+mod.description+" "+originalTitle+
+                (raw==original.end()?"":" "+raw->shortDesc+" "+raw->description));
+            for (const auto& tab:mod.tabs) {
+                std::string originalLabel;
+                if (raw!=original.end()) for(const auto& t:raw->tabs) if(t.id==tab.id) originalLabel=t.label;
+                add({tab.label,mod.title,"TABS",mod.id,tab.id},tab.id+" "+originalLabel+" "+originalTitle);
+            }
+            std::vector<std::pair<std::string,std::string>> seen;
+            for (const auto& s:mod.settings) {
+                const auto group=s.groupKey.empty()?s.group:s.groupKey;
+                std::string path=mod.title;
+                for (const auto& tab:mod.tabs) if(tab.id==s.tab) path+=" / "+tab.label;
+                const auto pair=std::make_pair(s.tab,group);
+                if (std::find(seen.begin(),seen.end(),pair)==seen.end()) {
+                    seen.push_back(pair);
+                    add({s.group,path,"GROUPS",mod.id,s.tab,group},group+" "+originalTitle);
+                }
+                path+=" / "+s.group;
+                std::string extra=s.id+" "+s.description+" "+originalTitle;
+                for(const auto& word:s.keywords) extra+=" "+word;
+                if(raw!=original.end()) for(const auto& row:raw->settings) if(row.id==s.id)
+                    extra+=" "+row.label+" "+row.description+" "+row.group;
+                Entry item{s.label,path,"SETTINGS",mod.id,s.tab,group,s.id};
+                item.disabled=!rules::Blocked(mod,s).empty();
+                add(std::move(item),extra);
+            }
+        }
+        add({Tr("ui.refresh","REFRESH"),"M1 Arc","COMMANDS","","","","","",1},"refresh manifests reload");
+        add({Tr("ui.diagnostics","DIAGNOSTICS"),"M1 Arc","COMMANDS","","","","","",2},"open diagnostics logs");
+        add({Tr("ui.theme","TOGGLE THEME"),"M1 Arc","COMMANDS","","","","","",3},"toggle theme light dark");
+        add({Tr("ui.logs_settings","Settings"),"M1 Arc","COMMANDS","","","","","",4},"open settings");
+        const auto identity=[](const Entry& e){return e.kind+"|"+e.mod+"|"+e.tab+"|"+e.group+"|"+e.setting+"|"+std::to_string(e.command);};
+        const auto folded=UpperHeading(query.data());
+        std::erase_if(entries,[&](auto& entry){
+            entry.score=quick::Score(UpperHeading(entry.name),entry.search,folded);
+            if (entry.score<0) return true;
+            if (folded.empty()) {
+                const auto found=std::find(recent.begin(),recent.end(),identity(entry));
+                entry.score=found==recent.end()?0:100-static_cast<int>(found-recent.begin());
+            }
+            return false;
+        });
+        std::stable_sort(entries.begin(),entries.end(),[](const auto& a,const auto& b){return a.score>b.score;});
+        if (entries.size()>80) entries.resize(80);
+        const bool up=ImGui::IsKeyPressed(ImGuiKey_UpArrow);
+        const bool down=ImGui::IsKeyPressed(ImGuiKey_DownArrow);
+        if (up) --selected;
+        if (down) ++selected;
+        selected=std::clamp(selected,0,std::max(0,static_cast<int>(entries.size())-1));
+        int activate=(!entries.empty() && ImGui::IsKeyPressed(ImGuiKey_Enter,false))?selected:-1;
+        ImGui::Separator();
+        ImGui::BeginChild("##quick-results",ImVec2(0,std::max(45.f,ImGui::GetContentRegionAvail().y-72.f)),ImGuiChildFlags_None);
+        if(entries.empty()) ImGui::TextDisabled("%s",Tr("ui.search_empty","No results found").c_str());
+        for(int i=0;i<static_cast<int>(entries.size());++i) {
+            const auto& item=entries[i];
+            ImGui::PushID(i);
+            const auto a=ImGui::GetCursorScreenPos();
+            const float w=ImGui::GetContentRegionAvail().x;
+            if(ImGui::Selectable("##result",selected==i,0,ImVec2(w,48.f))) activate=i;
+            if((up||down) && selected==i) ImGui::SetScrollHereY(.5f);
+            auto* d=ImGui::GetWindowDrawList();
+            d->PushClipRect(a,ImVec2(a.x+w,a.y+48.f),true);
+            const auto name=FitLabel(item.name+(item.disabled?"  ["+Tr("ui.search_disabled","Disabled")+"]":""),std::max(1.f,w-24.f));
+            d->AddText(ImVec2(a.x+10.f,a.y+5.f),Color(item.disabled?p.muted:p.ink),name.c_str());
+            ImFont* small=fonts::caption?fonts::caption:ImGui::GetFont();
+            ImGui::PushFont(small);
+            const auto path=FitLabel(Tr("ui.search_kind_"+item.kind,item.kind.c_str())+" / "+item.path,std::max(1.f,w-24.f));
+            ImGui::PopFont();
+            d->AddText(small,small->FontSize,ImVec2(a.x+10.f,a.y+27.f),Color(p.muted),path.c_str());
+            d->PopClipRect();
+            ImGui::PopID();
+        }
+        ImGui::EndChild();
+        ImGui::Separator();
+        ImGui::TextDisabled("%s",Tr("ui.search_keys","Up / Down: Navigate   Enter: Select   Esc: Dismiss").c_str());
+        const int options[]={0,PackMenuShortcut('K',kMenuCtrl),PackMenuShortcut('P',kMenuCtrl),PackMenuShortcut('F',kMenuCtrl),
+            PackMenuShortcut('K',kMenuCtrl|kMenuShift),PackMenuShortcut('P',kMenuCtrl|kMenuShift)};
+        const char* names[]={"Unassigned","Ctrl + K","Ctrl + P","Ctrl + F","Ctrl + Shift + K","Ctrl + Shift + P"};
+        int index=0;
+        for(int i=0;i<6;++i) if(input.SearchShortcut()==options[i]) index=i;
+        ImGui::SetNextItemWidth(std::min(180.f,ImGui::GetContentRegionAvail().x*.55f));
+        if(ImGui::BeginCombo("##search-shortcut",index?names[index]:Tr("ui.search_unassigned","Unassigned").c_str())) {
+            for(int i=0;i<6;++i) {
+                ImGui::BeginDisabled(input.IsMenuShortcut(options[i]));
+                if(ImGui::Selectable(i?names[i]:Tr("ui.search_unassigned","Unassigned").c_str(),index==i))
+                    if(Store().Update([&](nlohmann::json& state){state["overlay"]["searchShortcut"]=options[i];}))
+                        input.SetSearchShortcut(options[i]);
+                ImGui::EndDisabled();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s",Tr("ui.search_shortcut","Search shortcut").c_str());
+        if (!dismiss && activate>=0 && activate<static_cast<int>(entries.size())) {
+            const auto& item=entries[activate];
+            const auto key=identity(item);
+            std::erase(recent,key); recent.insert(recent.begin(),key);
+            if(recent.size()>8) recent.resize(8);
+            if(item.command==1) refreshRequested=true;
+            else if(item.command==2) {LogsMode()=true;PendingLogClear().clear();}
+            else if(item.command==3) ToggleTheme();
+            else if(item.command==4) LogsMode()=false;
+            else {
+                SelectedMod()=item.mod; LogsMode()=false;
+                if(!item.tab.empty()) TabSelections()[item.mod]=item.tab;
+                Navigation()={item.mod,item.tab,item.group,item.setting,true,ImGui::GetTime()+2.8};
+            }
+            dismiss=true;
+        }
+        if(dismiss) {ImGui::CloseCurrentPopup();input.SetTextEntryActive(false);}
+        ImGui::EndPopup();
+        wasOpen=!dismiss;
+    } else if(wasOpen) {input.SetTextEntryActive(false);wasOpen=false;}
+    ImGui::PopStyleVar(5);
+}
+
 void DrawArcUI() {
     auto& input = InputRouter::Get();
     if (!input.IsOpen()) {
@@ -1817,7 +2069,18 @@ void DrawArcUI() {
     const auto& theme = Theme();
     const Palette palette = Colors(theme.dark);
     ApplyTheme(palette);
-    auto mods = Settings().Snapshot();
+    static bool shortcutLoaded=false;
+    if (!shortcutLoaded) {
+        shortcutLoaded=true;
+        try {
+            const auto state=nlohmann::json::parse(Store().Snapshot());
+            const int packed=state.value("overlay",nlohmann::json::object()).value("searchShortcut",0);
+            if (ValidMenuShortcut(MenuKey(packed),MenuMods(packed)) && !input.IsMenuShortcut(packed))
+                input.SetSearchShortcut(packed);
+        } catch (...) {}
+    }
+    const auto original=Settings().Snapshot();
+    auto mods=original;
     for (auto& mod : mods) Translations().Localize(mod);
     if (SelectedMod().empty() ||
         std::none_of(mods.begin(),mods.end(),[](const ModView& mod) {
@@ -1842,15 +2105,17 @@ void DrawArcUI() {
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
     bool refreshRequested=false;
+    bool searchRequested=input.ConsumeSearchRequest();
     if (ImGui::Begin("##M1ArcControlPanel",nullptr,flags)) {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(0,0));
-        DrawHeader(palette,mods,refreshRequested);
+        DrawHeader(palette,mods,refreshRequested,searchRequested);
         const ImVec2 area = ImGui::GetContentRegionAvail();
         const float navWidth = std::min(320.f,std::max(100.f,area.x*.26f));
         DrawSidebar(palette,mods,navWidth,area.y);
         ImGui::SameLine(0.f,0.f);
         if (LogsMode()) DrawLogs(palette,mods,std::max(0.f,area.x-navWidth),area.y);
         else { input.SetTextEntryActive(false); DrawDetail(palette,mods,std::max(0.f,area.x-navWidth),area.y); }
+        DrawQuickSearch(palette,mods,original,searchRequested,refreshRequested);
         ImGui::PopStyleVar();
     }
     ImGui::End();

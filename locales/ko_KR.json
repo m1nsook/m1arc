@@ -108,6 +108,21 @@
     "ui.logs_entry": "로그 항목",
     "ui.logs_copy_entry": "전체 메시지 복사",
     "toast.logs_entry_copied": "로그 메시지를 복사했습니다",
-    "ui.logs_clear_help": "이 모드의 현재 세션 로그를 모두 지울까요? 일시 정지된 화면도 지워집니다."
+    "ui.logs_clear_help": "이 모드의 현재 세션 로그를 모두 지울까요? 일시 정지된 화면도 지워집니다.",
+    "ui.quick_search": "빠른 검색",
+    "ui.search_hint": "모드, 탭, 그룹, 설정 및 명령 검색...",
+    "ui.search_empty": "검색 결과가 없습니다",
+    "ui.search_disabled": "비활성화됨",
+    "ui.search_keys": "위 / 아래: 이동   Enter: 선택   Esc: 닫기",
+    "ui.search_unassigned": "미지정",
+    "ui.search_shortcut": "검색 단축키",
+    "ui.disabled_by": "비활성화 원인: ",
+    "ui.reset_tab": "현재 탭 초기화",
+    "ui.reset_mod": "전체 모드 초기화",
+    "ui.search_kind_MODS": "모드",
+    "ui.search_kind_TABS": "탭",
+    "ui.search_kind_GROUPS": "그룹",
+    "ui.search_kind_SETTINGS": "설정",
+    "ui.search_kind_COMMANDS": "명령"
   }
 }

@@ -37,3 +37,5 @@
 #define ARC_ICON_PLAY "\xEE\x8F\x90"  // U+E3D0
 #define ARC_ICON_TRASH "\xEE\x92\xA6" // U+E4A6
 #define ARC_ICON_COPY "\xEE\x87\x8A"  // U+E1CA
+
+#define ARC_ICON_SEARCH "\xEE\x8C\x8C" // U+E30C, magnifying-glass

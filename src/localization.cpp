@@ -178,6 +178,8 @@ void Localization::Localize(ModView& mod) const {
     mod.title = Field(doc, "name", mod.title);
     mod.shortDesc = Field(doc, "shortDesc", mod.shortDesc);
     mod.description = Field(doc, "description", mod.description);
+    const json& tabs=Object(doc,"tabs");
+    for (auto& tab:mod.tabs) tab.label=Field(Object(tabs,tab.id),"label",tab.label);
     const json& definitions = Object(doc, "settings");
     for (auto& setting : mod.settings) {
         const json& localized = Object(definitions, setting.id);

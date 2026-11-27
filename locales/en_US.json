@@ -108,6 +108,21 @@
     "ui.logs_entry": "LOG ENTRY",
     "ui.logs_copy_entry": "Copy full message",
     "toast.logs_entry_copied": "Log message copied",
-    "ui.logs_clear_help": "Clear all current-session logs for this mod? This also clears the paused view."
+    "ui.logs_clear_help": "Clear all current-session logs for this mod? This also clears the paused view.",
+    "ui.quick_search": "Quick Search",
+    "ui.search_hint": "Search mods, tabs, groups, settings and commands...",
+    "ui.search_empty": "No results found",
+    "ui.search_disabled": "Disabled",
+    "ui.search_keys": "Up / Down: Navigate   Enter: Select   Esc: Dismiss",
+    "ui.search_unassigned": "Unassigned",
+    "ui.search_shortcut": "Search shortcut",
+    "ui.disabled_by": "Disabled by: ",
+    "ui.reset_tab": "Reset current tab",
+    "ui.reset_mod": "Reset entire mod",
+    "ui.search_kind_MODS": "MODS",
+    "ui.search_kind_TABS": "TABS",
+    "ui.search_kind_GROUPS": "GROUPS",
+    "ui.search_kind_SETTINGS": "SETTINGS",
+    "ui.search_kind_COMMANDS": "COMMANDS"
   }
 }

@@ -1,4 +1,6 @@
 #include "../src/registry.hpp"
+#include "../src/setting_rules.hpp"
+#include "../src/quick_search.hpp"
 #include "check.hpp"
 #include <filesystem>
 #include <fstream>
@@ -29,6 +31,44 @@ int main()
     });
     REQUIRE(registry.Register("example","Demo Settings",schema));
     REQUIRE(registry.Snapshot().size()==1);
+    {
+        const auto tabs=json::parse(R"([{"id":"weapons","label":"Weapons","icon":"sword"}])");
+        const auto definitions=json::parse(R"([
+            {"id":"enabled","kind":"boolean","default":true},
+            {"id":"weapons","kind":"boolean","default":false,"tab":"weapons","group":"Processing","controlsGroup":true},
+            {"id":"tier","kind":"integer","default":3,"min":1,"max":5,"tab":"weapons","group":"Processing","keywords":["quality"]},
+            {"id":"action","kind":"boolean","default":true,"enabledWhen":{"setting":"tier","equals":3}}
+        ])");
+        m1arc::Registry enhanced(store);
+        REQUIRE(enhanced.Register("tabs","Tabs",definitions,"Gameplay","","1.0.0","","","","",false,tabs));
+        auto mod=enhanced.Snapshot().front();
+        REQUIRE(mod.tabs.size()==2 && mod.tabs.front().id=="general");
+        REQUIRE(m1arc::rules::Blocked(mod,mod.settings[0]).empty());
+        REQUIRE(m1arc::rules::Blocked(mod,mod.settings[1]).empty());
+        REQUIRE(m1arc::rules::Blocked(mod,mod.settings[2])=="weapons");
+        REQUIRE(m1arc::rules::Blocked(mod,mod.settings[3])=="weapons");
+        REQUIRE(enhanced.Set("tabs","weapons",true));
+        mod=enhanced.Snapshot().front();
+        REQUIRE(m1arc::rules::Blocked(mod,mod.settings[2]).empty());
+        REQUIRE(enhanced.Set("tabs","enabled",false));
+        mod=enhanced.Snapshot().front();
+        REQUIRE(m1arc::rules::Blocked(mod,mod.settings[1])=="enabled");
+        REQUIRE(enhanced.Set("tabs","tier",5));
+        REQUIRE(enhanced.ResetTab("tabs","weapons"));
+        REQUIRE(enhanced.Get("tabs","tier").value()==3);
+        REQUIRE(enhanced.Get("tabs","enabled").value()==false);
+        auto cycle=definitions;
+        cycle[1]["enabledWhen"]={{"setting","tier"},{"equals",3}};
+        REQUIRE(!enhanced.Register("tabs","Broken",cycle,"Gameplay","","1.0.1","","","","",true,tabs));
+        REQUIRE(enhanced.Snapshot().front().title=="Tabs");
+        REQUIRE(enhanced.Register("tabs","Legacy",json::parse(R"([{"id":"enabled","kind":"boolean","default":true}])")));
+        REQUIRE(enhanced.Snapshot().front().tabs.size()==2);
+        REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","WEPON")>0);
+        REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","ARC WEAPON")>0);
+        REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","ZEBRA")<0);
+        REQUIRE(m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","WEAPON")>
+            m1arc::quick::Score("WEAPON","ARC CONVERTER WEAPON","WEPON"));
+    }
     REQUIRE(registry.Get("example","active").value()==true);
     REQUIRE(registry.Set("example","active",false));
     REQUIRE(registry.Get("example","active").value()==false);

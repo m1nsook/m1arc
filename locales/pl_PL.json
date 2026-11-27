@@ -108,6 +108,21 @@
     "ui.logs_entry": "WPIS DZIENNIKA",
     "ui.logs_copy_entry": "Kopiuj pełną wiadomość",
     "toast.logs_entry_copied": "Skopiowano wiadomość",
-    "ui.logs_clear_help": "Wyczyścić wszystkie wpisy tego moda z bieżącej sesji? Wstrzymany widok także zostanie wyczyszczony."
+    "ui.logs_clear_help": "Wyczyścić wszystkie wpisy tego moda z bieżącej sesji? Wstrzymany widok także zostanie wyczyszczony.",
+    "ui.quick_search": "Szybkie wyszukiwanie",
+    "ui.search_hint": "Szukaj modów, kart, grup, ustawień i poleceń...",
+    "ui.search_empty": "Brak wyników",
+    "ui.search_disabled": "Wyłączone",
+    "ui.search_keys": "Góra / dół: Nawigacja   Enter: Wybierz   Esc: Zamknij",
+    "ui.search_unassigned": "Nieprzypisany",
+    "ui.search_shortcut": "Skrót wyszukiwania",
+    "ui.disabled_by": "Wyłączone przez: ",
+    "ui.reset_tab": "Resetuj bieżącą kartę",
+    "ui.reset_mod": "Resetuj cały mod",
+    "ui.search_kind_MODS": "MODY",
+    "ui.search_kind_TABS": "KARTY",
+    "ui.search_kind_GROUPS": "GRUPY",
+    "ui.search_kind_SETTINGS": "USTAWIENIA",
+    "ui.search_kind_COMMANDS": "POLECENIA"
   }
 }
