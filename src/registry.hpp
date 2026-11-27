@@ -55,6 +55,7 @@ struct ModView {
     std::string author;
     std::string nexusProfile;
     std::string description;
+    std::string nexusProject;
 };
 
 // Exact author-selectable manifest scopes. Missing scope defaults to Miscellaneous.
@@ -69,7 +70,7 @@ public:
                   std::string scope = "Miscellaneous",
                   std::string shortDesc = {}, std::string version = {},
                   std::string author = {}, std::string nexusProfile = {},
-                  std::string description = {});
+                  std::string description = {}, std::string nexusProject = {});
     [[nodiscard]] std::vector<ModView> Snapshot() const;
     // Session-only, bounded, independently scoped diagnostic streams.
     static constexpr std::size_t kLogsPerMod=256, kLogsTotal=4096, kLogMessageBytes=2048;

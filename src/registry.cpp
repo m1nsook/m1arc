@@ -246,7 +246,8 @@ std::optional<nlohmann::json> Registry::Normalize(
 
 bool Registry::Register(std::string id, std::string title, const nlohmann::json& definitions,
                         std::string scope, std::string shortDesc, std::string version,
-                        std::string author, std::string nexusProfile, std::string description)
+                        std::string author, std::string nexusProfile, std::string description,
+                        std::string nexusProject)
 {
     // Metadata is visual only. Preserve the old 3-parameter REDscript API.
     if (!ValidId(id) || title.empty() || title.size() > 150 ||
@@ -380,6 +381,7 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
         author=old.author;
         nexusProfile=old.nexusProfile;
         description=old.description;
+        nexusProject=old.nexusProject;
         if (!old.version.empty()) {
             prepared.scope=old.scope;
             prepared.shortDesc=old.shortDesc;
@@ -390,6 +392,7 @@ bool Registry::Register(std::string id, std::string title, const nlohmann::json&
     prepared.author=std::move(author);
     prepared.nexusProfile=std::move(nexusProfile);
     prepared.description=std::move(description);
+    prepared.nexusProject=std::move(nexusProject);
     mods_[id] = std::move(prepared);
     if (first) AppendLogLocked(id,LogLevel::Info,"M1 Arc: mod registered");
     return true;

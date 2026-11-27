@@ -86,6 +86,7 @@
     "ui.about_source": "Source code",
     "ui.about_docs": "Documentation",
     "ui.about_discord": "Official Discord server",
-    "toast.link_failed": "Could not open link"
+    "toast.link_failed": "Could not open link",
+    "ui.nexus_project": "Show on Nexus"
   }
 }

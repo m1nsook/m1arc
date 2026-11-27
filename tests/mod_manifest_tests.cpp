@@ -145,13 +145,15 @@ int main() {
     const auto metaPath=root/"mods"/"author.mod"/"mod.json";
     nlohmann::json meta={{"format",1},{"id","author.mod"},{"name","Author mod"},
         {"version","1.2.3"},{"author","Test Author"},{"nexusProfile","test_author"},
-        {"description","Full description"},{"shortDesc","Short"}};
+        {"description","Full description"},{"shortDesc","Short"},
+        {"nexusProject","https://www.nexusmods.com/cyberpunk2077/mods/39454"}};
     Write(metaPath,meta.dump());
     REQUIRE(m1arc::LoadManifests(root,newRegistry).registered==12);
     for(const auto& mod:newRegistry.Snapshot()) if(mod.id=="author.mod") {
         REQUIRE(mod.version=="1.2.3");
         REQUIRE(mod.author=="Test Author");
         REQUIRE(mod.nexusProfile=="test_author");
+        REQUIRE(mod.nexusProject=="https://www.nexusmods.com/cyberpunk2077/mods/39454");
         REQUIRE(mod.description=="Full description");
     }
     REQUIRE(newRegistry.Register("author.mod","Script title",nlohmann::json::parse(
@@ -159,15 +161,18 @@ int main() {
     for(const auto& mod:newRegistry.Snapshot()) if(mod.id=="author.mod") {
         REQUIRE(mod.author=="Test Author");
         REQUIRE(mod.nexusProfile=="test_author");
+        REQUIRE(mod.nexusProject=="https://www.nexusmods.com/cyberpunk2077/mods/39454");
         REQUIRE(mod.shortDesc=="Short");
         REQUIRE(mod.title=="Author mod");
     }
     meta["nexusProfile"]="../not-a-profile";
     meta["author"]=42;
+    meta["nexusProject"]="https://www.nexusmods.com.evil.test/cyberpunk2077/mods/39454";
     Write(metaPath,meta.dump());
     REQUIRE(m1arc::LoadManifests(root,newRegistry).registered==12);
     for(const auto& mod:newRegistry.Snapshot()) if(mod.id=="author.mod") {
         REQUIRE(mod.nexusProfile.empty());
+        REQUIRE(mod.nexusProject.empty());
         REQUIRE(mod.author.empty());
     }
 

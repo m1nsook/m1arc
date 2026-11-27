@@ -186,12 +186,23 @@ ModLoadReport LoadManifests(const std::filesystem::path& pluginDirectory,
                    (c>='0' && c<='9') || c=='_' || c=='-';
         })) nexusProfile.clear();
         auto description=optionalText("description",1024);
+        auto nexusProject=optionalText("nexusProject",256);
+        // Accept only a canonical Cyberpunk 2077 Nexus project URL.
+        constexpr std::string_view prefix="https://www.nexusmods.com/cyberpunk2077/mods/";
+        const auto validProject=[&] {
+            if (!nexusProject.starts_with(prefix)) return false;
+            auto id=std::string_view(nexusProject).substr(prefix.size());
+            if (!id.empty() && id.back()=='/') id.remove_suffix(1);
+            return !id.empty() && id.size()<=12 && id.front()!='0' &&
+                std::all_of(id.begin(),id.end(),[](char c){return c>='0' && c<='9';});
+        };
+        if (!validProject()) nexusProject.clear();
         json settings;
         // Fixed filename: no untrusted executable names or paths in manifests.
         if (!ReadJsonFile(folder / L"settings.json",settings) ||
             !registry.Register(id,manifest["name"].get<std::string>(),settings,
                                std::move(scope),std::move(shortDesc),manifest["version"].get<std::string>(),
-                               std::move(author),std::move(nexusProfile),std::move(description))) {
+                               std::move(author),std::move(nexusProfile),std::move(description),std::move(nexusProject))) {
             Reject(report,id,"invalid settings.json or registration failed");
             continue;
         }

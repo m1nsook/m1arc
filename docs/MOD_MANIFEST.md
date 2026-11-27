@@ -113,6 +113,7 @@ Add these fields to an existing format-1 `mod.json` alongside its existing field
 {
   "author": "m1nsook",
   "nexusProfile": "m1nsook",
+  "nexusProject": "https://www.nexusmods.com/cyberpunk2077/mods/39454",
   "description": "A longer description shown in the configuration header."
 }
 ```
@@ -121,3 +122,5 @@ Add these fields to an existing format-1 `mod.json` alongside its existing field
 - `nexusProfile`: Nexus Mods username only (ASCII letters, digits, underscore or hyphen, up to 96 bytes). M1 Arc generates `https://www.nexusmods.com/profile/<username>`. No full URL or arbitrary external destination is accepted.
 - `description`: optional full description, up to 1024 UTF-8 bytes. The header falls back to `shortDesc` if absent. Localized mod dictionaries may supply a translated `description`.
 - The existing `version` is displayed in the sidebar and configuration header. Old manifests work unchanged; missing or malformed new metadata is omitted.
+
+- `nexusProject`: optional full HTTPS Cyberpunk 2077 Nexus Mods project URL, with a numeric mod ID and optional trailing slash. Invalid or missing values hide the project button without rejecting the mod. The author link remains independent.

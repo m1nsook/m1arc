@@ -325,7 +325,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     const float themeWidth = 38.f;
     const float shortcutWidth = std::clamp(ImGui::CalcTextSize(keyText.c_str(),nullptr,true).x + 22.f,
                                           75.f, std::max(116.f,width*.36f));
-    const float closeWidth = std::max(90.f, ImGui::CalcTextSize(closeLabel.c_str()).x + 24.f);
+    const float closeWidth = std::max(90.f, ImGui::CalcTextSize(closeLabel.c_str(),nullptr,true).x + 24.f);
     const float statusWidth = ImGui::CalcTextSize(status.c_str()).x;
 
     const float headingFontSize = fonts::titleBold ? fonts::titleBold->FontSize :
@@ -384,7 +384,8 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         return clicked;
     };
     const float buttonsY = secondRow ? 56.f : 10.f;
-    const float themeX = secondRow ? 16.f : brandWidth+12.f;
+    const float themeX = secondRow ? 16.f : std::max(brandWidth+20.f,
+        (brandWidth+width-rightWidth-actionsWidth)*.5f);
     const std::string themeLabel = std::string(fonts::HasIcons() ?
         (Theme().dark ? ARC_ICON_SUN : ARC_ICON_MOON) : (Theme().dark ? "L" : "D")) + "##arc-theme";
     if (action(themeLabel.c_str(),themeX,buttonsY,themeWidth))
@@ -393,6 +394,8 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         ShowTooltip(Tr("ui.theme","TOGGLE THEME"), Theme().dark ?
             Tr("ui.theme_light","Switch to light theme") : Tr("ui.theme_dark","Switch to dark theme"),p);
     const float shortcutX = themeX + themeWidth + 10.f;
+    if (!secondRow) draw->AddLine(ImVec2(origin.x+themeX-10.f,origin.y+15.f),
+        ImVec2(origin.x+themeX-10.f,origin.y+39.f),Color(p.muted));
     if (action(keyText.c_str(),shortcutX,buttonsY,shortcutWidth))
         input.BeginRebind();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -404,6 +407,9 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     const float closeX = std::max(8.f,width-closeWidth-14.f);
     const float statusX = std::max(8.f,closeX-statusWidth-16.f);
     const float modeX=std::max(8.f,statusX-modeWidth-10.f);
+    if (!thirdRow && modeX>shortcutX+shortcutWidth+16.f)
+        draw->AddLine(ImVec2(origin.x+modeX-10.f,origin.y+rightY+5.f),
+            ImVec2(origin.x+modeX-10.f,origin.y+rightY+29.f),Color(p.muted));
     if (action(modeLabel.c_str(),modeX,rightY,modeWidth,LogsMode())) {
         LogsMode()=!LogsMode();
         PendingLogClear().clear();
@@ -923,23 +929,49 @@ void OpenOfficialLink(const std::string& url) {
 }
 
 // Shared visual primitives for the control panel and every secondary window.
+// Windows Unicode casing keeps Polish and other localized labels intact.
+std::string UpperHeading(const std::string& text) {
+    if (text.empty()) return text;
+    const int n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),nullptr,0);
+    if (n<=0) return text;
+    std::wstring wide(n,L'\0');
+    MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),wide.data(),n);
+    const int m=LCMapStringEx(LOCALE_NAME_INVARIANT,LCMAP_UPPERCASE,wide.data(),n,nullptr,0,nullptr,nullptr,0);
+    if (m<=0) return text;
+    std::wstring upper(m,L'\0');
+    if (!LCMapStringEx(LOCALE_NAME_INVARIANT,LCMAP_UPPERCASE,wide.data(),n,upper.data(),m,nullptr,nullptr,0)) return text;
+    const int bytes=WideCharToMultiByte(CP_UTF8,0,upper.data(),m,nullptr,0,nullptr,nullptr);
+    if (bytes<=0) return text;
+    std::string result(bytes,'\0');
+    if (!WideCharToMultiByte(CP_UTF8,0,upper.data(),m,result.data(),bytes,nullptr,nullptr)) return text;
+    return result;
+}
+
 void AngularHeading(const Palette& p,const std::string& label) {
     const ImVec2 pos=ImGui::GetCursorScreenPos();
     const float w=std::max(1.f,ImGui::GetContentRegionAvail().x);
     constexpr float h=30.f;
-    ImFont* font=fonts::titleBold ? fonts::titleBold : ImGui::GetFont();
+    ImFont* font=fonts::titleHeavy ? fonts::titleHeavy : ImGui::GetFont();
+    const auto upper=UpperHeading(label);
     ImGui::PushFont(font);
-    const float tab=std::min(w,std::max(40.f,ImGui::CalcTextSize(label.c_str()).x+58.f));
-    const auto fitted=FitLabel(label,std::max(1.f,tab-50.f));
+    const float tab=std::min(w,std::max(60.f,ImGui::CalcTextSize(upper.c_str()).x+62.f));
+    const auto fitted=FitLabel(upper,std::max(1.f,tab-52.f));
     ImGui::PopFont();
     auto* d=ImGui::GetWindowDrawList();
-    d->AddLine(ImVec2(pos.x,pos.y+h-1),ImVec2(pos.x+w,pos.y+h-1),Color(p.muted));
-    d->AddQuadFilled(pos,ImVec2(pos.x+tab,pos.y),ImVec2(pos.x+tab-std::min(14.f,tab/3),pos.y+h),ImVec2(pos.x,pos.y+h),Color(p.bar));
-    d->PushClipRect(pos,ImVec2(pos.x+tab-std::min(14.f,tab/3),pos.y+h),true);
-    d->AddText(ImVec2(pos.x+8.f,pos.y+6.f),Color(p.amber),"//");
-    d->AddText(font,font->FontSize,ImVec2(pos.x+30.f,pos.y+(h-font->FontSize)*.5f),Color(p.barText),fitted.c_str());
+    const float cut=std::min(12.f,tab*.2f);
+    // The rule is at the TOP edge. The tab hangs below it; no bottom rule.
+    d->AddLine(ImVec2(pos.x+cut,pos.y),ImVec2(pos.x+w,pos.y),Color(p.ink));
+    const ImVec2 polygon[]={{pos.x,pos.y+cut},{pos.x+cut,pos.y},
+        {pos.x+tab,pos.y},{pos.x+tab,pos.y+h-cut},
+        {pos.x+tab-cut,pos.y+h},{pos.x,pos.y+h}};
+    d->AddConvexPolyFilled(polygon,6,Color(p.ink));
+    const bool dark=p.paper.x<.2f;
+    const ImVec4 accent=dark ? ImVec4(.55f,.34f,.03f,1.f) : p.amber;
+    d->PushClipRect(pos,ImVec2(pos.x+tab-cut,pos.y+h),true);
+    d->AddText(ImVec2(pos.x+12.f,pos.y+(h-ImGui::GetFontSize())*.5f),Color(accent),"//");
+    d->AddText(font,font->FontSize,ImVec2(pos.x+34.f,pos.y+(h-font->FontSize)*.5f),Color(p.paper),fitted.c_str());
     d->PopClipRect();
-    ImGui::Dummy(ImVec2(w,h+6.f));
+    ImGui::Dummy(ImVec2(w,h+8.f));
 }
 
 void ModalTitle(const Palette& p,const std::string& label,bool close) {
@@ -975,19 +1007,20 @@ void ModalTitle(const Palette& p,const std::string& label,bool close) {
 }
 
 bool LinkButton(const Palette& p,const char* id,const std::string& label,
-                const char* icon,float width,float height=36.f) {
+                const char* icon,float width,float height=36.f,bool nexus=false) {
     ImGui::PushID(id);
     const bool clicked=ImGui::Button("##link",ImVec2(std::max(1.f,width),height));
     const auto a=ImGui::GetItemRectMin(), b=ImGui::GetItemRectMax();
     auto* d=ImGui::GetWindowDrawList();
     const bool hasIcons=fonts::HasIcons();
-    const float left=hasIcons ? 34.f : 10.f;
+    const float left=nexus ? 42.f : hasIcons ? 34.f : 10.f;
     const float right=hasIcons ? 32.f : 18.f;
     const std::string fitted=FitLabel(label,std::max(1.f,b.x-a.x-left-right));
     const float y=a.y+(height-ImGui::GetFontSize())*.5f;
     const auto color=Color(p.ink);
     d->PushClipRect(a,b,true);
-    if (hasIcons) d->AddText(ImVec2(a.x+10.f,y),color,icon);
+    if (nexus) DrawNexusIcon(d,ImVec2(a.x+10.f,a.y+(height-24.f)*.5f));
+    else if (hasIcons) d->AddText(ImVec2(a.x+10.f,y),color,icon);
     d->AddText(ImVec2(a.x+left,y),color,fitted.c_str());
     d->AddText(ImVec2(b.x-right+7.f,y),color,hasIcons ? ARC_ICON_EXTERNAL : ">");
     d->PopClipRect();
@@ -1017,39 +1050,58 @@ void DrawModHeader(const Palette& p,const ModView& mod) {
         ImGui::TextWrapped("%s",description.c_str());
         ImGui::PopStyleColor();
     }
-    if (!mod.author.empty() || !mod.version.empty() || !mod.nexusProfile.empty()) {
+    if (!mod.author.empty() || !mod.version.empty() || !mod.nexusProfile.empty() || !mod.nexusProject.empty()) {
         ImGui::Separator();
-        const auto label=Tr("ui.author_profile","View author profile");
         const float available=ImGui::GetContentRegionAvail().x;
-        const std::string author=(fonts::HasIcons() ? ARC_ICON_USER "  " : "")+mod.author;
-        const std::string version=std::string(fonts::HasIcons() ? ARC_ICON_TAG "  " : "")+"v"+mod.version;
-        const float aw=mod.author.empty()?0.f:ImGui::CalcTextSize(author.c_str()).x;
-        const float vw=mod.version.empty()?0.f:ImGui::CalcTextSize(version.c_str()).x;
-        const float lw=mod.nexusProfile.empty()?0.f:ImGui::CalcTextSize(label.c_str()).x+72.f;
-        bool previous=false;
+        const auto authorLabel=mod.author.empty() ? Tr("ui.author_profile","View author profile") : mod.author;
+        const auto projectLabel=Tr("ui.nexus_project","Show on Nexus");
+        // One segmented metadata/action strip, with no duplicate author label.
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(0.f,6.f));
         float used=0.f;
-        const auto next=[&](float itemWidth) {
-            if (previous && used+24.f+itemWidth<=available) {
-                ImGui::SameLine(0.f,8.f);
-                ImGui::TextColored(p.muted,"|");
-                ImGui::SameLine(0.f,8.f);
-                used+=24.f+itemWidth;
-            } else used=itemWidth;
-            previous=true;
+        const auto place=[&](float wanted) {
+            const float w=std::min(std::max(1.f,available),wanted);
+            if (used>0.f && used+w<=available) ImGui::SameLine(0.f,0.f);
+            else used=0.f;
+            used+=w;
+            return w;
         };
-        if (!mod.author.empty()) {
-            next(aw); ImGui::AlignTextToFramePadding(); ImGui::TextWrapped("%s",author.c_str());
+        const auto infoCell=[&](const char* icon,const std::string& label,float width) {
+            const ImVec2 a=ImGui::GetCursorScreenPos(), b(a.x+width,a.y+34.f);
+            auto* d=ImGui::GetWindowDrawList();
+            d->AddRectFilled(a,b,Color(p.fill));
+            d->AddRect(a,b,Color(p.muted));
+            const float left=fonts::HasIcons()?34.f:10.f;
+            const auto fitted=FitLabel(label,std::max(1.f,width-left-10.f));
+            const float y=a.y+(34.f-ImGui::GetFontSize())*.5f;
+            d->PushClipRect(a,b,true);
+            if (fonts::HasIcons()) d->AddText(ImVec2(a.x+10.f,y),Color(p.ink),icon);
+            d->AddText(ImVec2(a.x+left,y),Color(p.ink),fitted.c_str());
+            d->PopClipRect();
+            ImGui::Dummy(ImVec2(width,34.f));
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ShowTooltip(label,"",p);
+        };
+        if (!mod.nexusProfile.empty()) {
+            const std::string url="https://www.nexusmods.com/profile/"+mod.nexusProfile;
+            const float w=place(ImGui::CalcTextSize(authorLabel.c_str()).x+72.f);
+            if (LinkButton(p,"author-profile",authorLabel,ARC_ICON_USER,w,34.f)) OpenOfficialLink(url);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ShowTooltip(Tr("ui.author_profile","View author profile"),url,p);
+        } else if (!mod.author.empty()) {
+            const float w=place(ImGui::CalcTextSize(mod.author.c_str()).x+48.f);
+            infoCell(ARC_ICON_USER,mod.author,w);
         }
         if (!mod.version.empty()) {
-            next(vw); ImGui::AlignTextToFramePadding(); ImGui::TextWrapped("%s",version.c_str());
+            const auto version="v"+mod.version;
+            const float w=place(ImGui::CalcTextSize(version.c_str()).x+48.f);
+            infoCell(ARC_ICON_TAG,version,w);
         }
-        if (!mod.nexusProfile.empty()) {
-            next(lw);
-            const std::string url="https://www.nexusmods.com/profile/"+mod.nexusProfile;
-            if (LinkButton(p,"author-profile",label,ARC_ICON_USER,
-                    std::min(lw,ImGui::GetContentRegionAvail().x),32.f)) OpenOfficialLink(url);
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ShowTooltip(label,url,p);
+        if (!mod.nexusProject.empty()) {
+            const float w=place(ImGui::CalcTextSize(projectLabel.c_str()).x+82.f);
+            if (LinkButton(p,"nexus-project",projectLabel,ARC_SCOPE_GAME_CONTROLLER,w,34.f,true))
+                OpenOfficialLink(mod.nexusProject);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ShowTooltip(projectLabel,mod.nexusProject,p);
         }
+        ImGui::PopStyleVar();
     }
     ImGui::EndChild();
     ImGui::PopStyleColor(2);
@@ -1122,7 +1174,7 @@ void DrawAbout(const Palette& p) {
             };
             for (const auto& entry:entries) {
                 const auto label=Tr(entry.key,entry.fallback);
-                if (LinkButton(p,entry.key,label,entry.icon,ImGui::GetContentRegionAvail().x,38.f))
+                if (LinkButton(p,entry.key,label,entry.icon,ImGui::GetContentRegionAvail().x,38.f,std::string_view(entry.key)=="ui.about_nexus"))
                     OpenOfficialLink(entry.url);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     ShowTooltip(label,entry.url,p);
@@ -1194,65 +1246,69 @@ void DrawDetail(const Palette& p, const std::vector<ModView>& mods,
     if (selected) ImGui::Dummy(ImVec2(1.f,16.f));
     ImGui::EndChild();
 
-    // Rule spans the entire detail area, touching the sidebar divider and
-    // the right edge. Footer TEXT retains a comfortable 24px inset.
+    // A continuous toolbar surface, using the same 34px controls as the header.
     const ImVec2 foot(ImGui::GetWindowPos().x+1.f,
                       ImGui::GetWindowPos().y+height-footerHeight);
-    auto* draw = ImGui::GetWindowDrawList();
-    draw->AddLine(foot,ImVec2(ImGui::GetWindowPos().x+width-1.f,foot.y),
-                  Color(p.ink),2.f);
-    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad,foot.y+12.f));
-    ImGui::PushStyleColor(ImGuiCol_Button,p.ink);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,Theme().dark ? p.amber : ImVec4(.23f,.27f,.21f,1.f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,Theme().dark ? p.amber : ImVec4(.31f,.35f,.28f,1.f));
-    ImGui::PushStyleColor(ImGuiCol_Text,p.paper);
-    if (ImGui::Button(fonts::HasIcons() ? ARC_ICON_INFO "##about" : "i##about",ImVec2(38.f,32.f)))
-        ImGui::OpenPopup(kAboutPopup);
-    ImGui::PopStyleColor(4);
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(Tr("ui.about","ABOUT"),"M1 ARC",p);
-    const auto langs = Translations().Languages();
-    const std::string currentLang = Translations().Current();
-    const auto currentLangIt = std::find_if(langs.begin(), langs.end(),
-        [&](const auto& lang) { return lang.code == currentLang; });
-    const std::string nativeName = currentLangIt == langs.end() ? "English" : currentLangIt->name;
-    ImGui::SetCursorScreenPos(ImVec2(foot.x+pad+48.f, foot.y+12.f));
-    ImGui::SetNextItemWidth(std::max(55.f,std::min(140.f,width-2.f*pad-48.f-(selected ? 124.f : 0.f))));
-    if (ImGui::BeginCombo("##m1arc-language",nativeName.c_str())) {
-        for (const auto& lang : langs) {
-            const bool selected = lang.code == currentLang;
-            if (ImGui::Selectable(lang.name.c_str(),selected) && !selected) {
+    auto* draw=ImGui::GetWindowDrawList();
+    draw->AddRectFilled(foot,ImVec2(foot.x+width-2.f,foot.y+footerHeight),Color(p.bar));
+    const float inset=std::min(16.f,std::max(4.f,width*.035f));
+    const float y=foot.y+(footerHeight-34.f)*.5f;
+    const std::string defaultsLabel=(fonts::HasIcons()?std::string(ARC_ICON_RESET)+" ":"")+
+        Tr("ui.defaults","DEFAULTS")+"##mod";
+    const float defaultsWidth=selected ? std::min(std::max(86.f,ImGui::CalcTextSize(defaultsLabel.c_str(),nullptr,true).x+22.f),
+        std::max(38.f,width*.40f)) : 0.f;
+    const auto pushBar=[&] {
+        ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.23f,.27f,.21f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.31f,.35f,.28f,1.f));
+        ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+        ImGui::PushStyleColor(ImGuiCol_Border,p.barText);
+    };
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+inset,y));
+    pushBar();
+    if (ImGui::Button(fonts::HasIcons()?ARC_ICON_INFO "##about":"i##about",ImVec2(38.f,34.f))) ImGui::OpenPopup(kAboutPopup);
+    ImGui::PopStyleColor(5);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ShowTooltip(Tr("ui.about","ABOUT"),"M1 ARC",p);
+    const auto langs=Translations().Languages();
+    const std::string currentLang=Translations().Current();
+    const auto currentLangIt=std::find_if(langs.begin(),langs.end(),[&](const auto& lang){return lang.code==currentLang;});
+    const std::string nativeName=currentLangIt==langs.end()?"English":currentLangIt->name;
+    const float languageWidth=std::min(160.f,std::max(1.f,width-2.f*inset-48.f-defaultsWidth-(selected?10.f:0.f)));
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+inset+48.f,y));
+    ImGui::SetNextItemWidth(languageWidth);
+    pushBar();
+    ImGui::PushStyleColor(ImGuiCol_FrameBg,p.bar);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,ImVec4(.23f,.27f,.21f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive,ImVec4(.31f,.35f,.28f,1.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,ImVec2(9.f,std::max(0.f,(34.f-ImGui::GetFontSize())*.5f)));
+    const bool combo=ImGui::BeginCombo("##m1arc-language",nativeName.c_str());
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(8);
+    if (combo) {
+        for (const auto& lang:langs) {
+            const bool current=lang.code==currentLang;
+            if (ImGui::Selectable(lang.name.c_str(),current) && !current) {
                 const bool changed=Translations().Select(lang.code);
-                ShowToast((changed ? Tr("toast.language_saved","Language updated: ") :
-                                     Tr("toast.language_failed","Could not change language: ")) + lang.name,
-                          3.2f,changed ? ToastKind::Success : ToastKind::Error);
+                ShowToast((changed?Tr("toast.language_saved","Language updated: "):
+                    Tr("toast.language_failed","Could not change language: "))+lang.name,
+                    3.2f,changed?ToastKind::Success:ToastKind::Error);
             }
-            if (selected) ImGui::SetItemDefaultFocus();
+            if (current) ImGui::SetItemDefaultFocus();
         }
         ImGui::EndCombo();
     }
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(Tr("ui.language", "Language"),nativeName,p);
-
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ShowTooltip(Tr("ui.language","Language"),nativeName,p);
     if (selected) {
-        ImGui::SetCursorScreenPos(ImVec2(foot.x+width-116.f-pad,foot.y+12.f));
-        const bool dark = p.paper.x < .2f;
-        ImGui::PushStyleColor(ImGuiCol_Button,p.ink);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-            dark ? ImVec4(.98f,.76f,.28f,1.f) : ImVec4(.23f,.27f,.21f,1.f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-            dark ? p.amber : ImVec4(.31f,.35f,.28f,1.f));
-        ImGui::PushStyleColor(ImGuiCol_Text,p.paper);
-        if (ImGui::Button((std::string(fonts::HasIcons() ? ARC_ICON_RESET " " : "") +
-                           Tr("ui.defaults", "DEFAULTS") + "##mod").c_str(),
-                          ImVec2(116.f,32.f))) {
-            const bool restored = Settings().ResetMod(selected->id);
+        ImGui::SetCursorScreenPos(ImVec2(foot.x+width-inset-defaultsWidth-2.f,y));
+        pushBar();
+        if (ImGui::Button(defaultsLabel.c_str(),ImVec2(defaultsWidth,34.f))) {
+            const bool restored=Settings().ResetMod(selected->id);
             if (restored) (void)Settings().AppendLog(selected->id,LogLevel::Info,"M1 Arc: defaults restored");
-            ShowToast(restored ? Tr("toast.defaults_restored_prefix", "Defaults restored for ") + selected->title
-                               : Tr("toast.defaults_failed_prefix", "Failed to reset ") + selected->title,
-                      3.2f, restored ? ToastKind::Success : ToastKind::Error);
+            ShowToast(restored?Tr("toast.defaults_restored_prefix","Defaults restored for ")+selected->title:
+                Tr("toast.defaults_failed_prefix","Failed to reset ")+selected->title,
+                3.2f,restored?ToastKind::Success:ToastKind::Error);
         }
-        ImGui::PopStyleColor(4);
+        ImGui::PopStyleColor(5);
     }
     DrawAbout(p);
     ImGui::EndChild();

@@ -86,6 +86,7 @@
     "ui.about_source": "소스 코드",
     "ui.about_docs": "문서",
     "ui.about_discord": "공식 Discord 서버",
-    "toast.link_failed": "링크를 열 수 없습니다"
+    "toast.link_failed": "링크를 열 수 없습니다",
+    "ui.nexus_project": "Nexus에서 보기"
   }
 }
