@@ -370,6 +370,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         ImGui::TextUnformatted(Tr("ui.panel", "CONTROL PANEL").c_str());
     }
     if (fonts::titleBold) ImGui::PopFont();
+    const float brandEnd=ImGui::GetItemRectMax().x-origin.x;
 
     // All header controls have light text on dark backgrounds in both themes.
     const auto action = [&](const char* label, float x, float y, float w,bool active=false) {
@@ -384,8 +385,7 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
         return clicked;
     };
     const float buttonsY = secondRow ? 56.f : 10.f;
-    const float themeX = secondRow ? 16.f : std::max(brandWidth+20.f,
-        (brandWidth+width-rightWidth-actionsWidth)*.5f);
+    const float themeX = secondRow ? 16.f : brandEnd+24.f;
     const std::string themeLabel = std::string(fonts::HasIcons() ?
         (Theme().dark ? ARC_ICON_SUN : ARC_ICON_MOON) : (Theme().dark ? "L" : "D")) + "##arc-theme";
     if (action(themeLabel.c_str(),themeX,buttonsY,themeWidth))
@@ -407,9 +407,6 @@ void DrawHeader(const Palette& p, const std::vector<ModView>& mods) {
     const float closeX = std::max(8.f,width-closeWidth-14.f);
     const float statusX = std::max(8.f,closeX-statusWidth-16.f);
     const float modeX=std::max(8.f,statusX-modeWidth-10.f);
-    if (!thirdRow && modeX>shortcutX+shortcutWidth+16.f)
-        draw->AddLine(ImVec2(origin.x+modeX-10.f,origin.y+rightY+5.f),
-            ImVec2(origin.x+modeX-10.f,origin.y+rightY+29.f),Color(p.muted));
     if (action(modeLabel.c_str(),modeX,rightY,modeWidth,LogsMode())) {
         LogsMode()=!LogsMode();
         PendingLogClear().clear();
