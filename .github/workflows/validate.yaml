@@ -21,26 +21,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
-      - name: Check NextGuide repository access
-        env:
-          NEXTGUIDE_READ_TOKEN: ${{ secrets.NEXTGUIDE_READ_TOKEN }}
-        run: |
-          if [ -z "$NEXTGUIDE_READ_TOKEN" ]; then
-            echo "::error::Configure a read-only NEXTGUIDE_READ_TOKEN repository secret for the private NextGuide source."
-            exit 1
-          fi
-      - name: Check out pinned NextGuide source
-        uses: actions/checkout@v4
-        with:
-          repository: m1nsook/NextGuide
-          ref: b5240cad0d9880f98b56bd4f27e8c8d772264d40
-          token: ${{ secrets.NEXTGUIDE_READ_TOKEN }}
-          path: .nextguide-source
-          persist-credentials: false
-      - name: Build local NextGuide package and install
-        env:
-          NEXTGUIDE_SOURCE: ${{ github.workspace }}/.nextguide-source
-        run: bun run setup
+      - name: Resolve published NextGuide package
+        run: npm view nextguide dist-tags versions --json
+      - name: Install dependencies
+        run: bun install
+      - name: Verify NextGuide installed package
+        run: node -e 'const p = require("./node_modules/nextguide/package.json"); console.log(JSON.stringify({version:p.version,exports:p.exports},null,2))'
       - name: Validate API and static Pages export
         run: bun run check
       - run: touch out/.nojekyll

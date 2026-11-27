@@ -10,14 +10,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "check": "node scripts/check-api.mjs && next build && node scripts/check-export.mjs",
-    "setup": "node scripts/setup-nextguide.mjs"
+    "check": "node scripts/check-api.mjs && next build && node scripts/check-export.mjs"
   },
   "dependencies": {
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "nextguide": "file:.nextguide-cache/nextguide.tgz"
+    "nextguide": "alpha"
   },
   "devDependencies": {
     "typescript": "5.9.2",
