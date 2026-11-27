@@ -1,62 +1,58 @@
-name: Deploy VitePress site to Pages
-
+name: Deploy NextGuide documentation to Pages
 on:
   push:
     branches: [web]
     paths:
-      - ".vitepress/**"
-      - "docs/**"
-      - "package.json"
-      - "bun.lock"
+      - "apps/web/**"
       - ".github/workflows/deploy.yaml"
-      - "scripts/check-api.mjs"
   workflow_dispatch:
-
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: true
-
 jobs:
   build:
+    if: github.ref == 'refs/heads/web'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
+          bun-version: "1.4.4"
+      - name: Verify bundled NextGuide package
+        working-directory: apps/web
+        run: node scripts/check-nextguide.mjs
       - name: Install dependencies
+        working-directory: apps/web
         run: bun install --frozen-lockfile
-
-      - name: Verify API contract and build VitePress site
-        run: bun run check
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Validate API and static Pages export
+        working-directory: apps/web
+        env:
+          M1ARC_PAGES: "1"
+        run: bun run check:export
+      - run: touch apps/web/out/.nojekyll
+      - uses: actions/upload-pages-artifact@v4
         with:
-          path: .vitepress/dist
-
+          path: apps/web/out/
+          include-hidden-files: true
+          retention-days: 1
   deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

@@ -1,25 +1,43 @@
-name: Validate m1arc API and documentation
-
+name: Validate NextGuide documentation
 on:
   push:
-    branches: [web]
+    branches: [ng]
   pull_request:
     branches: [web]
-
 permissions:
   contents: read
-
+concurrency:
+  group: docs-preview-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   validation:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+      - name: Verify bundled NextGuide package
+        working-directory: apps/web
+        run: node scripts/check-nextguide.mjs
       - name: Install dependencies
+        working-directory: apps/web
         run: bun install --frozen-lockfile
-      - name: Validate API contract and build docs
-        run: bun run check
+      - name: Validate API and static Pages export
+        working-directory: apps/web
+        env:
+          M1ARC_PAGES: "1"
+        run: bun run check:export
+      - run: touch apps/web/out/.nojekyll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m1arc-nextguide-preview
+          path: apps/web/out/
+          include-hidden-files: true
+          retention-days: 7

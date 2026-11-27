@@ -1,27 +1,14 @@
-# Dependencies
-node_modules
-
-# VitePress
-.vitepress/cache
-.vitepress/dist
-
-# Build / temp
-dist
-cache
-temp
-.temp
-.vite_opt_cache
-*.timestamp-*.mjs
-
-# Logs and archives
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
 *.log
 *.tgz
-
-# Binaries
-*.exe
-
-# Editor / OS
 .DS_Store
-.idea
-.vscode
-.claude
+.idea/
+.vscode/
+.claude/
+
+# Exact NextGuide distribution, if approved for public repository storage
+!/apps/web/vendor/nextguide-0.0.1-alpha.2.tgz
