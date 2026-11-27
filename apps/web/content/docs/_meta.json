@@ -1,0 +1,22 @@
+[
+  {
+    "slug": "index",
+    "title": "Overview"
+  },
+  {
+    "slug": "getting-started",
+    "title": "Getting started"
+  },
+  {
+    "slug": "guides",
+    "title": "Guides"
+  },
+  {
+    "slug": "components",
+    "title": "Components"
+  },
+  {
+    "slug": "api-reference",
+    "title": "API reference"
+  }
+]

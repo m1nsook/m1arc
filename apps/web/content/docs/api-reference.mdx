@@ -1,0 +1,22 @@
+---
+title: API reference
+description: Create API documentation alongside guides and product pages.
+---
+
+## Documenting endpoints
+
+NextGuide ships an OpenAPI renderer. Import `createOpenAPI` and `OpenAPI` into your own Next.js route when you are ready to render a complete API reference.
+
+## Example endpoint
+
+<MethodBadge method="GET" /> `/api/example`
+
+<CodeWindow language="bash" title="Request" code="curl https://example.com/api/example" />
+
+<Callout kind="warning" title="Example only">
+  This is example documentation. Replace the endpoint, schema and response with your own API.
+</Callout>
+
+## Your own OpenAPI specification
+
+Put your specification in your project, then use the `nextguide/openapi` package export. API components and endpoint descriptions can share the same documentation website and design.

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "mode": "developer",
+  "contentDir": "content/docs",
+  "basePath": "/",
+  "appearance": {
+    "mode": "light",
+    "accent": "blue"
+  },
+  "site": {
+    "name": "My Documentation",
+    "description": "Documentation built with NextGuide",
+    "logo": "",
+    "logoAlt": "",
+    "ogImage": ""
+  },
+  "ngCopyright": {
+    "enabled": true,
+    "text": "Built with NextGuide",
+    "href": "https://m1nsook.github.io/NextGuide/"
+  }
+}

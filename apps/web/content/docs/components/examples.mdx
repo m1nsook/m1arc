@@ -1,0 +1,41 @@
+---
+title: UI examples
+description: Interactive components included in the generated documentation site.
+---
+
+## Tabs
+
+<Tabs defaultValue="first">
+  <TabsList>
+    <TabsTrigger value="first">First</TabsTrigger>
+    <TabsTrigger value="second">Second</TabsTrigger>
+  </TabsList>
+  <TabsContent value="first">This is a fully interactive tab from NextGuide.</TabsContent>
+  <TabsContent value="second">Switch between views without installing another UI library.</TabsContent>
+</Tabs>
+
+## Accordion
+
+<Accordion type="single" collapsible>
+  <AccordionItem value="one">
+    <AccordionTrigger>Do I need to install components individually?</AccordionTrigger>
+    <AccordionContent>No. They are already part of the NextGuide package.</AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="two">
+    <AccordionTrigger>Can I customize them?</AccordionTrigger>
+    <AccordionContent>Yes. Override design tokens or add your own project CSS.</AccordionContent>
+  </AccordionItem>
+</Accordion>
+
+## Inputs and forms
+
+<Label htmlFor="docs-example">Example input</Label>
+<Input id="docs-example" placeholder="Try typing here" />
+
+## Cards
+
+<Card>
+  <CardHeader><CardTitle>Built into NextGuide</CardTitle></CardHeader>
+  <CardContent>You can compose these components directly in MDX content.</CardContent>
+  <CardFooter><Badge>Ready</Badge></CardFooter>
+</Card>

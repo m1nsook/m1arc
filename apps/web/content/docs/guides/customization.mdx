@@ -1,0 +1,24 @@
+---
+title: Customizing your site
+description: Control appearance, metadata and layout without giving up ownership of your project.
+---
+
+## Change the site name
+
+Edit the `site.name` field in `nextguide.config.json`. The header reads directly from your project configuration.
+
+## Switch appearance
+
+The sun/moon button in the header cycles between **light**, **dark**, and **system**. The preference is saved in your browser. Your default theme and accent are controlled by the CLI and `nextguide.config.json`.
+
+## Design tokens
+
+The generated stylesheet is yours. Override scoped `--ng-*` CSS variables to style panels, borders, links and typography.
+
+<Callout kind="tip" title="Upgrading later">
+  Run `bunx nextguide upgrade --dry-run` before updating old generated files. NextGuide never silently deletes edited MDX content.
+</Callout>
+
+## Navigation and search
+
+The sidebar follows your `_meta.json` ordering. Search indexes your local MDX pages during rendering; it needs no external search service or API key.
