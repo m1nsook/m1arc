@@ -12,11 +12,14 @@
 #include "phosphor_icons.hpp"
 #include "input.hpp"
 #include "registry.hpp"
+#include "log_view.hpp"
 #include "mod_manifest.hpp"
 #include "state.hpp"
 
 #include <imgui.h>
 #include <algorithm>
+#include <array>
+#include <optional>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -1333,102 +1336,295 @@ ImVec4 LogColor(LogLevel level,const Palette& p) {
     return p.ink;
 }
 
+// UI-only view state; the registry continues retaining live per-mod logs.
+struct DiagnosticsView {
+    std::string modId;
+    std::array<char,256> search{};
+    std::optional<LogLevel> filter;
+    bool paused=false;
+    std::vector<LogEntry> frozen;
+    std::optional<LogEntry> inspected;
+    void Select(const std::string& id) {
+        if (modId==id) return;
+        modId=id;
+        search.fill(0);
+        filter.reset();
+        paused=false;
+        frozen.clear();
+        inspected.reset();
+    }
+};
+
+DiagnosticsView& LogView() { static DiagnosticsView view; return view; }
+
 void DrawLogs(const Palette& p,const std::vector<ModView>& mods,float width,float height) {
     ImGui::BeginChild("##arc-logs",ImVec2(width,height),ImGuiChildFlags_None,
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     const auto selected=std::find_if(mods.begin(),mods.end(),[](const ModView& mod){
         return mod.id==SelectedMod();
     });
-    constexpr float pad=24.f, footerHeight=42.f;
-    ImGui::SetCursorPos(ImVec2(pad,16.f));
+    const std::string id=selected==mods.end() ? std::string{} : selected->id;
+    auto& view=LogView();
+    view.Select(id);
+    auto& confirmation=PendingLogClear();
+    if (confirmation!=id) confirmation.clear();
+    const auto live=id.empty() ? std::vector<LogEntry>{} : Settings().Logs(id);
+    const auto& rows=view.paused ? view.frozen : live;
+    const float pad=std::min(20.f,std::max(4.f,width*.04f));
+    const float interior=std::max(1.f,width-2.f*pad);
+    const float footerHeight=width<530.f ? 94.f : 60.f;
+    constexpr float buttonHeight=34.f;
+    ImGui::SetCursorPos(ImVec2(pad,12.f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(8.f,7.f));
-    ImGui::BeginChild("##log-header",ImVec2(std::max(1.f,width-2.f*pad),0.f),
+    ImGui::BeginChild("##log-header",ImVec2(interior,0.f),
                       ImGuiChildFlags_AutoResizeY,
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-    AngularHeading(p,Tr("ui.logs_title","Logs")+" // "+
-        (selected==mods.end() ? Tr("ui.no_mods","NO REGISTERED MODS") : selected->title));
+    AngularHeading(p,Tr("ui.diagnostics","DIAGNOSTICS"));
+    if (fonts::titleHeavy) ImGui::PushFont(fonts::titleHeavy);
+    ImGui::TextWrapped("%s",(selected==mods.end() ? Tr("ui.no_mods","NO REGISTERED MODS") : selected->title).c_str());
+    if (fonts::titleHeavy) ImGui::PopFont();
+    const std::string session=Tr("ui.logs_session","Current session · Newest first")+
+        (selected!=mods.end() && !selected->version.empty() ? " / v"+selected->version : "")+
+        (view.paused ? " / "+Tr("ui.logs_paused","PAUSED") : "");
     if (fonts::caption) ImGui::PushFont(fonts::caption);
-    ImGui::TextDisabled("%s",Tr("ui.logs_session","Current session · Newest first").c_str());
+    ImGui::TextDisabled("%s",session.c_str());
     if (fonts::caption) ImGui::PopFont();
+    const auto counts=logview::Counts(rows);
+    constexpr LogLevel levels[]={LogLevel::Debug,LogLevel::Info,LogLevel::Warning,LogLevel::Error};
+    const float cardsWidth=ImGui::GetContentRegionAvail().x;
+    const int perRow=cardsWidth>=320.f ? 4 : 2;
+    const float cardWidth=std::max(1.f,(cardsWidth-(perRow-1)*6.f)/perRow);
+    for (int i=0;i<4;++i) {
+        if (i%perRow) ImGui::SameLine(0.f,6.f);
+        ImGui::PushID(i);
+        const bool active=view.filter && *view.filter==levels[i];
+        const ImVec4 tint=LogColor(levels[i],p);
+        ImGui::PushStyleColor(ImGuiCol_Button,active ? p.fill : p.paper);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,p.fill);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,p.fill);
+        ImGui::PushStyleColor(ImGuiCol_Border,active ? tint : p.muted);
+        if (ImGui::Button("##severity-card",ImVec2(cardWidth,51.f))) {
+            if (active) view.filter.reset(); else view.filter=levels[i];
+        }
+        ImGui::PopStyleColor(4);
+        const auto a=ImGui::GetItemRectMin(),b=ImGui::GetItemRectMax();
+        auto* d=ImGui::GetWindowDrawList();
+        d->PushClipRect(a,b,true);
+        d->AddRectFilled(a,ImVec2(a.x+3.f,b.y),Color(tint));
+        ImFont* small=fonts::caption ? fonts::caption : ImGui::GetFont();
+        ImFont* number=fonts::titleHeavy ? fonts::titleHeavy : ImGui::GetFont();
+        const char* name=levels[i]==LogLevel::Warning ? "WARN" : LogLevelName(levels[i]);
+        char count[16]{};
+        std::snprintf(count,sizeof(count),"%02zu",counts[i]);
+        d->AddText(small,small->FontSize,ImVec2(a.x+11.f,a.y+6.f),Color(tint),name);
+        d->AddText(number,number->FontSize,ImVec2(a.x+11.f,a.y+24.f),Color(p.ink),count);
+        d->PopClipRect();
+        ImGui::PopID();
+    }
+    const auto pauseLabel=(fonts::HasIcons() ? std::string(view.paused ? ARC_ICON_PLAY : ARC_ICON_PAUSE)+" " : "")+
+        (view.paused ? Tr("ui.logs_resume","Resume") : Tr("ui.logs_pause","Pause"));
+    const float pauseWidth=ImGui::CalcTextSize(pauseLabel.c_str()).x+24.f;
+    const float searchWidth=ImGui::GetContentRegionAvail().x;
+    const bool inlinePause=searchWidth>=pauseWidth+156.f;
+    ImGui::SetNextItemWidth(inlinePause ? searchWidth-pauseWidth-8.f : searchWidth);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,ImVec2(9.f,std::max(0.f,(buttonHeight-ImGui::GetFontSize())*.5f)));
+    ImGui::InputTextWithHint("##log-search",Tr("ui.logs_search","Search log messages...").c_str(),
+        view.search.data(),view.search.size());
+    const bool searchActive=ImGui::IsItemActive();
+    ImGui::PopStyleVar();
+    InputRouter::Get().SetTextEntryActive(searchActive);
+    if (inlinePause) ImGui::SameLine(0.f,8.f);
+    ImGui::BeginDisabled(id.empty());
+    if (ImGui::Button(pauseLabel.c_str(),ImVec2(std::min(pauseWidth,searchWidth),buttonHeight))) {
+        if (view.paused) { view.paused=false; view.frozen.clear(); }
+        else { view.frozen=live; view.paused=true; }
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        ShowTooltip(Tr("ui.logs_pause_help","Pause only the visible list; logging continues."),"",p);
+    const char* filters[]={"ALL","DEBUG","INFO","WARN","ERROR"};
+    const float filtersWidth=ImGui::GetContentRegionAvail().x;
+    const float segment=std::max(1.f,filtersWidth/5.f);
+    for (int i=0;i<5;++i) {
+        if (i) ImGui::SameLine(0.f,0.f);
+        ImGui::PushID(i+20);
+        const bool active=i==0 ? !view.filter : (view.filter && *view.filter==levels[i-1]);
+        ImGui::PushStyleColor(ImGuiCol_Button,active?p.amber:p.fill);
+        ImGui::PushStyleColor(ImGuiCol_Text,active?ImVec4(.10f,.11f,.09f,1.f):p.ink);
+        if (ImGui::Button((i==0 ? Tr("ui.logs_all","ALL") : std::string(filters[i])).c_str(),ImVec2(segment,28.f))) {
+            if (i==0) view.filter.reset(); else view.filter=levels[i-1];
+        }
+        ImGui::PopStyleColor(2);
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
 
-    std::vector<LogEntry> rows;
-    if (selected!=mods.end()) rows=Settings().Logs(selected->id);
-    auto& confirmation=PendingLogClear();
-    if (selected==mods.end() || confirmation!=selected->id) confirmation.clear();
-    const bool confirming=!confirmation.empty();
-    const std::string copyLabel=Tr("ui.logs_copy","Copy diagnostics");
-    const std::string clearLabel=confirming ? Tr("ui.logs_confirm","Confirm clear") : Tr("ui.logs_clear","Clear logs");
-    const std::string cancelLabel=Tr("ui.cancel","Cancel");
-    const float copyWidth=ImGui::CalcTextSize(copyLabel.c_str()).x+24.f;
-    const float clearWidth=ImGui::CalcTextSize(clearLabel.c_str()).x+24.f;
-    const float cancelWidth=ImGui::CalcTextSize(cancelLabel.c_str()).x+24.f;
-    const float available=ImGui::GetContentRegionAvail().x;
-    // Even with no selected/registered mod or cleared history, the report
-    // can diagnose startup/manifest failures and settings configuration.
-    if (ImGui::Button(copyLabel.c_str(),ImVec2(std::min(copyWidth,available),32.f))) {
-        const std::string text=Settings().DiagnosticReport(selected==mods.end() ? std::string_view{} : std::string_view(selected->id));
+    // Reacquire the view after a pause/resume click; no references to a
+    // discarded snapshot are used below.
+    const auto& displayed=view.paused ? view.frozen : live;
+    const auto matches=logview::Filter(displayed,view.filter,view.search.data());
+    ImGui::SetCursorPosX(pad);
+    const float scrollHeight=std::max(1.f,height-ImGui::GetCursorPosY()-footerHeight-6.f);
+    const float tableWidth=interior;
+    const bool compact=tableWidth<400.f;
+    ImFont* mono=fonts::mono ? fonts::mono : (fonts::caption ? fonts::caption : ImGui::GetFont());
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding,ImVec2(8.f,6.f));
+    ImGui::PushStyleColor(ImGuiCol_TableHeaderBg,p.bar);
+    ImGui::PushStyleColor(ImGuiCol_TableBorderStrong,p.muted);
+    ImGui::PushStyleColor(ImGuiCol_TableBorderLight,p.fill);
+    ImGui::PushStyleColor(ImGuiCol_TableRowBg,p.paper);
+    ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt,p.fill);
+    bool inspectRequested=false;
+    if (ImGui::BeginTable("##log-table",3,ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter |
+            ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY |
+            ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings,
+            ImVec2(tableWidth,scrollHeight))) {
+        ImGui::TableSetupColumn(Tr("ui.logs_time","TIME").c_str(),ImGuiTableColumnFlags_WidthFixed,compact?68.f:94.f);
+        ImGui::TableSetupColumn(Tr("ui.logs_level","LEVEL").c_str(),ImGuiTableColumnFlags_WidthFixed,compact?49.f:72.f);
+        ImGui::TableSetupColumn(Tr("ui.logs_message","MESSAGE").c_str(),ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupScrollFreeze(0,1);
+        ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+        ImGui::TableHeadersRow();
+        ImGui::PopStyleColor();
+        if (matches.empty()) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextWrapped("%s",(displayed.empty() ? Tr("ui.logs_empty","No logs for this mod in the current session.") :
+                Tr("ui.logs_no_match","No matching log entries.")).c_str());
+        }
+        for (const auto index:matches) {
+            const auto& entry=displayed[index];
+            ImGui::PushID(static_cast<int>(index));
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::PushFont(mono);
+            const std::string time=entry.timestamp.size()>=19 ? entry.timestamp.substr(11,8) : entry.timestamp;
+            const auto at=ImGui::GetCursorScreenPos();
+            const auto tint=LogColor(entry.level,p);
+            const float rowHeight=ImGui::GetTextLineHeight();
+            if (ImGui::Selectable(time.c_str(),false,ImGuiSelectableFlags_SpanAllColumns,ImVec2(0.f,rowHeight))) {
+                view.inspected=entry;
+                inspectRequested=true;
+            }
+            auto* d=ImGui::GetWindowDrawList();
+            d->AddRectFilled(ImVec2(at.x-6.f,at.y-3.f),ImVec2(at.x-3.f,at.y+rowHeight+3.f),Color(tint));
+            ImGui::PopFont();
+            ImGui::TableSetColumnIndex(1);
+            const char* level=entry.level==LogLevel::Warning ? "WARN" : LogLevelName(entry.level);
+            if (fonts::caption) ImGui::PushFont(fonts::caption);
+            ImGui::TextColored(tint,"%s",level);
+            if (fonts::caption) ImGui::PopFont();
+            ImGui::TableSetColumnIndex(2);
+            ImGui::PushFont(mono);
+            std::string preview=entry.message;
+            std::replace(preview.begin(),preview.end(),'\n',' ');
+            std::replace(preview.begin(),preview.end(),'\t',' ');
+            const auto fitted=FitLabel(preview,std::max(1.f,ImGui::GetContentRegionAvail().x-4.f));
+            ImGui::TextUnformatted(fitted.c_str());
+            ImGui::PopFont();
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+    ImGui::PopStyleColor(5);
+    ImGui::PopStyleVar();
+    if (inspectRequested) ImGui::OpenPopup("##log-entry");
+
+    // Unified footer; filtered/paused counts do not change the copied report.
+    const ImVec2 foot(ImGui::GetWindowPos().x+1.f,ImGui::GetWindowPos().y+height-footerHeight);
+    auto* draw=ImGui::GetWindowDrawList();
+    draw->AddRectFilled(foot,ImVec2(foot.x+width-2.f,foot.y+footerHeight),Color(p.bar));
+    const float inset=std::min(16.f,std::max(4.f,width*.035f));
+    const bool stacked=footerHeight>60.f;
+    const auto countText=std::to_string(matches.size())+" / "+std::to_string(displayed.size())+
+        " · "+Tr("ui.logs_entries","entries")+" / "+std::to_string(Registry::kLogsPerMod);
+    ImGui::PushStyleColor(ImGuiCol_Text,p.barText);
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+inset,foot.y+(stacked?10.f:20.f)));
+    if (fonts::caption) ImGui::PushFont(fonts::caption);
+    const auto fittedCount=FitLabel(countText,std::max(1.f,stacked?width-2.f*inset:width*.35f));
+    ImGui::TextUnformatted(fittedCount.c_str());
+    if (fonts::caption) ImGui::PopFont();
+    const auto copyLabel=(fonts::HasIcons()?std::string(ARC_ICON_COPY)+" ":"")+Tr("ui.logs_copy","Copy diagnostics");
+    const auto clearLabel=(fonts::HasIcons()?std::string(ARC_ICON_TRASH)+" ":"")+Tr("ui.logs_clear","Clear logs");
+    const float total=std::max(1.f,stacked?width-2.f*inset:width*.60f-2.f*inset);
+    const float cw=std::min(ImGui::CalcTextSize(copyLabel.c_str()).x+24.f,total*.57f);
+    const float dw=std::min(ImGui::CalcTextSize(clearLabel.c_str()).x+24.f,std::max(1.f,total-cw-8.f));
+    const float y=foot.y+(stacked?45.f:13.f);
+    ImGui::SetCursorScreenPos(ImVec2(foot.x+width-inset-cw-dw-10.f,y));
+    ImGui::PushStyleColor(ImGuiCol_Button,p.bar);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.23f,.27f,.21f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.31f,.35f,.28f,1.f));
+    ImGui::PushStyleColor(ImGuiCol_Border,p.barText);
+    if (ImGui::Button((FitLabel(copyLabel,cw-12.f)+"##copy-report").c_str(),ImVec2(cw,buttonHeight))) {
+        const auto text=Settings().DiagnosticReport(id);
         ImGui::SetClipboardText(text.c_str());
         const char* copied=ImGui::GetClipboardText();
         const bool ok=copied && text==copied;
         ShowToast(ok ? Tr("toast.logs_copied","Diagnostics copied to clipboard") :
-                       Tr("toast.logs_copy_failed","Could not copy diagnostics to clipboard"),
-                  2.8f,ok ? ToastKind::Success : ToastKind::Error);
+            Tr("toast.logs_copy_failed","Could not copy diagnostics to clipboard"),
+            2.8f,ok?ToastKind::Success:ToastKind::Error);
     }
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-        ShowTooltip(Tr("ui.logs_copy","Copy diagnostics"),
-            Tr("ui.logs_copy_help","Copies the selected mod's settings, logs and framework startup diagnostics. Review before sharing."),p);
-    if (copyWidth+8.f+clearWidth<=available) ImGui::SameLine();
-    ImGui::BeginDisabled(rows.empty());
-    if (ImGui::Button(clearLabel.c_str(),ImVec2(std::min(clearWidth,available),32.f))) {
-        if (confirming) {
-            if (Settings().ClearLogs(selected->id)) {
-                rows.clear();
-                ShowToast(Tr("toast.logs_cleared","Selected mod logs cleared"),2.8f,ToastKind::Success);
-            } else ShowToast(Tr("toast.logs_clear_failed","Could not clear logs"),3.2f,ToastKind::Error);
-            confirmation.clear();
-        } else confirmation=selected->id;
+        ShowTooltip(Tr("ui.logs_copy","Copy diagnostics"),Tr("ui.logs_copy_help",
+            "Copies the selected mod's settings, logs and framework startup diagnostics. Review before sharing."),p);
+    ImGui::SameLine(0.f,8.f);
+    ImGui::BeginDisabled(id.empty() || (live.empty() && displayed.empty()));
+    if (ImGui::Button((FitLabel(clearLabel,dw-12.f)+"##clear-logs").c_str(),ImVec2(dw,buttonHeight))) {
+        confirmation=id;
+        ImGui::OpenPopup("##confirm-clear-logs");
     }
     ImGui::EndDisabled();
-    if (confirming && !confirmation.empty()) {
-        const float used=copyWidth+8.f+clearWidth<=available ? copyWidth+8.f+clearWidth : clearWidth;
-        if (used+8.f+cancelWidth<=available) ImGui::SameLine();
-        if (ImGui::Button(cancelLabel.c_str(),ImVec2(std::min(cancelWidth,available),32.f)))
-            confirmation.clear();
-    }
-    ImGui::Separator();
-    ImGui::EndChild();
+    ImGui::PopStyleColor(5);
 
-    ImGui::SetCursorPosX(pad);
-    if (selected!=mods.end()) ImGui::PushID(selected->id.c_str());
-    const float scrollHeight=std::max(1.f,height-ImGui::GetCursorPosY()-footerHeight);
-    ImGui::BeginChild("##log-scroll",ImVec2(std::max(1.f,width-2.f*pad),scrollHeight),
-                      ImGuiChildFlags_None,0);
-    if (rows.empty()) {
-        ImGui::TextWrapped("%s",Tr("ui.logs_empty","No logs for this mod in the current session.").c_str());
-    } else {
-        for (const auto& entry:rows) {
-            if (fonts::caption) ImGui::PushFont(fonts::caption);
-            ImGui::TextDisabled("%s",entry.timestamp.c_str());
-            ImGui::SameLine(0.f,12.f);
-            if (fonts::caption) ImGui::PopFont();
-            if (fonts::label) ImGui::PushFont(fonts::label);
+    const float modalWidth=std::max(160.f,std::min(620.f,ImGui::GetMainViewport()->Size.x-36.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(18.f,16.f));
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),ImGuiCond_Appearing,ImVec2(.5f,.5f));
+    ImGui::SetNextWindowSize(ImVec2(modalWidth,0.f),ImGuiCond_Always);
+    if (ImGui::BeginPopupModal("##log-entry",nullptr,ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoSavedSettings)) {
+        ModalTitle(p,Tr("ui.logs_entry","LOG ENTRY"),true);
+        if (view.inspected) {
+            const auto& entry=*view.inspected;
             ImGui::TextColored(LogColor(entry.level,p),"%s",LogLevelName(entry.level));
-            if (fonts::label) ImGui::PopFont();
-            ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+std::max(1.f,ImGui::GetContentRegionAvail().x-6.f));
-            ImGui::TextUnformatted(entry.message.c_str());
-            ImGui::PopTextWrapPos();
-            ImGui::PushStyleColor(ImGuiCol_Separator,p.muted);
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s",entry.timestamp.c_str());
             ImGui::Separator();
-            ImGui::PopStyleColor();
-        }
+            ImGui::PushFont(mono);
+            ImGui::BeginChild("##full-log",ImVec2(0.f,std::min(230.f,std::max(80.f,ImGui::GetMainViewport()->Size.y*.35f))),
+                ImGuiChildFlags_Borders);
+            ImGui::TextWrapped("%s",entry.message.c_str());
+            ImGui::EndChild();
+            ImGui::PopFont();
+            if (ImGui::Button(Tr("ui.logs_copy_entry","Copy full message").c_str(),ImVec2(-1.f,34.f))) {
+                ImGui::SetClipboardText(entry.message.c_str());
+                const char* copied=ImGui::GetClipboardText();
+                const bool ok=copied && entry.message==copied;
+                ShowToast(ok ? Tr("toast.logs_entry_copied","Log message copied") :
+                    Tr("toast.logs_copy_failed","Could not copy diagnostics to clipboard"),
+                    2.8f,ok?ToastKind::Success:ToastKind::Error);
+            }
+        } else ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
-    ImGui::EndChild();
-    if (selected!=mods.end()) ImGui::PopID();
-    ImGui::SetCursorPos(ImVec2(pad,std::max(0.f,height-footerHeight+8.f)));
-    if (fonts::caption) ImGui::PushFont(fonts::caption);
-    ImGui::TextDisabled("%s",(std::to_string(rows.size())+" / "+
-        std::to_string(Registry::kLogsPerMod)+" · "+Tr("ui.logs_entries","entries")).c_str());
-    if (fonts::caption) ImGui::PopFont();
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),ImGuiCond_Appearing,ImVec2(.5f,.5f));
+    ImGui::SetNextWindowSize(ImVec2(std::min(modalWidth,440.f),0.f),ImGuiCond_Always);
+    if (ImGui::BeginPopupModal("##confirm-clear-logs",nullptr,ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoSavedSettings)) {
+        ModalTitle(p,Tr("ui.logs_confirm","Confirm clear"),false);
+        ImGui::TextWrapped("%s",Tr("ui.logs_clear_help","Clear all current-session logs for this mod? This also clears the paused view.").c_str());
+        const float bw=std::max(1.f,(ImGui::GetContentRegionAvail().x-8.f)*.5f);
+        if (ImGui::Button(Tr("ui.cancel","Cancel").c_str(),ImVec2(bw,34.f))) {
+            confirmation.clear(); ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(Tr("ui.logs_confirm","Confirm clear").c_str(),ImVec2(bw,34.f))) {
+            if (!id.empty() && confirmation==id && Settings().ClearLogs(id)) {
+                view.frozen.clear(); view.inspected.reset();
+                ShowToast(Tr("toast.logs_cleared","Selected mod logs cleared"),2.8f,ToastKind::Success);
+            } else ShowToast(Tr("toast.logs_clear_failed","Could not clear logs"),3.2f,ToastKind::Error);
+            confirmation.clear(); ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar();
     ImGui::PopStyleVar();
     ImGui::EndChild();
 }
@@ -1611,6 +1807,7 @@ void ShowToast(std::string message, float seconds, ToastKind kind) {
 void DrawArcUI() {
     auto& input = InputRouter::Get();
     if (!input.IsOpen()) {
+        input.SetTextEntryActive(false);
         // First-run/recovery Save closes the panel; feedback must still be visible.
         auto* viewport=ImGui::GetMainViewport();
         DrawToasts(viewport,viewport->Pos,viewport->Size);
@@ -1653,7 +1850,7 @@ void DrawArcUI() {
         DrawSidebar(palette,mods,navWidth,area.y);
         ImGui::SameLine(0.f,0.f);
         if (LogsMode()) DrawLogs(palette,mods,std::max(0.f,area.x-navWidth),area.y);
-        else DrawDetail(palette,mods,std::max(0.f,area.x-navWidth),area.y);
+        else { input.SetTextEntryActive(false); DrawDetail(palette,mods,std::max(0.f,area.x-navWidth),area.y); }
         ImGui::PopStyleVar();
     }
     ImGui::End();

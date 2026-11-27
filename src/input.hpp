@@ -30,6 +30,8 @@ public:
     std::string CandidateLabel() const;
     bool ConfirmCandidate() noexcept;
     void Close() noexcept;
+    // Only suppress the normal menu binding while the search field is active.
+    void SetTextEntryActive(bool active) noexcept { textEntryActive_.store(active); }
     bool IsOpen() const noexcept { return open_.load(); }
     bool IsRecording() const noexcept { return recording_.load(); }
     bool HasKey() const noexcept { return shortcut_.load() != 0; }
@@ -63,6 +65,7 @@ private:
     std::atomic<HWND> window_{nullptr};
     WNDPROC oldProc_ = nullptr;
     std::atomic_bool open_{false};
+    std::atomic_bool textEntryActive_{false};
     std::atomic_bool recording_{false};
     std::atomic_bool modRecording_{false};
     std::string modCaptureId_;

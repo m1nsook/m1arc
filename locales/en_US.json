@@ -93,6 +93,21 @@
     "toast.refresh_loaded": "Reloaded: ",
     "toast.refresh_rejected": "Rejected: ",
     "toast.refresh_retained": "Retained: ",
-    "toast.refresh_failed": "Refresh could not be completed; see diagnostics."
+    "toast.refresh_failed": "Refresh could not be completed; see diagnostics.",
+    "ui.diagnostics": "DIAGNOSTICS",
+    "ui.logs_paused": "PAUSED",
+    "ui.logs_resume": "Resume",
+    "ui.logs_pause": "Pause",
+    "ui.logs_search": "Search log messages...",
+    "ui.logs_pause_help": "Pause only the visible list; logging continues.",
+    "ui.logs_all": "ALL",
+    "ui.logs_time": "TIME",
+    "ui.logs_level": "LEVEL",
+    "ui.logs_message": "MESSAGE",
+    "ui.logs_no_match": "No matching log entries.",
+    "ui.logs_entry": "LOG ENTRY",
+    "ui.logs_copy_entry": "Copy full message",
+    "toast.logs_entry_copied": "Log message copied",
+    "ui.logs_clear_help": "Clear all current-session logs for this mod? This also clears the paused view."
   }
 }

@@ -32,3 +32,8 @@
 #define ARC_ICON_CODE "\xEE\x86\xBC"     // U+E1BC
 #define ARC_ICON_BOOK "\xEE\x83\xA6"     // U+E0E6
 #define ARC_ICON_DISCORD "\xEE\x98\x9A"  // U+E61A
+
+#define ARC_ICON_PAUSE "\xEE\x8E\x9E" // U+E39E
+#define ARC_ICON_PLAY "\xEE\x8F\x90"  // U+E3D0
+#define ARC_ICON_TRASH "\xEE\x92\xA6" // U+E4A6
+#define ARC_ICON_COPY "\xEE\x87\x8A"  // U+E1CA

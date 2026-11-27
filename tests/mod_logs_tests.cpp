@@ -1,4 +1,5 @@
 #include "registry.hpp"
+#include "log_view.hpp"
 #include "check.hpp"
 #include <filesystem>
 using namespace m1arc;
@@ -34,6 +35,17 @@ int main() {
     auto rows=registry.Logs("one");
     REQUIRE(rows.size()==2 && rows[0].message=="second" && rows[1].message=="first");
     REQUIRE(rows[0].level==LogLevel::Error && !rows[0].timestamp.empty());
+    const auto counts=logview::Counts(rows);
+    REQUIRE(counts[0]==0 && counts[1]==1 && counts[2]==0 && counts[3]==1);
+    REQUIRE(logview::Filter(rows,std::nullopt,"SECOND")==std::vector<std::size_t>{0});
+    REQUIRE(logview::Filter(rows,LogLevel::Info,"first")==std::vector<std::size_t>{1});
+    REQUIRE(logview::Filter(rows,LogLevel::Error,"first").empty());
+    REQUIRE(logview::Filter(rows,std::nullopt,"").size()==2);
+    // A copied paused view is independent of further registry activity.
+    const auto frozen=rows;
+    REQUIRE(registry.AppendLog("one",LogLevel::Debug,"new while paused"));
+    REQUIRE(frozen.size()==2 && registry.Logs("one").size()==3);
+    REQUIRE(registry.DiagnosticReport("one").find("new while paused")!=std::string::npos);
     REQUIRE(registry.ClearLogs("one"));
     REQUIRE(registry.Logs("one").empty());
     REQUIRE(registry.Logs("two").size()==1);

@@ -93,6 +93,21 @@
     "toast.refresh_loaded": "Wczytano: ",
     "toast.refresh_rejected": "Odrzucono: ",
     "toast.refresh_retained": "Zachowano: ",
-    "toast.refresh_failed": "Nie udało się odświeżyć; sprawdź diagnostykę."
+    "toast.refresh_failed": "Nie udało się odświeżyć; sprawdź diagnostykę.",
+    "ui.diagnostics": "DIAGNOSTYKA",
+    "ui.logs_paused": "WSTRZYMANO",
+    "ui.logs_resume": "Wznów",
+    "ui.logs_pause": "Wstrzymaj",
+    "ui.logs_search": "Szukaj w dzienniku...",
+    "ui.logs_pause_help": "Wstrzymuje tylko widok; rejestrowanie trwa.",
+    "ui.logs_all": "WSZYSTKIE",
+    "ui.logs_time": "CZAS",
+    "ui.logs_level": "POZIOM",
+    "ui.logs_message": "WIADOMOŚĆ",
+    "ui.logs_no_match": "Brak pasujących wpisów.",
+    "ui.logs_entry": "WPIS DZIENNIKA",
+    "ui.logs_copy_entry": "Kopiuj pełną wiadomość",
+    "toast.logs_entry_copied": "Skopiowano wiadomość",
+    "ui.logs_clear_help": "Wyczyścić wszystkie wpisy tego moda z bieżącej sesji? Wstrzymany widok także zostanie wyczyszczony."
   }
 }

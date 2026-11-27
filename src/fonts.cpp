@@ -78,7 +78,7 @@ ImFont* Add(ImFontAtlas* atlas,const std::filesystem::path& dir,
 } // namespace
 
 void Clear() noexcept {
-    body=label=caption=titleMedium=titleBold=titleHeavy=nullptr;
+    body=label=caption=titleMedium=titleBold=titleHeavy=mono=nullptr;
     iconsAvailable=false;
 }
 void Load() noexcept {
@@ -112,7 +112,7 @@ void Load() noexcept {
             0xE47E,0xE47E, 0xE4D6,0xE4D6, 0xE4E0,0xE4E0,
             0xE4F6,0xE4F6, 0xE4F8,0xE4F8, 0xE5BA,0xE5BA,
             0xE0E6,0xE0E6, 0xE1BC,0xE1BC, 0xE330,0xE330, 0xE472,0xE472,
-            0xE478,0xE478, 0xE4C2,0xE4C2, 0xE5DE,0xE5DE, 0xE61A,0xE61A, 0xE5D4,0xE5D4, 0xE670,0xE670, 0xECA0,0xECA0, 0
+            0xE1CA,0xE1CA, 0xE39E,0xE39E, 0xE3D0,0xE3D0, 0xE4A6,0xE4A6, 0xE478,0xE478, 0xE4C2,0xE4C2, 0xE5DE,0xE5DE, 0xE61A,0xE61A, 0xE5D4,0xE5D4, 0xE670,0xE670, 0xECA0,0xECA0, 0
         };
         const auto iconFile=folder / L"Phosphor-Regular.ttf";
         std::error_code ec;
@@ -135,6 +135,10 @@ void Load() noexcept {
         if (!caption) caption=body;
         label=Add(atlas,folder,L"Karla-Bold.ttf",19.f,textRanges);
         if (!label) label=body;
+
+        mono=Add(atlas,folder,L"JetBrainsMono-Regular.ttf",15.f,textRanges);
+        if (mono) MergeHangul(atlas,folder,mono,15.f);
+        if (mono) MergeGreek(atlas,mono,15.f);
 
         // Preserve the owner's purchased Blender Pro fonts as FIRST choice.
         // Their provided ZIP does not include a redistributable license grant;

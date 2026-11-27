@@ -93,6 +93,21 @@
     "toast.refresh_loaded": "다시 불러옴: ",
     "toast.refresh_rejected": "거부됨: ",
     "toast.refresh_retained": "유지됨: ",
-    "toast.refresh_failed": "새로고침 실패: 진단을 확인하세요."
+    "toast.refresh_failed": "새로고침 실패: 진단을 확인하세요.",
+    "ui.diagnostics": "진단",
+    "ui.logs_paused": "일시 정지",
+    "ui.logs_resume": "재개",
+    "ui.logs_pause": "일시 정지",
+    "ui.logs_search": "로그 메시지 검색...",
+    "ui.logs_pause_help": "표시 목록만 일시 정지합니다. 로그 기록은 계속됩니다.",
+    "ui.logs_all": "전체",
+    "ui.logs_time": "시간",
+    "ui.logs_level": "수준",
+    "ui.logs_message": "메시지",
+    "ui.logs_no_match": "일치하는 로그가 없습니다.",
+    "ui.logs_entry": "로그 항목",
+    "ui.logs_copy_entry": "전체 메시지 복사",
+    "toast.logs_entry_copied": "로그 메시지를 복사했습니다",
+    "ui.logs_clear_help": "이 모드의 현재 세션 로그를 모두 지울까요? 일시 정지된 화면도 지워집니다."
   }
 }
