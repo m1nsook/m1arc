@@ -32,6 +32,21 @@ try{
     return new Promise((resolve,reject)=>{const n=++id;const timer=setTimeout(()=>{pending.delete(n);reject(Error("CDP timeout: "+method))},10000);pending.set(n,{resolve,reject,timer});socket.send(JSON.stringify({id:n,method,params}))})
   }
   async function ev(expression){const r=await send("Runtime.evaluate",{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error("Browser evaluation: "+r.exceptionDetails.text);return r.result?.value}
+  // Radix tabs activate on pointer down or keyboard, not HTMLElement.click().
+  async function clickVisible(selector, text = "") {
+    const point = await ev(`(() => {
+      const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(el =>
+        (!${JSON.stringify(text)} || el.textContent.includes(${JSON.stringify(text)})) && el.getClientRects().length > 0);
+      if (!el) return null;
+      el.scrollIntoView({block:"center",inline:"nearest"});
+      const r = el.getBoundingClientRect();
+      return {x:r.left+r.width/2,y:r.top+r.height/2};
+    })()`);
+    assert.ok(point,"Visible control missing: "+selector+" "+text);
+    await send("Input.dispatchMouseEvent",{type:"mouseMoved",...point});
+    await send("Input.dispatchMouseEvent",{type:"mousePressed",...point,button:"left",buttons:1,clickCount:1});
+    await send("Input.dispatchMouseEvent",{type:"mouseReleased",...point,button:"left",buttons:0,clickCount:1});
+  }
   const norm=s=>s.replace(/\/+$/,"")||"/"
   async function ready(path){await until(async()=>norm(await ev("location.pathname"))===norm(path)&&await ev('document.readyState==="complete" && !!document.querySelector("[data-slot=docs-nav]") && !!document.querySelector("h1")'),"page "+path);await pause(250)}
   await send("Page.enable")
@@ -65,10 +80,12 @@ try{
   console.log("PASS browser Back")
   // Test the actual demo, including hydrated NextGuide controls.
   await until(()=>ev('Boolean(document.querySelector(".arc-preview[data-ready=true]"))'),"interactive preview hydration")
-  assert.ok(await ev('(function(){const b=document.querySelector(".arc-preview button[aria-label=\\"Toggle preview theme\\"]");if(!b)return false;b.click();return true})()'),"Theme control missing")
+  await clickVisible('.arc-preview button[aria-label="Toggle preview theme"]')
   await until(()=>ev('document.querySelector(".arc-preview").dataset.arcTheme==="dark"'),"preview theme switch")
-  assert.ok(await ev('(function(){const b=[...document.querySelectorAll(".arc-tabs button")].find(b=>b.textContent.includes("WEAPONS"));if(!b)return false;b.click();return true})()'),"Weapons tab missing")
+  console.log("PASS interactive demo theme")
+  await clickVisible(".arc-tabs button[role=tab]", "WEAPONS")
   await until(()=>ev('document.querySelector(".arc-detail-scroll").innerText.includes("Process weapons")'),"weapons tab content")
+  assert.equal(await ev('[...document.querySelectorAll(".arc-tabs [role=tab]")].find(t=>t.textContent.includes("WEAPONS")).getAttribute("aria-selected")'),"true","Weapons tab selected")
   console.log("PASS interactive demo theme and tabs")
   console.log("Browser checks completed for "+unique.length+" documentation destinations.")
 }finally{
