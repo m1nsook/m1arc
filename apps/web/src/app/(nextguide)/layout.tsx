@@ -2,10 +2,11 @@
 import { Suspense } from "react"
 import type { ReactNode } from "react"
 import { Inter, JetBrains_Mono } from "next/font/google"
-import { DocsSiteProviders } from "nextguide/site"
+import { DocsSiteProviders, DocsSiteSidebar, DocsSiteSearchProvider } from "nextguide/site"
 import { NextDocsSiteSidebar, NextDocsSiteSearchProvider, NextDocsSiteClientNavigation, NextDocsSiteContent } from "nextguide/site/next"
 import nextguidePackage from "nextguide/package.json"
 import { getSidebar, getSearchIndex, site, appearance, ngCopyright, branding } from "@/lib/nextguide"
+import { pagesHref } from "@/lib/pages-href"
 import "nextguide/styles.css"
 import "@/styles/nextguide.css"
 
@@ -14,14 +15,20 @@ const fontMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" })
 
 async function DocumentationSite({ children }: { children: ReactNode }) {
   const [navigation, searchIndex] = await Promise.all([getSidebar(), getSearchIndex()])
+  const pages = process.env.M1ARC_PAGES === "1"
+  function prefixItems(items: typeof navigation): typeof navigation {
+    return items.map(item=>({...item,href:pagesHref(item.href),items:prefixItems(item.items)}))
+  }
+  const Sidebar = pages ? DocsSiteSidebar : NextDocsSiteSidebar
+  const SearchProvider = pages ? DocsSiteSearchProvider : NextDocsSiteSearchProvider
   return (
     <DocsSiteProviders defaultTheme={appearance.mode as "light" | "dark" | "system"} enableSystem>
-      <NextDocsSiteSearchProvider entries={searchIndex}>
+      <SearchProvider entries={pages ? searchIndex.map(entry=>({...entry,href:pagesHref(entry.href)})) : searchIndex}>
         <div className={fontSans.variable + " " + fontMono.variable + " ng-official-docs"} data-ng-accent={appearance.accent}>
           {process.env.M1ARC_PAGES !== "1" && <NextDocsSiteClientNavigation basePath={"/"} />}
           <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
-            <NextDocsSiteSidebar items={navigation} version={nextguidePackage.version}
-              siteName={site.name} basePath={"/"} homeHref={"/"} prewarm={true}
+            <Sidebar items={pages ? prefixItems(navigation) : navigation} version={nextguidePackage.version}
+              siteName={site.name} basePath={pages ? "/m1arc" : "/"} homeHref={pages ? "/m1arc/" : "/"} {...(!pages ? {prewarm:true} : {})}
               siteLogo={branding.logo} siteLogoAlt={branding.logoAlt}
               footerEnabled={ngCopyright.enabled !== false} footerText={ngCopyright.text} footerHref={ngCopyright.href}
               footerContent={undefined}
@@ -29,7 +36,7 @@ async function DocumentationSite({ children }: { children: ReactNode }) {
             <NextDocsSiteContent>{children}</NextDocsSiteContent>
           </div>
         </div>
-      </NextDocsSiteSearchProvider>
+      </SearchProvider>
     </DocsSiteProviders>
   )
 }

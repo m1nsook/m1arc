@@ -1,0 +1,688 @@
+[
+  {
+    "id": "m1arc.example",
+    "name": "M1 Arc // Feature Showcase",
+    "author": "M1 Arc",
+    "version": "1.0.0",
+    "scope": "UI/UX",
+    "shortDesc": "Offline demonstration of tabs, conditional controls and Quick Search.",
+    "description": "A data-only example mod. Every control is safe to test; no gameplay changes or scripts are included.",
+    "nexusProfile": "m1nsook",
+    "tabs": [
+      {
+        "id": "general",
+        "label": "General"
+      },
+      {
+        "id": "weapons",
+        "label": "Weapons"
+      },
+      {
+        "id": "inventory",
+        "label": "Inventory"
+      },
+      {
+        "id": "advanced",
+        "label": "Advanced"
+      },
+      {
+        "id": "actions",
+        "label": "Actions"
+      }
+    ],
+    "settings": [
+      {
+        "id": "enabled",
+        "kind": "boolean",
+        "label": "Enable example",
+        "tab": "general",
+        "group": "Framework",
+        "default": true,
+        "description": "Master switch. Turn off to disable all other controls."
+      },
+      {
+        "id": "notifications",
+        "kind": "boolean",
+        "label": "Show notifications",
+        "tab": "general",
+        "group": "Framework",
+        "default": true,
+        "presentation": "checkbox",
+        "description": "Example checkbox. No gameplay effect."
+      },
+      {
+        "id": "preset",
+        "kind": "choice",
+        "label": "Experience preset",
+        "tab": "general",
+        "group": "Preferences",
+        "default": "Balanced",
+        "choices": [
+          "Balanced",
+          "Custom",
+          "Maximum"
+        ],
+        "keywords": [
+          "profile",
+          "difficulty"
+        ],
+        "description": "Advanced tuning requires Custom."
+      },
+      {
+        "id": "weaponsEnabled",
+        "kind": "boolean",
+        "label": "Process weapons",
+        "tab": "weapons",
+        "group": "Processing",
+        "default": false,
+        "controlsGroup": true,
+        "description": "Turn on to unlock this entire section."
+      },
+      {
+        "id": "weaponAction",
+        "kind": "choice",
+        "label": "Weapon action",
+        "tab": "weapons",
+        "group": "Processing",
+        "default": "Disassemble",
+        "choices": [
+          "Disassemble",
+          "Sell"
+        ],
+        "keywords": [
+          "salvage",
+          "sell",
+          "dismantle"
+        ]
+      },
+      {
+        "id": "weaponTier",
+        "kind": "integer",
+        "label": "Maximum weapon tier",
+        "tab": "weapons",
+        "group": "Processing",
+        "default": 3,
+        "min": 1,
+        "max": 5,
+        "keywords": [
+          "quality",
+          "rarity"
+        ]
+      },
+      {
+        "id": "advancedWeapons",
+        "kind": "boolean",
+        "label": "Advanced weapon filters",
+        "tab": "weapons",
+        "group": "Processing",
+        "default": false,
+        "description": "Nested switch, disabled when Process weapons is off."
+      },
+      {
+        "id": "rareOnly",
+        "kind": "boolean",
+        "label": "Rare items only",
+        "tab": "weapons",
+        "group": "Advanced filters",
+        "default": true,
+        "presentation": "checkbox",
+        "enabledWhen": {
+          "setting": "advancedWeapons",
+          "equals": true
+        }
+      },
+      {
+        "id": "weaponMultiplier",
+        "kind": "float",
+        "label": "Processing multiplier",
+        "tab": "weapons",
+        "group": "Advanced filters",
+        "default": 1,
+        "min": 0.5,
+        "max": 3,
+        "step": 0.1,
+        "enabledWhen": {
+          "setting": "advancedWeapons",
+          "equals": true
+        }
+      },
+      {
+        "id": "inventoryEnabled",
+        "kind": "boolean",
+        "label": "Inventory processing",
+        "tab": "inventory",
+        "group": "Inventory",
+        "default": true,
+        "controlsGroup": true
+      },
+      {
+        "id": "capacity",
+        "kind": "integer",
+        "label": "Carry capacity",
+        "tab": "inventory",
+        "group": "Inventory",
+        "default": 500,
+        "min": 100,
+        "max": 2000,
+        "step": 25,
+        "keywords": [
+          "weight",
+          "encumbrance",
+          "backpack",
+          "capacity"
+        ]
+      },
+      {
+        "id": "junk",
+        "kind": "boolean",
+        "label": "Sell junk",
+        "tab": "inventory",
+        "group": "Inventory",
+        "default": false,
+        "presentation": "checkbox"
+      },
+      {
+        "id": "customTuning",
+        "kind": "boolean",
+        "label": "Enable custom tuning",
+        "tab": "advanced",
+        "group": "Tuning",
+        "default": false,
+        "controlsGroup": true,
+        "enabledWhen": {
+          "setting": "preset",
+          "equals": "Custom"
+        },
+        "description": "Set Experience preset to Custom in General."
+      },
+      {
+        "id": "intensity",
+        "kind": "float",
+        "label": "Tuning intensity",
+        "tab": "advanced",
+        "group": "Tuning",
+        "default": 0.5,
+        "min": 0,
+        "max": 1,
+        "step": 0.05,
+        "keywords": [
+          "strength",
+          "power"
+        ]
+      },
+      {
+        "id": "demoHotkey",
+        "kind": "hotkey",
+        "label": "Demo shortcut",
+        "tab": "actions",
+        "group": "Controls",
+        "default": 0,
+        "description": "Optional unassigned mod hotkey."
+      },
+      {
+        "id": "demoAction",
+        "kind": "action",
+        "label": "Test action request",
+        "tab": "actions",
+        "group": "Controls",
+        "default": null,
+        "buttonLabel": "Request",
+        "description": "Queues a demonstration request only."
+      },
+      {
+        "id": "demoAmount",
+        "kind": "integer",
+        "label": "Test amount",
+        "tab": "actions",
+        "group": "Inline action",
+        "default": 10,
+        "min": 1,
+        "max": 100,
+        "button": {
+          "id": "demoApply",
+          "label": "Apply"
+        }
+      }
+    ]
+  },
+  {
+    "format": 1,
+    "id": "m1nsook.arc-converter",
+    "name": "Arc Converter - Automatic Item Processing",
+    "version": "1.0.1",
+    "author": "민숙 MISO @m1nsook",
+    "scope": "Crafting",
+    "shortDesc": "Auto-process newly acquired weapons and clothes by tier, craft ammo, and sell junk for eddies",
+    "requires": {
+      "m1arc": "1.0.1"
+    },
+    "settings": [
+      {
+        "id": "enabled",
+        "kind": "boolean",
+        "label": "Enable Arc Converter",
+        "description": "Master switch for automatic item processing.",
+        "default": true,
+        "group": "General",
+        "presentation": "switch"
+      },
+      {
+        "id": "disassemble",
+        "kind": "boolean",
+        "label": "Weapons",
+        "description": "Automatically process only newly acquired weapons at the selected tiers. Existing weapons are not scanned.",
+        "default": false,
+        "group": "Weapons",
+        "presentation": "switch"
+      },
+      {
+        "id": "weapon_action",
+        "kind": "choice",
+        "label": "Weapon action",
+        "description": "Choose whether eligible newly acquired weapons are sold for eddies or disassembled into components.",
+        "choices": [
+          "Disassemble",
+          "Sell"
+        ],
+        "default": "Disassemble",
+        "group": "Weapons"
+      },
+      {
+        "id": "tier1",
+        "kind": "boolean",
+        "label": "Tier 1 (+ variants)",
+        "description": "Process eligible Tier 1 weapons acquired after enabling the mod.",
+        "default": false,
+        "group": "Weapons",
+        "presentation": "checkbox"
+      },
+      {
+        "id": "tier2",
+        "kind": "boolean",
+        "label": "Tier 2 (+ variants)",
+        "description": "Process eligible Tier 2 weapons acquired after enabling the mod.",
+        "default": false,
+        "group": "Weapons",
+        "presentation": "checkbox"
+      },
+      {
+        "id": "tier3",
+        "kind": "boolean",
+        "label": "Tier 3 (+ variants)",
+        "description": "Process eligible Tier 3 weapons acquired after enabling the mod.",
+        "default": false,
+        "group": "Weapons",
+        "presentation": "checkbox"
+      },
+      {
+        "id": "tier4",
+        "kind": "boolean",
+        "label": "Tier 4 (+ variants)",
+        "description": "Process eligible Tier 4 weapons acquired after enabling the mod.",
+        "default": false,
+        "group": "Weapons",
+        "presentation": "checkbox"
+      },
+      {
+        "id": "tier5",
+        "kind": "boolean",
+        "label": "Tier 5 (+ variants)",
+        "description": "Process eligible Tier 5 weapons acquired after enabling the mod.",
+        "default": false,
+        "group": "Weapons",
+        "presentation": "checkbox"
+      },
+      {
+        "id": "clothes_enabled",
+        "kind": "boolean",
+        "label": "Clothes",
+        "description": "Automatically process only newly acquired clothing at selected tiers. Existing clothing is not scanned.",
+        "default": false,
+        "presentation": "switch",
+        "group": "Clothes"
+      },
+      {
+        "id": "clothes_action",
+        "kind": "choice",
+        "label": "Clothes action",
+        "description": "Choose whether eligible newly acquired clothes are sold for eddies or disassembled into components.",
+        "choices": [
+          "Disassemble",
+          "Sell"
+        ],
+        "default": "Disassemble",
+        "group": "Clothes"
+      },
+      {
+        "id": "clothes_tier1",
+        "kind": "boolean",
+        "label": "Tier 1 (+ variants)",
+        "description": "Process eligible Tier 1 clothes acquired after enabling the mod.",
+        "default": false,
+        "presentation": "checkbox",
+        "group": "Clothes"
+      },
+      {
+        "id": "clothes_tier2",
+        "kind": "boolean",
+        "label": "Tier 2 (+ variants)",
+        "description": "Process eligible Tier 2 clothes acquired after enabling the mod.",
+        "default": false,
+        "presentation": "checkbox",
+        "group": "Clothes"
+      },
+      {
+        "id": "clothes_tier3",
+        "kind": "boolean",
+        "label": "Tier 3 (+ variants)",
+        "description": "Process eligible Tier 3 clothes acquired after enabling the mod.",
+        "default": false,
+        "presentation": "checkbox",
+        "group": "Clothes"
+      },
+      {
+        "id": "clothes_tier4",
+        "kind": "boolean",
+        "label": "Tier 4 (+ variants)",
+        "description": "Process eligible Tier 4 clothes acquired after enabling the mod.",
+        "default": false,
+        "presentation": "checkbox",
+        "group": "Clothes"
+      },
+      {
+        "id": "clothes_tier5",
+        "kind": "boolean",
+        "label": "Tier 5 (+ variants)",
+        "description": "Process eligible Tier 5 clothes acquired after enabling the mod.",
+        "default": false,
+        "presentation": "checkbox",
+        "group": "Clothes"
+      },
+      {
+        "id": "ammo",
+        "kind": "boolean",
+        "label": "Automatically craft ammunition",
+        "description": "Use vanilla crafting and components to replenish ammunition for the currently equipped weapon.",
+        "default": true,
+        "group": "Ammunition",
+        "presentation": "switch"
+      },
+      {
+        "id": "threshold",
+        "kind": "integer",
+        "label": "Craft when reserve below (%)",
+        "description": "Craft one vanilla recipe batch when ammunition falls below this percentage of its capacity. Never exceed the game's ammo limit.",
+        "min": 1,
+        "max": 100,
+        "step": 5,
+        "default": 25,
+        "group": "Ammunition"
+      },
+      {
+        "id": "sell_junk",
+        "kind": "boolean",
+        "label": "Automatically process junk",
+        "description": "Process junk and jewelry, including existing stacks, using the selected junk action.",
+        "default": false,
+        "group": "Junk",
+        "presentation": "switch"
+      },
+      {
+        "id": "junk_action",
+        "kind": "choice",
+        "group": "Junk",
+        "label": "Junk action",
+        "description": "Sell, disassemble or use the unit price threshold. Ineligible items are kept.",
+        "default": "Sell",
+        "choices": [
+          "Sell",
+          "Disassemble",
+          "By value"
+        ]
+      },
+      {
+        "id": "junk_price_threshold",
+        "kind": "integer",
+        "group": "Junk",
+        "label": "Price threshold (€$)",
+        "description": "In By value mode, disassemble at or below this unit price; sell above it.",
+        "default": 500,
+        "min": 0,
+        "max": 10000,
+        "step": 50
+      },
+      {
+        "id": "food_enabled",
+        "kind": "boolean",
+        "group": "Food and drinks",
+        "label": "Food and drinks",
+        "description": "Process eligible existing and newly acquired stacks. Off by default.",
+        "default": false,
+        "presentation": "switch"
+      },
+      {
+        "id": "food_tier1",
+        "kind": "choice",
+        "group": "Food and drinks",
+        "label": "Tier 1",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "food_tier2",
+        "kind": "choice",
+        "group": "Food and drinks",
+        "label": "Tier 2",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "food_tier3",
+        "kind": "choice",
+        "group": "Food and drinks",
+        "label": "Tier 3",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "food_tier4",
+        "kind": "choice",
+        "group": "Food and drinks",
+        "label": "Tier 4",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "food_tier5",
+        "kind": "choice",
+        "group": "Food and drinks",
+        "label": "Tier 5",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "boosters_enabled",
+        "kind": "boolean",
+        "group": "Boosters",
+        "label": "Boosters",
+        "description": "Process eligible existing and newly acquired stacks. Off by default.",
+        "default": false,
+        "presentation": "switch"
+      },
+      {
+        "id": "boosters_tier1",
+        "kind": "choice",
+        "group": "Boosters",
+        "label": "Tier 1",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "boosters_tier2",
+        "kind": "choice",
+        "group": "Boosters",
+        "label": "Tier 2",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "boosters_tier3",
+        "kind": "choice",
+        "group": "Boosters",
+        "label": "Tier 3",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "boosters_tier4",
+        "kind": "choice",
+        "group": "Boosters",
+        "label": "Tier 4",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "boosters_tier5",
+        "kind": "choice",
+        "group": "Boosters",
+        "label": "Tier 5",
+        "description": "Keep, sell or disassemble if the game permits it.",
+        "default": "Keep",
+        "choices": [
+          "Keep",
+          "Sell",
+          "Disassemble"
+        ]
+      },
+      {
+        "id": "consumables_keep",
+        "kind": "integer",
+        "group": "Consumables",
+        "label": "Keep per stack",
+        "description": "Keep this many units of each eligible food, drink or booster stack.",
+        "default": 1,
+        "min": 0,
+        "max": 100,
+        "step": 1
+      },
+      {
+        "id": "ammo_much_better",
+        "kind": "boolean",
+        "group": "Optional compatibility",
+        "label": "Much Better Ammo",
+        "description": "Enable crafting the four extra ammo types when Much Better Ammo is installed. Does nothing without it.",
+        "default": false,
+        "presentation": "switch"
+      },
+      {
+        "id": "ammo_dual_wield",
+        "kind": "boolean",
+        "group": "Optional compatibility",
+        "label": "Expanded Dual Wielding / both hands",
+        "description": "Check both active weapons using native game APIs; shared ammo is crafted only once.",
+        "default": false,
+        "presentation": "switch"
+      }
+    ]
+  },
+  {
+    "format": 1,
+    "id": "m1nsook.camera-killer",
+    "name": "Camera Killer",
+    "version": "1.1.0",
+    "author": "민숙 MISO @m1nsook",
+    "scope": "Gameplay",
+    "shortDesc": "Shut down connected surveillance cameras",
+    "requires": {
+      "m1arc": "1.0.1"
+    },
+    "settings": [
+      {
+        "id": "enabled",
+        "kind": "boolean",
+        "label": "Network camera shutdown",
+        "description": "Turning off one camera also switches off eligible cameras on its network. Disabling stops future propagation; it does not turn cameras back on.",
+        "default": true,
+        "group": "General"
+      }
+    ]
+  },
+  {
+    "format": 1,
+    "id": "m1nsook.weight-customizer",
+    "name": "Weight Customizer",
+    "version": "0.1.0",
+    "author": "민숙 MISO @m1nsook",
+    "scope": "Gameplay",
+    "shortDesc": "Set V's carry capacity in real time",
+    "requires": {
+      "m1arc": "1.0.0"
+    },
+    "settings": [
+      {
+        "id": "enabled",
+        "kind": "boolean",
+        "label": "Custom carry capacity",
+        "description": "Turn the custom carry capacity on or off. Disabling restores the value from the game and other mods.",
+        "default": true,
+        "group": "Capacity"
+      },
+      {
+        "id": "limit",
+        "kind": "integer",
+        "label": "Carry capacity (kg)",
+        "description": "Set V's total carrying capacity. Changes apply without reloading the save.",
+        "min": 50,
+        "max": 5000,
+        "step": 10,
+        "default": 500,
+        "group": "Capacity"
+      }
+    ]
+  }
+]

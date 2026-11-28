@@ -36,8 +36,16 @@
     "title": "Manifest example"
   },
   {
+    "slug": "setting-types",
+    "title": "Setting types and controls"
+  },
+  {
     "slug": "native-api",
     "title": "Native REDscript API"
+  },
+  {
+    "slug": "integration",
+    "title": "REDscript integration guide"
   },
   {
     "slug": "architecture",

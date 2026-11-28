@@ -26,14 +26,22 @@ import {
 } from "nextguide/components"
 import { NextDocsSiteMdxLink } from "nextguide/site/next"
 
+import type { ComponentProps, AnchorHTMLAttributes } from "react"
+import { pagesHref } from "./pages-href"
 import { M1Preview } from "@/components/m1-preview"
 
+function DocAnchor({href,...props}: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return process.env.M1ARC_PAGES === "1" ? <a href={href ? pagesHref(href) : href} {...props}/> : <NextDocsSiteMdxLink href={href} {...props}/>
+}
+function DocLinkCard(props: ComponentProps<typeof LinkCard>) {
+  return <LinkCard {...props} href={process.env.M1ARC_PAGES === "1" ? pagesHref(props.href) : props.href}/>
+}
 export const nextguideMdxComponents = {
   M1Preview,
-  a: NextDocsSiteMdxLink,
+  a: DocAnchor,
   pre: Pre,
   MethodBadge, Markdown, CodeBlock, DocsBreadcrumbs, DocsPageActions, Callout, CodeWindow, CodeTabs,
-  FileTree, Steps, Step, LinkCards, LinkCard, CopyButton, Button, Card,
+  FileTree, Steps, Step, LinkCards, LinkCard: DocLinkCard, CopyButton, Button, Card,
   CardHeader, CardTitle, CardContent, CardFooter, Badge, Input, Label, Textarea,
   Separator, Skeleton, Spinner, Kbd, Alert, AlertTitle, AlertDescription, Avatar,
   AvatarImage, AvatarFallback, Progress, NativeSelect, Table, TableHeader, TableBody, TableFooter,

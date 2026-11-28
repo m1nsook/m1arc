@@ -5,20 +5,22 @@ description: "Native offline mod configuration for Cyberpunk 2077"
 
 M1 Arc is a standalone, offline in-game control panel for Cyberpunk 2077 mods, powered by RED4ext and Dear ImGui.
 
-## Get started
-
-- [Install M1 Arc](/quickstart)
-- [Create a mod manifest](/mod-manifest)
-- [Native REDscript API](/native-api)
-- [Logs and diagnostics](/diagnostics)
+<LinkCards>
+  <LinkCard title="Install M1 Arc" href="/quickstart" description="Requirements, installation and first launch." />
+  <LinkCard title="Create a mod manifest" href="/mod-manifest" description="Register settings without building your own UI." />
+  <LinkCard title="Native REDscript API" href="/native-api" description="Read settings, queue actions and integrate diagnostics." />
+  <LinkCard title="Logs and diagnostics" href="/diagnostics" description="Inspect framework and per-mod diagnostic output." />
+</LinkCards>
 
 <Callout kind="info" title="Stable version">Download the current published build from [GitHub Releases](https://github.com/m1nsook/m1arc/releases) or [Nexus Mods](https://www.nexusmods.com/cyberpunk2077/mods/39311). The [1.1.0 development preview](/development) is not a published release.</Callout>
 
-## Interactive control panel preview
+## Try M1 Arc
 
-This is a **browser-only demonstration** of the planned 1.1.0 tabs and conditional controls. It does not connect to Cyberpunk, read installed mods or change game settings.
+Explore the **browser-only demonstration** of the planned 1.1.0 interface. Select a registered mod, change settings, switch themes, use Quick Search or inspect simulated diagnostic logs. The Feature Showcase includes tabs, master and group switches, cross-tab dependencies and example actions. The other examples use real mod manifest settings.
 
 <M1Preview />
+
+<Callout kind="info" title="Preview only">The demo does not connect to Cyberpunk, access installed mods or change game settings. Values and logs are simulated in the current page session.</Callout>
 
 ## Offline by design
 

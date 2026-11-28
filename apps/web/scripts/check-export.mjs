@@ -4,7 +4,7 @@
  * or /components result in real 404s even when Next.js Link works.
  */
 import assert from "node:assert/strict"
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -44,7 +44,7 @@ export function validateExportLinks(outputDirectory, deploymentBasePath = "/m1ar
       const clean = rest.replace(/^\/+/, "").replace(/\/+$/, "")
       const target = clean ? join(root, clean, "index.html") : join(root, "index.html")
       const fileTarget = clean ? join(root, clean) : target
-      if (!existsSync(target) && !existsSync(fileTarget)) {
+      if (!existsSync(target) && !(existsSync(fileTarget) && statSync(fileTarget).isFile())) {
         errors.push({ file: relative(root, file), href: raw, reason: "No exported page or asset at destination" })
       }
       checked++
@@ -59,7 +59,7 @@ export function validateExportLinks(outputDirectory, deploymentBasePath = "/m1ar
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const out = process.argv[2] ?? "out"
-  for (const slug of ["", "quickstart", "settings", "localization", "keybinds", "diagnostics", "troubleshooting", "mod-manifest", "manifest-example", "native-api", "architecture", "development"]) {
+  for (const slug of ["", "quickstart", "settings", "localization", "keybinds", "diagnostics", "troubleshooting", "mod-manifest", "manifest-example", "native-api", "architecture", "development", "setting-types", "integration"]) {
     assert.ok(existsSync(join(out, slug, "index.html")), "Missing exported documentation page: " + slug)
   }
   const stats = validateExportLinks(out)
